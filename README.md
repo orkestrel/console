@@ -1,68 +1,91 @@
-# @orkestrel/database
+# @orkestrel/console
 
-A typed database abstraction for the `@orkestrel` line — a single
-environment-agnostic core engine (`Database`, `Table`, `Query`, `Cursor`,
-`Clause`) over pluggable storage drivers at the seams. Built to sit beside
-`@orkestrel/contract` (validation) and `@orkestrel/emitter` (observable
-lifecycle), reusing both as it takes shape.
+A unified output-control system for the `@orkestrel` line — one
+environment-agnostic engine composing five concerns over a shared substrate:
+a **style engine** (`Styler` + `ANSIRenderer`, style as data), **structured
+logging** (`Logger`, `LoggerManager`), **narrative reporting** (`Reporter`),
+**console & stream capture** (`Capture`, `ProcessCapture`), and **live
+animations** (`Spinner`, `Progress`). Built to sit beside `@orkestrel/emitter`
+(observable lifecycle), reusing it as it takes shape.
 
 ## Install
 
 ```sh
-npm install @orkestrel/database
+npm install @orkestrel/console
 ```
 
 ## Requirements
 
-- Node.js >= 24 (`node:sqlite`, used by the `./server` SQLite driver, emits an
-  `ExperimentalWarning` on Node's current stable line)
+- Node.js >= 24
 - Core is ESM; the `./server` subpath ships dual ESM+CJS builds; `./browser`
   is ESM-only
 
-## Status
+## Usage
 
-Pre-release (`0.0.2`): the core engine, and the memory, JSON file, SQLite,
-and IndexedDB drivers are all implemented and tested, but the public API is
-still unstable and may change without notice. See
-[guides/src/database.md](./guides/src/database.md) for the full documented
-surface.
+The same code retargets to any environment by swapping the `sink`:
+
+```ts
+import { createLogger, createReporter, createSpinner } from '@src/core'
+
+const logger = createLogger({ name: 'http', level: 'info' }) // ANSI to the console by default
+logger.info('request', { method: 'GET', path: '/' }) // a styled, leveled line + an `entry` event
+logger.emitter.on('entry', (record) => archive(record)) // the transport seam — file / JSON / remote
+
+const reporter = createReporter()
+reporter.section('Build')
+reporter.step('bundling', { index: 2, total: 5 }) // [2/5] bundling
+reporter.status('success', 'built in 1.2s') // ✔ built in 1.2s
+
+const spinner = createSpinner({ message: 'deploying' })
+spinner.start() // a self-driving glyph cycle, `\r`-redrawn by an overwrite-capable sink
+spinner.success('deployed') // ✔ deployed — the timer cleared, the line committed
+```
+
+Style is data — a `Style` is a frozen record rendered through a swappable
+`RendererInterface` (`ANSIRenderer` by default):
+
+```ts
+import { createStyler } from '@src/core'
+
+const styler = createStyler()
+console.log(styler.red.bold('hi')) // renders through the injected renderer
+```
+
+Take control of `console.*` on the read side with `Capture`:
+
+```ts
+import { createCapture } from '@src/core'
+
+const capture = createCapture({ mirror: true })
+capture.start()
+console.log('hello')
+capture.messages() // [{ level: 'log', text: 'hello', time: ... }]
+capture.stop()
+```
+
+On the server, `ProcessCapture` takes over the whole `process` output surface
+(direct `process.stdout`/`stderr` writes, not just `console.*`):
+
+```ts
+import { createProcessCapture } from '@src/server'
+
+const capture = createProcessCapture({ levels: ['stderr'], mirror: true })
+capture.start()
+```
+
+## Guide
+
+See [guides/src/console.md](./guides/src/console.md) for the full documented
+surface — styling, logging, reporting, capture, and animations.
 
 ## Package
 
 Published as three environment-scoped entry points per the `exports` field
-in `package.json`: `.` (the shared, environment-agnostic core engine plus
-the in-memory driver), `./server` (adds the JSON file and SQLite drivers),
-and `./browser` (adds the IndexedDB driver). Core and `./server` ship dual
-ESM+CJS builds; `./browser` is ESM-only.
-
-### Release order
-
-Everything currently on the npm registry is at `0.0.1` — the wrapper repos'
-`0.0.2`s were never published, so `0.0.2` is the next version for all three
-packages and absorbs every change on this line.
-
-This package's SQLite and IndexedDB drivers are built against the wrapper
-surfaces documented by the mirrored guides in this repo — that is,
-`@orkestrel/sqlite@0.0.2` and `@orkestrel/indexeddb@0.0.2` — and the
-dependency ranges pin exactly those versions (`^0.0.2`; on a `0.0.x` version
-a caret means exactly that patch: `>=0.0.2 <0.0.3`). Publish in this order:
-
-1. Publish `@orkestrel/sqlite@0.0.2` and `@orkestrel/indexeddb@0.0.2` — they
-   are independent of each other (either order; both depend only on the
-   already-published `@orkestrel/contract`).
-2. In this repo, run `npm install` to re-resolve `package-lock.json` against
-   the newly published wrappers and commit the refreshed lockfile.
-3. Run the `prepublishOnly` gates and publish `@orkestrel/database@0.0.2`.
-
-Until step 1 happens, a fresh `npm ci` in this repo fails to resolve
-`^0.0.2` — deliberately. The exact pin makes it impossible to install or
-publish this package against the older `0.0.1` wrappers, which lack driver
-fixes this package's behavior relies on (the SQLite wrapper's mid-stream
-`iterate` fault mapping, the IndexedDB wrapper's abnormal-close recovery and
-`READONLY` fault code) and whose surfaces the mirrored guides here no longer
-describe. The same discipline applies to every future wrapper release: bump
-the pinned range, re-mirror the wrapper guides, and republish this package
-deliberately — wrapper changes never flow in silently.
+in `package.json`: `.` (the shared, environment-agnostic core engine, the
+default ANSI renderer, and the console sink), `./server` (adds the server
+sink and `ProcessCapture`), and `./browser` (adds the browser sink
+translating ANSI to `console.log('%c…', css)`). Core and `./server` ship
+dual ESM+CJS builds; `./browser` is ESM-only.
 
 ## License
 

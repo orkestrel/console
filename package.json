@@ -1,21 +1,22 @@
 {
-	"name": "@orkestrel/database",
-	"version": "0.0.2",
-	"description": "A typed database abstraction for the @orkestrel line — a single core engine over pluggable storage drivers. Part of the @orkestrel line.",
+	"name": "@orkestrel/console",
+	"version": "0.0.1",
+	"description": "A typed console/terminal output toolkit for the @orkestrel line — logging, spinners, progress, and capture. Part of the @orkestrel line.",
 	"keywords": [
-		"database",
-		"driver",
-		"query",
-		"server",
-		"storage",
+		"ansi",
+		"console",
+		"logging",
+		"progress",
+		"spinner",
+		"terminal",
 		"typescript"
 	],
-	"homepage": "https://github.com/orkestrel/database#readme",
-	"bugs": "https://github.com/orkestrel/database/issues",
+	"homepage": "https://github.com/orkestrel/console#readme",
+	"bugs": "https://github.com/orkestrel/console/issues",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/orkestrel/database.git"
+		"url": "git+https://github.com/orkestrel/console.git"
 	},
 	"files": [
 		"dist",
@@ -84,11 +85,8 @@
 		"prepublishOnly": "npm run format:check && npm run lint:check && npm run check && npm run check:src && npm run build && npm test"
 	},
 	"dependencies": {
-		"@orkestrel/abort": "^0.0.1",
 		"@orkestrel/contract": "^0.0.1",
-		"@orkestrel/emitter": "^0.0.1",
-		"@orkestrel/indexeddb": "^0.0.2",
-		"@orkestrel/sqlite": "^0.0.2"
+		"@orkestrel/emitter": "^0.0.1"
 	},
 	"devDependencies": {
 		"@microsoft/api-extractor": "^7.58.9",

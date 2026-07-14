@@ -120,10 +120,11 @@ export const guides = (config?: UserConfig): UserConfig =>
 		),
 	)
 
-// Extends srcCore: browser-only library (`src/browser`, e.g. the IndexedDB
-// driver). Builds an ES lib and runs its tests in a real Chromium via
-// Playwright, where DOM and `indexedDB` are available. No Vue — this surface is
-// plain TypeScript; add the plugin here if a browser app surface ever needs it.
+// Extends srcCore: browser-only library (`src/browser`, e.g. the browser
+// console sink). Builds an ES lib and runs its tests in a real Chromium via
+// Playwright, where DOM and the browser `console` are available. No Vue — this
+// surface is plain TypeScript; add the plugin here if a browser app surface
+// ever needs it.
 export const srcBrowser = (config?: UserConfig): UserConfig =>
 	srcCore(
 		mergeConfig(
@@ -163,10 +164,10 @@ export const srcBrowser = (config?: UserConfig): UserConfig =>
 		),
 	)
 
-// Extends srcCore: server-only library (`src/server`, e.g. the JSON file driver
-// and, later, the SQLite driver over node:sqlite). Builds a dual ESM+CJS lib for
+// Extends srcCore: server-only library (`src/server`, e.g. `ProcessCapture`
+// over the Node process streams). Builds a dual ESM+CJS lib for
 // Node and runs its tests in the node environment. Externalizes `node:*` (so
-// node:sqlite is never bundled) AND `@src/core` → the sibling `dist/src/core`
+// Node builtins are never bundled) AND `@src/core` → the sibling `dist/src/core`
 // build (format-aware: `../core/index.js` for the ESM output, `../core/index.cjs`
 // for the CJS output), exactly as core ships dual-format. Build-only — the
 // test project resolves `@src/core` from source through the shared `resolve` alias.

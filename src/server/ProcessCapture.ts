@@ -11,7 +11,7 @@ import type {
 import { Emitter } from '@orkestrel/emitter'
 import { DEFAULT_CAPTURE_LEVELS, DEFAULT_CAPTURE_LIMIT, STREAM_LEVEL_MAP } from './constants.js'
 import { decodeChunk } from './helpers.js'
-import {SinkInterface} from "@src/core";
+import { SinkInterface } from '@src/core'
 
 /**
  * An observable interceptor of the RAW process output streams (AGENTS §13) — it takes control of
