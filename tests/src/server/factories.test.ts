@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { strip } from '@src/core'
 import { createProcessCapture, createServerSink } from '@src/server'
-import { createRecorder } from '../../../setup.js'
-import { createStreamTarget, createWriteProbe } from '../../../setupServer.js'
+import { createRecorder } from '../../setup.js'
+import { createStreamTarget, createWriteProbe } from '../../setupServer.js'
 
 // A styled line with a real SGR run, for the TTY-verbatim vs non-TTY-strip assertions.
 const STYLED = '\x1b[31mred\x1b[0m'

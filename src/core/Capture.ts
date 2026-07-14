@@ -1,4 +1,4 @@
-import type { EmitterInterface } from '../emitters/types.js'
+import type { EmitterInterface } from '@orkestrel/emitter'
 import type {
 	CaptureEventMap,
 	CaptureInterface,
@@ -8,7 +8,7 @@ import type {
 	SinkInterface,
 	ConsoleMethod,
 } from './types.js'
-import { Emitter } from '../emitters/Emitter.js'
+import { Emitter } from '@orkestrel/emitter'
 import { CAPTURE_LEVEL_MAP, DEFAULT_CAPTURE_LEVELS, DEFAULT_CAPTURE_LIMIT } from './constants.js'
 import { formatArgs } from './helpers.js'
 

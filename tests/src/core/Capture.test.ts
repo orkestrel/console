@@ -1,7 +1,7 @@
 import type { CaptureLevel, CapturedMessage } from '@src/core'
 import { Capture, createCapture, createLogger, createStyler } from '@src/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../../setup.js'
+import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
 // Capture — the observable console interceptor. While active it snapshots the configured
 // console.* methods, replaces them with wrappers that buffer each call (total + by level,

@@ -124,19 +124,19 @@ Console interception — take control of `console.*` on the READ side; a buffere
 
 Live activity animations — pure frame PRODUCERS over the SAME styler + sink substrate; the line-OVERWRITE is the sink's job.
 
-| API                  | Kind      | Summary                                                                                                                               |
-| -------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `ProgressBarOptions` | interface | `renderBar` options — `current` / `total` / `width?` / `fill?` / `empty?` / `styler?` (a determinate bar string).                     |
-| `SpinnerEventMap`    | type      | A spinner's observable events (§13) — `frame(line)` per advance / outcome + the `start` / `stop` timer-lifecycle signals.             |
-| `SpinnerOptions`     | interface | `createSpinner` options — `on?` / `error?` / `message?` / `frames?` / `interval?` / `sink?` / `styler?`.                              |
+| API                  | Kind      | Summary                                                                                                                                  |
+| -------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `ProgressBarOptions` | interface | `renderBar` options — `current` / `total` / `width?` / `fill?` / `empty?` / `styler?` (a determinate bar string).                        |
+| `SpinnerEventMap`    | type      | A spinner's observable events (§13) — `frame(line)` per advance / outcome + the `start` / `stop` timer-lifecycle signals.                |
+| `SpinnerOptions`     | interface | `createSpinner` options — `on?` / `error?` / `message?` / `frames?` / `interval?` / `sink?` / `styler?`.                                 |
 | `SpinnerInterface`   | interface | The activity spinner — `emitter` / `active` / `message` data + `start` / `tick` / `update` / `success` / `failure` / `stop` / `destroy`. |
-| `Spinner`            | class     | The self-driving, observable spinner — a timer-advanced glyph cycle writing `\r` + a frame line to its sink; leak-free.               |
-| `createSpinner`      | function  | Create a self-driving, observable `SpinnerInterface` — a live activity spinner (inactive until `start()`).                            |
-| `ProgressEventMap`   | type      | A progress bar's observable events (§13) — `update({current,total})` per report + a `complete` signal on a successful finish.         |
-| `ProgressOptions`    | interface | `createProgress` options — `on?` / `error?` / `total` (required) / `message?` / `width?` / `sink?` / `styler?`.                       |
+| `Spinner`            | class     | The self-driving, observable spinner — a timer-advanced glyph cycle writing `\r` + a frame line to its sink; leak-free.                  |
+| `createSpinner`      | function  | Create a self-driving, observable `SpinnerInterface` — a live activity spinner (inactive until `start()`).                               |
+| `ProgressEventMap`   | type      | A progress bar's observable events (§13) — `update({current,total})` per report + a `complete` signal on a successful finish.            |
+| `ProgressOptions`    | interface | `createProgress` options — `on?` / `error?` / `total` (required) / `message?` / `width?` / `sink?` / `styler?`.                          |
 | `ProgressInterface`  | interface | The progress bar — `emitter` / `active` / `completed` / `current` / `total` data + `update` / `complete` / `failure` / `destroy`.        |
-| `Progress`           | class     | The update-driven, observable progress bar — recomputes + writes `\r` + the bar on each `update`; no self-timer (the caller drives).  |
-| `createProgress`     | function  | Create an update-driven, observable `ProgressInterface` — a live progress bar.                                                        |
+| `Progress`           | class     | The update-driven, observable progress bar — recomputes + writes `\r` + the bar on each `update`; no self-timer (the caller drives).     |
+| `createProgress`     | function  | Create an update-driven, observable `ProgressInterface` — a live progress bar.                                                           |
 
 ### Style constants
 
@@ -337,7 +337,7 @@ The public methods of each behavioral interface — one table per type, keyed by
 | `tick`    | `void`  | Advance one frame: build the line, emit `frame`, write `\r` + line to the sink.                |
 | `update`  | `void`  | Change the message; re-renders immediately when `active`.                                      |
 | `success` | `void`  | Stop with a SUCCESS line — clear the timer, write + emit `✔ message` + newline.                |
-| `failure`    | `void`  | Stop with a FAILURE line — clear the timer, write + emit `✖ message` + newline (error stream). |
+| `failure` | `void`  | Stop with a FAILURE line — clear the timer, write + emit `✖ message` + newline (error stream). |
 | `stop`    | `void`  | Clear the timer and LEAVE the current line — a no-op when not `active`.                        |
 | `destroy` | `void`  | Tear down — `stop()` then destroy the emitter.                                                 |
 
@@ -347,7 +347,7 @@ The public methods of each behavioral interface — one table per type, keyed by
 | ---------- | ------- | --------------------------------------------------------------------------------------------------------- |
 | `update`   | `void`  | Report progress: clamp `current`, re-render, emit `update`, write `\r` + bar. Ignored once terminal.      |
 | `complete` | `void`  | Finish successfully — render a FULL bar + newline, emit a final `update` then `complete`.                 |
-| `failure`     | `void`  | Finish unsuccessfully — render the bar at its current fill + newline to the error stream (no `complete`). |
+| `failure`  | `void`  | Finish unsuccessfully — render the bar at its current fill + newline to the error stream (no `complete`). |
 | `destroy`  | `void`  | Tear down — destroy the emitter.                                                                          |
 
 #### `ProcessCaptureInterface`

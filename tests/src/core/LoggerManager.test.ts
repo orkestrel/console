@@ -1,7 +1,7 @@
 import type { LogLevel } from '@src/core'
 import { createLoggerManager, createStyler, LoggerManager } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createRecordingSink } from '../../../setup.js'
+import { createRecordingSink } from '../../setup.js'
 
 // LoggerManager — the event-free §9 registry of named loggers + a convenience fan-out. It
 // mints + stores loggers keyed by name (its defaults flowing in unless overridden), looks

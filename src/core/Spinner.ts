@@ -1,4 +1,4 @@
-import type { EmitterInterface } from '../emitters/types.js'
+import type { EmitterInterface } from '@orkestrel/emitter'
 import type {
 	SinkInterface,
 	SpinnerEventMap,
@@ -6,7 +6,7 @@ import type {
 	SpinnerOptions,
 	StylerInterface,
 } from './types.js'
-import { Emitter } from '../emitters/Emitter.js'
+import { Emitter } from '@orkestrel/emitter'
 import {
 	DEFAULT_SPINNER_INTERVAL,
 	SPINNER_FRAMES,

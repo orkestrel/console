@@ -4,7 +4,7 @@ import type {
 	LoggerManagerOptions,
 	LoggerOptions,
 } from './types.js'
-import { isArray } from '../contracts/index.js'
+import { isArray } from '@orkestrel/contract'
 import { Logger } from './Logger.js'
 
 /**

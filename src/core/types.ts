@@ -1,4 +1,4 @@
-import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '../emitters/types.js'
+import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkestrel/emitter'
 
 // The console-method shape the {@link CaptureInterface} patch swaps in — a variadic sink of
 // arbitrary arguments, exactly the universal `console.log` / `info` / `warn` / `error` / `debug`

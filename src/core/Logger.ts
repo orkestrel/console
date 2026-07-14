@@ -1,4 +1,4 @@
-import type { EmitterInterface } from '../emitters/types.js'
+import type { EmitterInterface } from '@orkestrel/emitter'
 import type {
 	LoggerEventMap,
 	LoggerInterface,
@@ -8,7 +8,7 @@ import type {
 	SinkInterface,
 	StylerInterface,
 } from './types.js'
-import { Emitter } from '../emitters/Emitter.js'
+import { Emitter } from '@orkestrel/emitter'
 import { DEFAULT_LOG_LEVEL, DEFAULT_LOG_LIMIT } from './constants.js'
 import { createConsoleSink, createStyler } from './factories.js'
 import { formatRecord, meetsLevel } from './helpers.js'

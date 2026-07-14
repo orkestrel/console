@@ -3,25 +3,6 @@
 // `node:path` imports belong here, never in `setup.ts`, which browser projects
 // also load. Anchor every path to `WORKSPACE_ROOT` so the runner's cwd never
 // matters (AGENTS §16.1).
-
-import type {
-	AggregateFunction,
-	DatabaseInterface,
-	FieldPath,
-	MCPServerInterface,
-	QueryInterface,
-	TableInterface,
-	TableSchema,
-} from '@src/core'
-import type {
-	InputStreamInterface,
-	OutputStreamInterface,
-	RouteHandlerContextInterface,
-	ServerInterface,
-	SessionInterface,
-	StreamTargetInterface,
-	WebSocketFrame,
-} from '@src/server'
 import type { TestRecorderInterface } from './setup.js'
 import type { IncomingMessage } from 'node:http'
 import {
@@ -41,39 +22,9 @@ import { Duplex, PassThrough } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-	booleanShape,
-	createDatabase,
-	createMCPServer,
-	createMemoryDriver,
-	createTool,
-	createToolManager,
-	integerShape,
-	isRecord,
-	nullableShape,
-	objectShape,
-	stringShape,
 	strip,
 } from '@src/core'
-import {
-	collectBody,
-	contentType,
-	createSQLiteDriver,
-	decodeBody,
-	flattenHeaders,
-	isSQLiteError,
-	parseWebSocketFrame,
-} from '@src/server'
-import {
-	addTool,
-	classMethodNames,
-	createRecorder,
-	exportedTypeNames,
-	exportedValueNames,
-	interfaceMethodNames,
-	interfaceRequiredMethodNames,
-	methodTable,
-	surfaceRows,
-} from './setup.js'
+
 
 // Absolute path to the repository root, resolved from this file's URL.
 export const WORKSPACE_ROOT = fileURLToPath(new URL('../', import.meta.url))

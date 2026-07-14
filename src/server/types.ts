@@ -5,7 +5,8 @@
 // `createServerSink` options + its column-aware return, and the process-stream `Capture` family
 // (whose "level" axis is the STREAM, `'stdout' | 'stderr'`, not a `console.*` method).
 
-import type { EmitterErrorHandler, EmitterHooks, EmitterInterface, SinkInterface } from '@src/core'
+import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkestrel/emitter'
+import {SinkInterface} from "@src/core";
 
 /**
  * The minimal writable-stream shape the C-g server sink and process capture address — exactly the

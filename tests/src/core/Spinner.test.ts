@@ -1,6 +1,6 @@
 import { createSpinner, createStyler, Spinner, strip } from '@src/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../../setup.js'
+import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
 // Spinner — the self-driving, observable activity spinner. start() arms a setInterval that advances
 // a glyph cycle, writing each `\r` + frame line to its sink and emitting it on `frame`; success/failure

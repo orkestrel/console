@@ -1,8 +1,8 @@
 import type { SinkInterface } from '@src/core'
 import { createProcessCapture } from '@src/server'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createRecorder, recordEmitterEvents } from '../../../setup.js'
-import { createWriteProbe } from '../../../setupServer.js'
+import { createRecorder, recordEmitterEvents } from '../../setup.js'
+import { createWriteProbe } from '../../setupServer.js'
 
 // The completion-callback shape a Node `process.*.write` accepts as its last argument.
 type WriteCallback = (error?: Error | null) => void

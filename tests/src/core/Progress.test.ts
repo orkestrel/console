@@ -1,6 +1,6 @@
 import { createProgress, createStyler, Progress, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../../setup.js'
+import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
 // Progress — the update-driven, observable progress bar. update(current) recomputes the bar via
 // renderBar, writes `\r` + bar to its sink, and emits { current, total } on `update`; complete/failure

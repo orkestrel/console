@@ -1,4 +1,4 @@
-import type { EmitterInterface, SinkInterface } from '@src/core'
+import type { EmitterInterface } from '@orkestrel/emitter'
 import type {
 	CapturedChunk,
 	ProcessCaptureEventMap,
@@ -8,9 +8,10 @@ import type {
 	StreamWrite,
 	StreamWriteCallback,
 } from './types.js'
-import { Emitter } from '@src/core'
+import { Emitter } from '@orkestrel/emitter'
 import { DEFAULT_CAPTURE_LEVELS, DEFAULT_CAPTURE_LIMIT, STREAM_LEVEL_MAP } from './constants.js'
 import { decodeChunk } from './helpers.js'
+import {SinkInterface} from "@src/core";
 
 /**
  * An observable interceptor of the RAW process output streams (AGENTS §13) — it takes control of

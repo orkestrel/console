@@ -1,7 +1,7 @@
 import type { ReporterInterface } from '@src/core'
 import { createReporter, createStyler, Reporter, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createRecordingSink } from '../../../setup.js'
+import { createRecordingSink } from '../../setup.js'
 
 // Reporter — the lean, EVENT-FREE narrative front-end: section / step / timing / status /
 // table / tree / box / line / blank, each formatting through the ONE styler + the pure

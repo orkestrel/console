@@ -1,7 +1,7 @@
 import type { LoggerInterface, LogLevel, LogRecord } from '@src/core'
 import { createLogger, createStyler, Logger, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../../setup.js'
+import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
 // Logger — the observable, leveled entry point into structured logging. Each call builds a
 // frozen LogRecord, gates by severity, retains a bounded tail, ALWAYS emits `entry` (the
