@@ -5,13 +5,13 @@ import type {
 	ProcessCaptureInterface,
 	ProcessCaptureOptions,
 	StreamLevel,
-	StreamWrite,
 	StreamWriteCallback,
+	StreamWriteFunction,
 } from './types.js'
+import type { SinkInterface } from '@src/core'
 import { Emitter } from '@orkestrel/emitter'
 import { DEFAULT_CAPTURE_LEVELS, DEFAULT_CAPTURE_LIMIT, STREAM_LEVEL_MAP } from './constants.js'
 import { decodeChunk } from './helpers.js'
-import { SinkInterface } from '@src/core'
 
 /**
  * An observable interceptor of the RAW process output streams (AGENTS §13) — it takes control of
@@ -49,7 +49,7 @@ import { SinkInterface } from '@src/core'
  * const capture = new ProcessCapture({ levels: ['stderr'], mirror: true })
  * capture.start()
  * process.stderr.write('a library diagnostic\n') // captured AND still written to the terminal
- * capture.byLevel('stderr') // [{ level: 'stderr', text: 'a library diagnostic\n', time: … }]
+ * capture.messages('stderr') // [{ level: 'stderr', text: 'a library diagnostic\n', time: … }]
  * capture.stop() // process.stderr.write restored
  * ```
  */
@@ -68,7 +68,7 @@ export class ProcessCapture implements ProcessCaptureInterface {
 	readonly #buckets = new Map<StreamLevel, CapturedChunk[]>()
 	// The snapshot-original `write` references, captured at start() and restored at stop(); empty
 	// while inactive. The presence of an entry is what `active` reads.
-	readonly #originals = new Map<StreamLevel, StreamWrite>()
+	readonly #originals = new Map<StreamLevel, StreamWriteFunction>()
 	#active = false
 
 	constructor(options?: ProcessCaptureOptions) {
@@ -126,11 +126,10 @@ export class ProcessCapture implements ProcessCaptureInterface {
 		this.#emitter.emit('stop')
 	}
 
-	messages(): readonly CapturedChunk[] {
-		return [...this.#messages]
-	}
-
-	byLevel(level: StreamLevel): readonly CapturedChunk[] {
+	messages(): readonly CapturedChunk[]
+	messages(level: StreamLevel): readonly CapturedChunk[]
+	messages(level?: StreamLevel): readonly CapturedChunk[] {
+		if (level === undefined) return [...this.#messages]
 		return [...(this.#buckets.get(level) ?? [])]
 	}
 
@@ -164,13 +163,28 @@ export class ProcessCapture implements ProcessCaptureInterface {
 		chunk: string | Uint8Array,
 		encoding: BufferEncoding | StreamWriteCallback | undefined,
 		callback: StreamWriteCallback | undefined,
-		mirror: StreamWrite,
+		mirror: StreamWriteFunction,
 	): boolean {
 		const message = this.#capture(level, chunk, encoding)
 		this.#retain(message)
 		this.#emitter.emit('capture', message)
-		if (this.#sink !== undefined) this.#sink.write(message.text, STREAM_LEVEL_MAP[level])
-		if (!this.#mirror) return true
+		if (this.#sink !== undefined) {
+			try {
+				this.#sink.write(message.text, STREAM_LEVEL_MAP[level])
+			} catch {
+				// The sink is a best-effort tee; the wrapper NEVER throws into the patched global stream —
+				// a broken/throwing sink must not crash the host's process.stdout / process.stderr write.
+			}
+		}
+		if (!this.#mirror) {
+			// Capture-only: the write never reaches the real stream, so fire the caller's completion
+			// callback asynchronously (matching Node's own async completion semantics) rather than
+			// silently dropping it — both call shapes (`write(chunk, cb)` and `write(chunk, encoding, cb)`)
+			// are covered.
+			const done = typeof encoding === 'function' ? encoding : callback
+			if (done !== undefined) queueMicrotask(() => done())
+			return true
+		}
 		// `write(chunk, cb)` when the 2nd arg is the callback; `write(chunk, encoding, cb)` otherwise —
 		// matching the two Node overloads so the forward stays typed.
 		if (typeof encoding === 'function') return mirror(chunk, encoding)

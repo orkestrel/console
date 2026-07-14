@@ -1,5 +1,6 @@
 export type * from './types.js'
 export * from './constants.js'
+export * from './errors.js'
 export * from './helpers.js'
 export * from './ANSIRenderer.js'
 export * from './Styler.js'

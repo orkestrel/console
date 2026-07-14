@@ -138,7 +138,7 @@ describe('ProcessCapture — interception', () => {
 		capture.destroy()
 	})
 
-	it('buckets by stream via byLevel', () => {
+	it('buckets by stream via messages(level)', () => {
 		process.stdout.write = createWriteProbe().write
 		process.stderr.write = createWriteProbe().write
 		const capture = createProcessCapture()
@@ -148,8 +148,8 @@ describe('ProcessCapture — interception', () => {
 		process.stderr.write('c')
 		capture.stop()
 
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['a', 'b'])
-		expect(capture.byLevel('stderr').map((message) => message.text)).toEqual(['c'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['a', 'b'])
+		expect(capture.messages('stderr').map((message) => message.text)).toEqual(['c'])
 		capture.destroy()
 	})
 
@@ -159,7 +159,7 @@ describe('ProcessCapture — interception', () => {
 		capture.start()
 		process.stdout.write(Buffer.from('buffered', 'utf8'))
 		capture.stop()
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['buffered'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['buffered'])
 		capture.destroy()
 	})
 
@@ -175,7 +175,7 @@ describe('ProcessCapture — interception', () => {
 		process.stderr.write('not captured\n')
 		capture.stop()
 
-		expect(capture.byLevel('stderr')).toEqual([])
+		expect(capture.messages('stderr')).toEqual([])
 		expect(errProbe.texts).toEqual(['not captured\n']) // it went straight to the stream
 		capture.destroy()
 	})
@@ -209,7 +209,7 @@ describe('ProcessCapture — mirror + backpressure', () => {
 
 		expect(probe.texts).toEqual([]) // nothing reached the real stream
 		expect(result).toBe(true) // buffer never fills when swallowing
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['swallowed'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['swallowed'])
 		capture.destroy()
 	})
 
@@ -222,7 +222,7 @@ describe('ProcessCapture — mirror + backpressure', () => {
 		capture.stop()
 
 		expect(probe.texts).toEqual(['shown']) // the output still reached the stream
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['shown'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['shown'])
 		capture.destroy()
 	})
 
@@ -268,7 +268,7 @@ describe('ProcessCapture — Node write-overload branching (encoding / callback 
 		})
 		capture.stop()
 		// The CAPTURED text decoded with the honored latin1 encoding.
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['é'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['é'])
 		// The encoding was forwarded to the mirror, and the callback fired.
 		expect(probe.encodings).toEqual(['latin1'])
 		expect(fired).toBe(true)
@@ -283,7 +283,7 @@ describe('ProcessCapture — Node write-overload branching (encoding / callback 
 		capture.start()
 		process.stdout.write(Buffer.from([0xe9]), 'latin1')
 		capture.stop()
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['é'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['é'])
 		capture.destroy()
 	})
 
@@ -299,10 +299,10 @@ describe('ProcessCapture — Node write-overload branching (encoding / callback 
 		capture.destroy()
 	})
 
-	it('capture-only does NOT invoke the caller completion callback (output is swallowed)', () => {
-		// In mirror:false the wrapper returns true immediately and never reaches the real write, so a
-		// completion callback is intentionally dropped — the documented "swallowed into the buffer"
-		// behavior. (A caller that needs flush-completion enables mirror.) Regression-pins the contract.
+	it('capture-only STILL fires the caller completion callback, asynchronously (write(chunk, cb))', async () => {
+		// In mirror:false the wrapper returns true synchronously and never reaches the real write, but
+		// the caller's completion callback still fires — asynchronously, via queueMicrotask — matching
+		// Node's own async completion semantics rather than silently dropping it (F3).
 		process.stdout.write = createWriteProbe().write
 		const capture = createProcessCapture({ levels: ['stdout'], mirror: false })
 		capture.start()
@@ -310,10 +310,56 @@ describe('ProcessCapture — Node write-overload branching (encoding / callback 
 		const result = process.stdout.write('swallowed', () => {
 			fired = true
 		})
-		capture.stop()
-		expect(fired).toBe(false) // not called — capture-only never reaches the real write
+		expect(fired).toBe(false) // not yet — fired via microtask, not synchronously
 		expect(result).toBe(true)
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['swallowed'])
+		await Promise.resolve() // flush the microtask queue
+		expect(fired).toBe(true)
+		capture.stop()
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['swallowed'])
+		capture.destroy()
+	})
+
+	it('capture-only fires the completion callback for BOTH overload slots (chunk, cb) and (chunk, encoding, cb)', async () => {
+		process.stdout.write = createWriteProbe().write
+		const capture = createProcessCapture({ levels: ['stdout'], mirror: false })
+		capture.start()
+		let firedTwoArg = false
+		let firedThreeArg = false
+		process.stdout.write('a', () => {
+			firedTwoArg = true
+		})
+		process.stdout.write('b', 'utf8', () => {
+			firedThreeArg = true
+		})
+		await Promise.resolve()
+		expect(firedTwoArg).toBe(true)
+		expect(firedThreeArg).toBe(true)
+		capture.stop()
+		capture.destroy()
+	})
+
+	it('capture-only with no callback supplied never invokes anything and still returns true', () => {
+		process.stdout.write = createWriteProbe().write
+		const capture = createProcessCapture({ levels: ['stdout'], mirror: false })
+		capture.start()
+		const result = process.stdout.write('no callback here')
+		capture.stop()
+		expect(result).toBe(true)
+		capture.destroy()
+	})
+
+	it('capture-only promisified write resolves (util.promisify-style completion)', async () => {
+		process.stdout.write = createWriteProbe().write
+		const capture = createProcessCapture({ levels: ['stdout'], mirror: false })
+		capture.start()
+		await new Promise<void>((resolve, reject) => {
+			process.stdout.write('promisified', (error) => {
+				if (error) reject(error)
+				else resolve()
+			})
+		})
+		capture.stop()
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['promisified'])
 		capture.destroy()
 	})
 
@@ -325,7 +371,7 @@ describe('ProcessCapture — Node write-overload branching (encoding / callback 
 		capture.start()
 		process.stdout.write(Buffer.from('hi'), () => {})
 		capture.stop()
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['hi'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['hi'])
 		capture.destroy()
 	})
 })
@@ -348,7 +394,7 @@ describe('ProcessCapture — never throws', () => {
 		expect(() => process.stdout.write('safe')).not.toThrow()
 		capture.stop()
 		expect(errors.count).toBe(1) // the throw was routed to the emitter error handler
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['safe'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['safe'])
 		capture.destroy()
 	})
 })
@@ -363,7 +409,7 @@ describe('ProcessCapture — bounded buffers', () => {
 
 		// Only the 3 most recent survive, oldest-first.
 		expect(capture.messages().map((message) => message.text)).toEqual(['3', '4', '5'])
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['3', '4', '5'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['3', '4', '5'])
 		capture.destroy()
 	})
 
@@ -374,7 +420,7 @@ describe('ProcessCapture — bounded buffers', () => {
 		for (const text of ['1', '2', '3']) process.stdout.write(text) // exactly at the cap
 		capture.stop()
 		expect(capture.messages().map((message) => message.text)).toEqual(['1', '2', '3'])
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['1', '2', '3'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['1', '2', '3'])
 		capture.destroy()
 	})
 
@@ -385,7 +431,7 @@ describe('ProcessCapture — bounded buffers', () => {
 		for (const text of ['a', 'b', 'c']) process.stdout.write(text) // one over → 'a' evicted
 		capture.stop()
 		expect(capture.messages().map((message) => message.text)).toEqual(['b', 'c'])
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['b', 'c'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['b', 'c'])
 		capture.destroy()
 	})
 
@@ -403,21 +449,21 @@ describe('ProcessCapture — bounded buffers', () => {
 		process.stdout.write('o3') // bucket stdout now [o2, o3]; total now [e2, o3]
 		capture.stop()
 		expect(capture.messages().map((message) => message.text)).toEqual(['e2', 'o3']) // last 2 overall
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['o2', 'o3'])
-		expect(capture.byLevel('stderr').map((message) => message.text)).toEqual(['e1', 'e2'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['o2', 'o3'])
+		expect(capture.messages('stderr').map((message) => message.text)).toEqual(['e1', 'e2'])
 		capture.destroy()
 	})
 })
 
-describe('ProcessCapture — accessor copies + byLevel edges', () => {
-	it('messages() and byLevel() return fresh copies — mutating them cannot corrupt the buffers', () => {
+describe('ProcessCapture — accessor copies + messages(level) edges', () => {
+	it('messages() and messages(level) return fresh copies — mutating them cannot corrupt the buffers', () => {
 		process.stdout.write = createWriteProbe().write
 		const capture = createProcessCapture({ levels: ['stdout'] })
 		capture.start()
 		process.stdout.write('x')
 		capture.stop()
 		const all = capture.messages()
-		const bucket = capture.byLevel('stdout')
+		const bucket = capture.messages('stdout')
 		// A returned snapshot is a copy; clearing the local arrays must not touch the internal buffers.
 		expect(() => {
 			const a = [...all]
@@ -426,28 +472,28 @@ describe('ProcessCapture — accessor copies + byLevel edges', () => {
 			b.length = 0
 		}).not.toThrow()
 		expect(capture.messages()).toHaveLength(1)
-		expect(capture.byLevel('stdout')).toHaveLength(1)
+		expect(capture.messages('stdout')).toHaveLength(1)
 		capture.destroy()
 	})
 
-	it('byLevel for an unconfigured stream is an empty list (no bucket)', () => {
+	it('messages(level) for an unconfigured stream is an empty list (no bucket)', () => {
 		process.stdout.write = createWriteProbe().write
 		const capture = createProcessCapture({ levels: ['stdout'] }) // stderr not configured
 		capture.start()
 		process.stdout.write('only stdout')
 		capture.stop()
-		expect(capture.byLevel('stderr')).toEqual([]) // no bucket → empty copy, never undefined
+		expect(capture.messages('stderr')).toEqual([]) // no bucket → empty copy, never undefined
 		capture.destroy()
 	})
 
-	it('byLevel for a configured-but-unwritten stream is an empty list', () => {
+	it('messages(level) for a configured-but-unwritten stream is an empty list', () => {
 		process.stdout.write = createWriteProbe().write
 		process.stderr.write = createWriteProbe().write
 		const capture = createProcessCapture({ levels: ['stdout', 'stderr'] })
 		capture.start()
 		process.stdout.write('a')
 		capture.stop()
-		expect(capture.byLevel('stderr')).toEqual([]) // configured, nothing written → empty
+		expect(capture.messages('stderr')).toEqual([]) // configured, nothing written → empty
 		capture.destroy()
 	})
 })
@@ -483,7 +529,7 @@ describe('ProcessCapture — sink forward', () => {
 		capture.stop()
 		expect(probe.texts).toEqual(['boom']) // mirrored to the real stream
 		expect(writes.calls).toEqual([['boom', 'error']]) // forwarded to the sink (stderr → error)
-		expect(capture.byLevel('stderr').map((message) => message.text)).toEqual(['boom']) // buffered
+		expect(capture.messages('stderr').map((message) => message.text)).toEqual(['boom']) // buffered
 		capture.destroy()
 	})
 
@@ -502,6 +548,28 @@ describe('ProcessCapture — sink forward', () => {
 		expect(writes.calls).toEqual([['diagnostic', 'error']]) // only the stderr chunk forwarded
 		capture.destroy()
 	})
+
+	it('a throwing sink cannot escape into the patched process.*.write (M3 — best-effort tee)', () => {
+		// The sink is a best-effort tee; the wrapper's cardinal invariant is "never throw into the
+		// patched global stream" — a broken/throwing sink is swallowed, and the chunk is still buffered
+		// and emitted normally.
+		const probe = createWriteProbe()
+		process.stdout.write = probe.write
+		const sink: SinkInterface = {
+			write: () => {
+				throw new Error('sink boom')
+			},
+		}
+		const capture = createProcessCapture({ levels: ['stdout'], mirror: true, sink })
+		capture.start()
+		expect(() => process.stdout.write('safe despite throwing sink')).not.toThrow()
+		capture.stop()
+		expect(probe.texts).toEqual(['safe despite throwing sink']) // mirror still reached the stream
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual([
+			'safe despite throwing sink',
+		])
+		capture.destroy()
+	})
 })
 
 describe('ProcessCapture — clear + destroy', () => {
@@ -514,7 +582,7 @@ describe('ProcessCapture — clear + destroy', () => {
 		expect(capture.messages()).toEqual([])
 		expect(capture.active).toBe(true)
 		process.stdout.write('two')
-		expect(capture.byLevel('stdout').map((message) => message.text)).toEqual(['two'])
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['two'])
 		capture.stop()
 		capture.destroy()
 	})
@@ -528,8 +596,8 @@ describe('ProcessCapture — clear + destroy', () => {
 		process.stderr.write('e')
 		capture.clear()
 		expect(capture.messages()).toEqual([])
-		expect(capture.byLevel('stdout')).toEqual([])
-		expect(capture.byLevel('stderr')).toEqual([])
+		expect(capture.messages('stdout')).toEqual([])
+		expect(capture.messages('stderr')).toEqual([])
 		capture.stop()
 		capture.destroy()
 	})

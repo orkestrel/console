@@ -140,20 +140,49 @@ export const CSI = `${ESC}[`
 export const RESET = `${CSI}${RESET_CODE}m`
 
 /**
- * Matches any ANSI escape sequence — a CSI (`ESC[ … final`) covering SGR color/style
- * codes plus cursor/erase/scroll controls, OR an OSC (`ESC] … BEL|ST`) covering title /
- * hyperlink sequences. Global, so `strip` removes every occurrence.
+ * Matches any ANSI/VT escape sequence — CSI (SGR color/style plus cursor/erase/scroll,
+ * including colon-parameterized SGR), OSC / DCS / PM / APC / SOS string sequences
+ * (titles, hyperlinks, device strings), the `nF` charset-select family, and the
+ * two-byte `Fp` / `Fe` / `Fs` sequences (e.g. `ESC 7`, `ESC D`, `ESC c` RIS). Global, so
+ * `strip` removes every occurrence.
  *
  * @remarks
  * A global `RegExp` carries a mutable `lastIndex`; a scan must build a FRESH `RegExp`
  * from this one's `source` + `flags` rather than reuse this instance's `lastIndex`. This
- * is the canonical definition, not a shared scanner. The CSI arm consumes parameter and
- * intermediate bytes up to a final byte (`@`–`~`); the OSC arm runs to `BEL` or the
- * String Terminator (`ESC\`). Built from `String.fromCharCode` so no control-character
- * literal appears in a regex source (the codebase idiom — see `parsers/constants.ts`).
+ * is the canonical definition, not a shared scanner. The alternation is ORDERED so the
+ * CSI / string-family arms (which can start with a byte a later single-byte arm would
+ * also match) win first; every arm uses disjoint, non-nested character classes, so the
+ * match is linear in input length — no catastrophic backtracking (ReDoS-safe) even on an
+ * adversarial run of digits inside an unterminated CSI. Built from `String.fromCharCode`
+ * so no control-character literal appears in a regex source (the codebase idiom).
  */
 export const ANSI_PATTERN = new RegExp(
-	`${ESC}(?:\\[[0-9;?]*[ -/]*[@-~]|\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\))`,
+	`${ESC}(?:` +
+		`\\[[0-?]*[ -/]*[@-~]` +
+		`|\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)` +
+		`|[P^_X][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)` +
+		`|[ -/]+[0-~]` +
+		`|[0-?]` +
+		`|[@-OQ-WYZ\\\\]` +
+		`|[\`-~]` +
+		`)`,
+	'g',
+)
+
+/**
+ * Matches every C0 control character EXCEPT `\t` / `\n` / `\r` (which are meaningful
+ * whitespace), plus DEL (`0x7F`) — the non-printing bytes {@link
+ * import('./helpers.js').stripControls} removes. Global, ASCII-only source (no raw
+ * control-character literal), so a scan builds a fresh `RegExp` the same way as
+ * {@link ANSI_PATTERN} to avoid a mutated `lastIndex`.
+ *
+ * @remarks
+ * Deliberately SEPARATE from {@link ANSI_PATTERN}: `strip()` must stay pure ANSI-escape
+ * removal (width / alignment computations depend on it leaving raw C0 bytes alone), while
+ * C0-stripping is an ADDITIONAL, orthogonal pass a non-TTY output sink applies on top.
+ */
+export const CONTROL_PATTERN = new RegExp(
+	`[${String.fromCharCode(0)}-${String.fromCharCode(8)}${String.fromCharCode(11)}${String.fromCharCode(12)}${String.fromCharCode(14)}-${String.fromCharCode(31)}${String.fromCharCode(127)}]`,
 	'g',
 )
 

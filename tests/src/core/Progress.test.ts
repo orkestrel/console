@@ -144,6 +144,17 @@ describe('Progress', () => {
 			expect(sink.calls.at(-1)).toEqual(['\r████░░░░░░ 40% (4/10) broke\n', 'error'])
 			expect(events.complete.count).toBe(0) // the work did not finish
 		})
+
+		it('emits exactly one terminal `update` at the current fill (no `complete`)', () => {
+			const sink = createRecordingSink()
+			const progress = new Progress({ total: 10, width: 10, sink, styler: PLAIN })
+			const events = recordEmitterEvents(progress.emitter, ['update', 'complete'])
+			progress.update(3) // one update event
+			progress.failure('stopped') // one MORE terminal update event, still no complete
+			expect(events.update.count).toBe(2)
+			expect(events.update.calls.at(-1)?.[0]).toEqual({ current: 3, total: 10 })
+			expect(events.complete.count).toBe(0)
+		})
 	})
 
 	describe('terminal — later updates are ignored', () => {

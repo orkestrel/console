@@ -6,7 +6,7 @@
 // (whose "level" axis is the STREAM, `'stdout' | 'stderr'`, not a `console.*` method).
 
 import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkestrel/emitter'
-import { SinkInterface } from '@src/core'
+import type { SinkInterface } from '@src/core'
 
 /**
  * The minimal writable-stream shape the C-g server sink and process capture address — exactly the
@@ -85,11 +85,11 @@ export type StreamLevel = 'stdout' | 'stderr'
 // Using the canonical type (not a hand-rolled approximation) makes snapshot + restore EXACT and lets
 // the wrapper assign cleanly. The {@link StreamLevel} (`'stdout' | 'stderr'`) IS the `process` property
 // key, so `process[level]` indexes the matching `WriteStream` directly — no lookup map.
-export type StreamWrite = NodeJS.WriteStream['write']
+export type StreamWriteFunction = NodeJS.WriteStream['write']
 
-// The completion callback a `process.*.write` accepts as its last argument — the Node `write` callback
-// shape (the {@link StreamWrite} companion). The wrapper forwards it verbatim to the mirror so a
-// caller's write-completion handler still fires.
+// The completion callback a `process.*.write` accepts as its last argument — the Node `write`
+// callback shape (the {@link StreamWriteFunction} companion). The wrapper forwards it verbatim to
+// the mirror so a caller's write-completion handler still fires.
 export type StreamWriteCallback = (error?: Error | null) => void
 
 /**
@@ -202,7 +202,7 @@ export interface ProcessCaptureInterface {
 	/** A copy of the full captured buffer, oldest first (capped at `limit`). */
 	messages(): readonly CapturedChunk[]
 	/** A copy of the captured buffer for ONE {@link StreamLevel}, oldest first (capped at `limit`). */
-	byLevel(level: StreamLevel): readonly CapturedChunk[]
+	messages(level: StreamLevel): readonly CapturedChunk[]
 	/** Drop every buffered chunk (total + per-stream); interception is unaffected. */
 	clear(): void
 	/** Stop interception (restoring the streams) and tear down the emitter. */

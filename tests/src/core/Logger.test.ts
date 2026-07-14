@@ -243,35 +243,38 @@ describe('Logger', () => {
 		})
 	})
 
-	describe('the LogRecord freeze is SHALLOW (documented)', () => {
-		it('freezes the record itself but NOT a nested data object — mutating data after logging leaks', () => {
+	describe('the LogRecord.data freeze is a SHALLOW top-level copy (documented)', () => {
+		it('freezes the record AND a top-level frozen copy of data, but a nested object stays live and mutable', () => {
 			const { logger } = createTestLogger()
 			const data: Record<string, unknown> = { count: 1, nested: { value: 'a' } }
 			logger.info('m', data)
 			const [record] = logger.entries()
 			// The record envelope is frozen — top-level fields cannot be reassigned.
 			expect(Object.isFrozen(record)).toBe(true)
-			// …but Object.freeze is SHALLOW: the retained `data` is the SAME reference passed in,
-			// and it is NOT frozen, so a later mutation of the caller's object is visible through
-			// the retained record. This is the documented behavior — callers must not retain+mutate.
-			expect(record?.data && Object.isFrozen(record.data)).toBe(false)
+			// The top-level `data` copy taken at log time is ALSO frozen — reassigning `count` fails.
+			expect(record?.data && Object.isFrozen(record.data)).toBe(true)
+			// …but the copy is SHALLOW: nested values remain BY REFERENCE, so mutating the caller's
+			// object after logging is still observable through the retained record's nested value.
 			if (record?.data !== undefined && 'nested' in record.data) {
 				const nested = record.data.nested
 				if (nested !== null && typeof nested === 'object' && 'value' in nested) {
 					Reflect.set(nested, 'value', 'mutated')
 				}
 			}
-			// The mutation is observable through the retained record (shallow freeze does not deep-copy).
 			const [after] = logger.entries()
 			expect(after?.data?.nested).toEqual({ value: 'mutated' })
 		})
 
-		it('the retained data is the caller object by reference (no defensive copy)', () => {
+		it('mutating the top-level of the caller object AFTER logging does NOT affect the retained record', () => {
 			const { logger } = createTestLogger()
 			const data: Record<string, unknown> = { a: 1 }
 			logger.info('m', data)
+			data.a = 999 // mutate the caller's object after logging
+			data.b = 'new' // add a key after logging
 			const [record] = logger.entries()
-			expect(record?.data).toBe(data) // same reference — not a clone
+			// The top-level copy was taken at log time — unaffected by later mutation of the original.
+			expect(record?.data).toEqual({ a: 1 })
+			expect(record?.data).not.toBe(data) // frozen copy, not the caller's reference
 		})
 	})
 

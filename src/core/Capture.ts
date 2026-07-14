@@ -28,7 +28,8 @@ import { formatArgs } from './helpers.js'
  *   (never double-patches); `stop()` while inactive is a no-op. It patches the ONE global
  *   `console`, so at most ONE capture may be active at a time — running two concurrently
  *   interleaves their buffers and clobbers each other's restore.
- * - **Bounded buffers.** The total buffer and each by-level bucket are each capped at `limit`
+ * - **Bounded buffers.** `messages()` / `messages(level)` — the total buffer and each by-level
+ *   bucket are each capped at `limit`
  *   (oldest dropped first), never unbounded — the same retention precedent as {@link Logger}.
  * - **Lifecycle (§10).** `start` / `stop` toggle interception (emitting `start` / `stop`);
  *   `destroy()` stops (restoring `console`) then destroys the emitter.
@@ -38,7 +39,7 @@ import { formatArgs } from './helpers.js'
  * const capture = new Capture({ levels: ['warn', 'error'], mirror: true })
  * capture.start()
  * console.warn('third-party noise') // captured AND mirrored to the real console
- * capture.byLevel('warn') // [{ level: 'warn', text: 'third-party noise', time: … }]
+ * capture.messages('warn') // [{ level: 'warn', text: 'third-party noise', time: … }]
  * capture.stop() // console.warn restored
  * ```
  */
@@ -108,11 +109,10 @@ export class Capture implements CaptureInterface {
 		this.#emitter.emit('stop')
 	}
 
-	messages(): readonly CapturedMessage[] {
-		return [...this.#messages]
-	}
-
-	byLevel(level: CaptureLevel): readonly CapturedMessage[] {
+	messages(): readonly CapturedMessage[]
+	messages(level: CaptureLevel): readonly CapturedMessage[]
+	messages(level?: CaptureLevel): readonly CapturedMessage[] {
+		if (level === undefined) return [...this.#messages]
 		return [...(this.#buckets.get(level) ?? [])]
 	}
 
@@ -136,7 +136,15 @@ export class Capture implements CaptureInterface {
 		this.#retain(message)
 		this.#emitter.emit('capture', message)
 		if (this.#mirror) mirror(...args)
-		if (this.#sink !== undefined) this.#sink.write(message.text, CAPTURE_LEVEL_MAP[level])
+		// The wrapper NEVER throws into the patched global — a misbehaving sink is best-effort
+		// and swallowed, never allowed to break the underlying program's own console.* call.
+		if (this.#sink !== undefined) {
+			try {
+				this.#sink.write(message.text, CAPTURE_LEVEL_MAP[level])
+			} catch {
+				// Swallowed — see comment above.
+			}
+		}
 	}
 
 	// Build the immutable, serializable captured message — args stringified to one line (total,

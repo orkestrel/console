@@ -1,5 +1,6 @@
 import type { Attribute, Color, RendererInterface, Style, StylerInterface } from './types.js'
 import { ATTRIBUTES, COLORS } from './constants.js'
+import { ConsoleError } from './errors.js'
 
 /**
  * The fluent, composable styler — the consumer-facing API over the style engine. It
@@ -73,7 +74,7 @@ export class Styler {
 		const surface = Object.defineProperties(render, descriptors)
 		if (this.#isSurface(surface)) return surface
 		// Unreachable: the descriptors above install every accessor the guard checks for.
-		throw new Error('console: styler surface construction is incomplete')
+		throw new ConsoleError('INVARIANT', 'console: styler surface construction is incomplete')
 	}
 
 	// Structurally confirm an assembled value is a usable styler surface — callable, with
@@ -93,16 +94,24 @@ export class Styler {
 	// A new styler with `color` as the foreground — last write wins (replaces any prior
 	// foreground); background and attributes carried forward unchanged.
 	#foreground(color: Color): Styler {
-		return new Styler(this.#renderer, this.#enabled, { ...this.#style, foreground: color })
+		return new Styler(
+			this.#renderer,
+			this.#enabled,
+			Object.freeze({ ...this.#style, foreground: color }),
+		)
 	}
 
 	// A new styler with `attribute` added to the set — de-duplicated and order-stable, so
 	// a repeated attribute is idempotent.
 	#attribute(attribute: Attribute): Styler {
 		if (this.#style.attributes.includes(attribute)) return this
-		return new Styler(this.#renderer, this.#enabled, {
-			...this.#style,
-			attributes: [...this.#style.attributes, attribute],
-		})
+		return new Styler(
+			this.#renderer,
+			this.#enabled,
+			Object.freeze({
+				...this.#style,
+				attributes: Object.freeze([...this.#style.attributes, attribute]),
+			}),
+		)
 	}
 }

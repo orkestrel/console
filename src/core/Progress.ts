@@ -101,7 +101,8 @@ export class Progress implements ProgressInterface {
 	failure(message?: string): void {
 		if (!this.#active) return
 		// Finish at the CURRENT fill (the work stopped short) — commit to the error stream, NO complete.
-		if (message !== undefined) this.#message = message
+		// #advance emits a final `update` at the current fill (identical current/total), same as complete().
+		this.#advance(this.#current, message)
 		this.#active = false
 		this.#paint(true, 'error')
 	}

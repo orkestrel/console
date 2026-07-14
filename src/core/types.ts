@@ -7,6 +7,16 @@ import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkes
 // keeping the global-patch boundary honest, §14) — the boundary shape the capture snapshots + swaps.
 export type ConsoleMethod = (...args: unknown[]) => void
 
+/**
+ * A machine-readable error code for a {@link import('./errors.js').ConsoleError}.
+ *
+ * @remarks
+ * `INVARIANT` — an internal invariant / unreachable-guard was violated (a defensive
+ * check that should be structurally impossible to trip). The sole code today; §21
+ * forbids speculating a richer taxonomy before a second throw site exists.
+ */
+export type ConsoleErrorCode = 'INVARIANT'
+
 // The console style engine — text style is DATA, rendered by a swappable renderer.
 // A `Style` is a frozen record (a foreground/background `Color` + a set of text
 // `Attribute`s), NOT a pre-baked escape string; a `RendererInterface` turns that data
@@ -184,7 +194,9 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
  * - `name` — the originating logger's `name`, when it has one (a manager-registered logger
  *   is keyed by name; an anonymous logger omits it).
  * - `data` — optional structured context (a flat `Record<string, unknown>`), absent when
- *   no context was supplied.
+ *   no context was supplied. The top-level object is a FROZEN COPY taken at log time (a
+ *   later mutation of the caller's original object never reaches the retained record);
+ *   nested values remain BY REFERENCE (only the top level is copied + frozen).
  * - The value is frozen at construction — a consumer reads it, never mutates it.
  */
 export interface LogRecord {
@@ -192,7 +204,7 @@ export interface LogRecord {
 	readonly message: string
 	readonly time: number
 	readonly name?: string
-	readonly data?: Record<string, unknown>
+	readonly data?: Readonly<Record<string, unknown>>
 }
 
 /**
@@ -214,9 +226,12 @@ export interface LogRecord {
  */
 export interface SinkInterface {
 	/**
-	 * Write one already-formatted chunk of output (the logger writes a full line; the sink's
-	 * target supplies the newline). `level` is the originating record's {@link LogLevel} —
-	 * supplied so a stream-aware sink can route (e.g. `error` to `stderr`); a plain sink ignores it.
+	 * Write one already-formatted chunk of output. `text` receives ONE LINE WITHOUT its
+	 * terminator — the sink's target supplies it (e.g. `console.log`; the server TTY sink
+	 * appends one) — UNLESS `text` begins with `\r`: that is an in-place REDRAW frame (the
+	 * Spinner / Progress animation protocol) carrying its own line endings, written verbatim.
+	 * `level` is the originating record's {@link LogLevel} — supplied so a stream-aware sink
+	 * can route (e.g. `error` to `stderr`); a plain sink ignores it.
 	 */
 	write(text: string, level?: LogLevel): void
 }
@@ -340,7 +355,7 @@ export interface LoggerManagerOptions {
  * - **Fan-out.** `debug` / `info` / `warn` / `error(message, data?)` forward the call to every
  *   registered logger (each gates / emits / writes per its own `level` and `sink`).
  * - **Event-free.** No emitter, no events — each logger carries its own observability; the
- *   manager is a pure registry (like {@link import('../agents/conversations/ConversationManager.js').ConversationManager}).
+ *   manager is a pure registry.
  */
 export interface LoggerManagerInterface {
 	readonly count: number
@@ -739,9 +754,9 @@ export interface CaptureOptions {
  *   double-patches), and `stop()` while inactive is a no-op. It is PROCESS-GLOBAL — it patches the
  *   one global `console` — so at most ONE capture may be active at a time; running two
  *   concurrently interleaves their buffers and clobbers each other's restore.
- * - **Bounded buffers.** `messages()` returns a copy of the whole buffer (oldest first),
- *   `byLevel(level)` a copy of one level's bucket — each capped at `limit` (oldest dropped first),
- *   never unbounded. `clear()` empties them (it does NOT stop interception).
+ * - **Bounded buffers.** `messages()` returns a copy of the whole buffer (oldest first);
+ *   `messages(level)` a copy of one {@link CaptureLevel}'s bucket — each capped at `limit`
+ *   (oldest dropped first), never unbounded. `clear()` empties them (it does NOT stop interception).
  * - **Lifecycle (§10).** `start` / `stop` toggle interception; `destroy()` stops (restoring
  *   `console`) then destroys the emitter (its listeners go).
  */
@@ -756,7 +771,7 @@ export interface CaptureInterface {
 	/** A copy of the whole captured buffer, oldest first (capped at `limit`). */
 	messages(): readonly CapturedMessage[]
 	/** A copy of the captured buffer for ONE {@link CaptureLevel}, oldest first (capped at `limit`). */
-	byLevel(level: CaptureLevel): readonly CapturedMessage[]
+	messages(level: CaptureLevel): readonly CapturedMessage[]
 	/** Drop every buffered message (total + by level); does NOT stop interception. */
 	clear(): void
 	/** Tear down — `stop()` (restoring `console`) then destroy the emitter. */

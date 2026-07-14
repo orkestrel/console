@@ -107,18 +107,18 @@ describe('Capture', () => {
 				'error:c',
 				'warn:d',
 			])
-			expect(capture.byLevel('warn').map((m) => m.text)).toEqual(['b', 'd'])
-			expect(capture.byLevel('error').map((m) => m.text)).toEqual(['c'])
-			expect(capture.byLevel('log').map((m) => m.text)).toEqual(['a'])
+			expect(capture.messages('warn').map((m) => m.text)).toEqual(['b', 'd'])
+			expect(capture.messages('error').map((m) => m.text)).toEqual(['c'])
+			expect(capture.messages('log').map((m) => m.text)).toEqual(['a'])
 		})
 
-		it('byLevel for a captured-but-empty level is an empty list; for an unconfigured level too', () => {
+		it('messages(level) for a captured-but-empty level is an empty list; for an unconfigured level too', () => {
 			const capture = new Capture({ levels: ['log'] })
 			capture.start()
 			console.log('only')
 			capture.stop()
-			expect(capture.byLevel('warn')).toEqual([]) // not configured → no bucket → empty copy
-			expect(capture.byLevel('log')).toEqual([
+			expect(capture.messages('warn')).toEqual([]) // not configured → no bucket → empty copy
+			expect(capture.messages('log')).toEqual([
 				{ level: 'log', text: 'only', time: expect.any(Number) },
 			])
 		})
@@ -129,8 +129,8 @@ describe('Capture', () => {
 			console.info('i')
 			console.debug('d')
 			capture.stop()
-			expect(capture.byLevel('info').map((m) => m.text)).toEqual(['i'])
-			expect(capture.byLevel('debug').map((m) => m.text)).toEqual(['d'])
+			expect(capture.messages('info').map((m) => m.text)).toEqual(['i'])
+			expect(capture.messages('debug').map((m) => m.text)).toEqual(['d'])
 		})
 
 		it('does NOT intercept after stop() — later console calls pass through untouched', () => {
@@ -142,13 +142,13 @@ describe('Capture', () => {
 			expect(capture.messages().map((m) => m.text)).toEqual(['during'])
 		})
 
-		it('messages() / byLevel() return copies — mutating them cannot corrupt the buffers', () => {
+		it('messages() / messages(level) return copies — mutating them cannot corrupt the buffers', () => {
 			const capture = new Capture()
 			capture.start()
 			console.log('x')
 			capture.stop()
 			const all = capture.messages()
-			const warns = capture.byLevel('log')
+			const warns = capture.messages('log')
 			expect(() => {
 				const a = [...all]
 				a.length = 0
@@ -156,7 +156,7 @@ describe('Capture', () => {
 				w.length = 0
 			}).not.toThrow()
 			expect(capture.messages()).toHaveLength(1)
-			expect(capture.byLevel('log')).toHaveLength(1)
+			expect(capture.messages('log')).toHaveLength(1)
 		})
 	})
 
@@ -210,6 +210,21 @@ describe('Capture', () => {
 			// The message was still buffered despite the throwing listener.
 			expect(capture.messages().map((m) => m.text)).toEqual(['safe'])
 		})
+
+		it('a throwing sink is swallowed — the underlying console call never throws, message still buffered/emitted', () => {
+			const throwingSink = {
+				write: () => {
+					throw new Error('sink exploded')
+				},
+			}
+			const capture = new Capture({ levels: ['log'], sink: throwingSink })
+			const events = recordEmitterEvents(capture.emitter, ['capture'])
+			capture.start()
+			expect(() => console.log('resilient')).not.toThrow()
+			capture.stop()
+			expect(capture.messages().map((m) => m.text)).toEqual(['resilient'])
+			expect(events.capture.count).toBe(1)
+		})
 	})
 
 	describe('mirror — fan out to the snapshot-original console', () => {
@@ -223,7 +238,7 @@ describe('Capture', () => {
 			// Mirrored verbatim — the original receives the raw args, not the captured line.
 			expect(seen).toEqual([['alert', { code: 1 }]])
 			// And still captured (stringified).
-			expect(capture.byLevel('warn').map((m) => m.text)).toEqual(['alert {"code":1}'])
+			expect(capture.messages('warn').map((m) => m.text)).toEqual(['alert {"code":1}'])
 		})
 
 		it('mirrors through the snapshot taken at start(), never a later re-patch (no echo loop)', () => {
@@ -269,7 +284,7 @@ describe('Capture', () => {
 			capture.stop()
 			expect(seen).toEqual(['boom']) // mirrored
 			expect(sink.calls).toEqual([['boom', 'error']]) // forwarded
-			expect(capture.byLevel('error').map((m) => m.text)).toEqual(['boom']) // buffered
+			expect(capture.messages('error').map((m) => m.text)).toEqual(['boom']) // buffered
 		})
 	})
 
@@ -290,8 +305,8 @@ describe('Capture', () => {
 			console.warn('w3')
 			console.error('e1')
 			capture.stop()
-			expect(capture.byLevel('warn').map((m) => m.text)).toEqual(['w2', 'w3'])
-			expect(capture.byLevel('error').map((m) => m.text)).toEqual(['e1'])
+			expect(capture.messages('warn').map((m) => m.text)).toEqual(['w2', 'w3'])
+			expect(capture.messages('error').map((m) => m.text)).toEqual(['e1'])
 		})
 	})
 
@@ -302,7 +317,7 @@ describe('Capture', () => {
 			console.log('before clear')
 			capture.clear()
 			expect(capture.messages()).toHaveLength(0)
-			expect(capture.byLevel('log')).toHaveLength(0)
+			expect(capture.messages('log')).toHaveLength(0)
 			expect(capture.active).toBe(true)
 			console.log('after clear')
 			capture.stop()
@@ -355,7 +370,7 @@ describe('Capture', () => {
 			capture.start()
 			console.error(new TypeError('boom'))
 			capture.stop()
-			expect(capture.byLevel('error').map((m) => m.text)).toEqual(['TypeError: boom'])
+			expect(capture.messages('error').map((m) => m.text)).toEqual(['TypeError: boom'])
 		})
 
 		it('captures a throwing-toJSON argument via String fallback, never propagating the throw', () => {
@@ -399,7 +414,7 @@ describe('Capture', () => {
 			console.log('c') // one over → 'a' evicted from both the total and the bucket
 			capture.stop()
 			expect(capture.messages().map((m) => m.text)).toEqual(['b', 'c'])
-			expect(capture.byLevel('log').map((m) => m.text)).toEqual(['b', 'c'])
+			expect(capture.messages('log').map((m) => m.text)).toEqual(['b', 'c'])
 		})
 	})
 

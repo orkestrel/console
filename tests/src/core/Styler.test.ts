@@ -1,5 +1,5 @@
 import type { RendererInterface, Style } from '@src/core'
-import { ANSIRenderer, EMPTY_STYLE, Styler, strip } from '@src/core'
+import { ANSIRenderer, createStyler, EMPTY_STYLE, Styler, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
 
 // Styler — the fluent, immutable, callable styling surface. Each accessor returns a NEW
@@ -104,6 +104,21 @@ describe('Styler', () => {
 			// Adding bold produced a new attributes array — red still has none.
 			expect(red.style.attributes).toEqual([])
 			expect(redBold.style.attributes).toEqual(['bold'])
+		})
+
+		it('every composed style object AND its attributes array are frozen (never mutable in place)', () => {
+			const root = base().surface
+			expect(Object.isFrozen(root.style)).toBe(true)
+			expect(Object.isFrozen(root.style.attributes)).toBe(true)
+			const redBold = root.red.bold
+			expect(Object.isFrozen(redBold.style)).toBe(true)
+			expect(Object.isFrozen(redBold.style.attributes)).toBe(true)
+		})
+
+		it('createStyler() (the base factory) yields a frozen initial style + attributes array', () => {
+			const fresh = createStyler({ enabled: false })
+			expect(Object.isFrozen(fresh.style)).toBe(true)
+			expect(Object.isFrozen(fresh.style.attributes)).toBe(true)
 		})
 	})
 

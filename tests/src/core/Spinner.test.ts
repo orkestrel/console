@@ -1,4 +1,4 @@
-import { createSpinner, createStyler, Spinner, strip } from '@src/core'
+import { createSpinner, createStyler, SPINNER_FRAMES, Spinner, strip } from '@src/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
@@ -415,6 +415,20 @@ describe('Spinner', () => {
 			spinner.tick()
 			spinner.tick()
 			expect(frames(sink)).toEqual(['x m', 'x m'])
+		})
+
+		it('an explicitly-empty frames array falls back to the default cycle (no div-by-zero NaN)', () => {
+			const sink = createRecordingSink()
+			const spinner = new Spinner({ frames: [], message: 'm', sink, styler: PLAIN })
+			expect(() => spinner.tick()).not.toThrow()
+			const [line] = frames(sink)
+			expect(line).not.toContain('NaN')
+			expect(line).toBe(`${SPINNER_FRAMES[0]} m`)
+			// It cycles through the full default set, not a degenerate one-frame loop.
+			for (let n = 1; n < SPINNER_FRAMES.length; n += 1) spinner.tick()
+			const all = frames(sink)
+			expect(all).toHaveLength(SPINNER_FRAMES.length)
+			expect(all.every((text) => !text.includes('NaN'))).toBe(true)
 		})
 	})
 

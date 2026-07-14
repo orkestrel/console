@@ -1,10 +1,10 @@
 import type { ConsoleOutput, StyleAccumulator } from './types.js'
+import { RESET_CODE } from '@src/core'
 import {
 	ATTRIBUTE_CSS,
 	BACKGROUND_CSS,
 	DIRECTIVE,
 	FOREGROUND_CSS,
-	RESET,
 	SGR_PATTERN,
 } from './constants.js'
 
@@ -66,7 +66,7 @@ export function ansiToConsole(text: string): ConsoleOutput {
 	// never raised — keeping the translation total.
 	const apply = (codes: readonly number[]): void => {
 		for (const code of codes) {
-			if (code === RESET) {
+			if (code === RESET_CODE) {
 				active.foreground = ''
 				active.background = ''
 				active.attributes.length = 0
@@ -156,6 +156,6 @@ export function escapePercent(text: string): string {
  * ```
  */
 export function parseParameters(parameters: string): readonly number[] {
-	if (parameters === '') return [RESET]
-	return parameters.split(';').map((field) => (field === '' ? RESET : Number(field)))
+	if (parameters === '') return [RESET_CODE]
+	return parameters.split(';').map((field) => (field === '' ? RESET_CODE : Number(field)))
 }

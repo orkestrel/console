@@ -67,7 +67,10 @@ export class Spinner implements SpinnerInterface {
 
 	constructor(options?: SpinnerOptions) {
 		this.#emitter = new Emitter<SpinnerEventMap>({ on: options?.on, error: options?.error })
-		this.#frames = options?.frames ?? SPINNER_FRAMES
+		// An explicitly-EMPTY `frames` array falls back to the default cycle too — an empty cycle
+		// would divide by zero on every wrap in tick() (AGENTS §16 hardening).
+		const frames = options?.frames ?? SPINNER_FRAMES
+		this.#frames = frames.length === 0 ? SPINNER_FRAMES : frames
 		this.#interval = options?.interval ?? DEFAULT_SPINNER_INTERVAL
 		this.#sink = options?.sink ?? createConsoleSink()
 		this.#styler = options?.styler ?? createStyler()

@@ -175,8 +175,7 @@ export function createLogger(options?: LoggerOptions): LoggerInterface {
  * - **Defaults flow in.** `options.level` / `sink` / `styler` / `limit` / `silent` are the
  *   defaults flowed into every `register`ed logger unless that call's options override them.
  * - **Event-free.** The manager carries NO emitter (each registered logger owns its own
- *   observable `emitter`) — it is a pure registry, like
- *   {@link import('../agents/conversations/ConversationManager.js').ConversationManager}.
+ *   observable `emitter`) — it is a pure registry.
  *
  * @example
  * ```ts
@@ -257,7 +256,7 @@ export function createReporter(options?: ReporterOptions): ReporterInterface {
  * const capture = createCapture({ levels: ['warn', 'error'] })
  * capture.start()
  * console.error('boom') // captured, NOT mirrored (mirror defaults to false)
- * capture.byLevel('error') // [{ level: 'error', text: 'boom', time: … }]
+ * capture.messages('error') // [{ level: 'error', text: 'boom', time: … }]
  * capture.stop()
  * ```
  */

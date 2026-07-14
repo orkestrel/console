@@ -13,9 +13,11 @@ import {
 	renderSeparator,
 	renderTable,
 	renderTree,
+	renderTreeChildren,
 	repeatTo,
 	stringifyValue,
 	strip,
+	stripControls,
 	width,
 } from '@src/core'
 import { describe, expect, it } from 'vitest'
@@ -868,5 +870,159 @@ describe('renderBox — title boundary cases', () => {
 		expect(rows).toHaveLength(5) // top + 3 body + bottom
 		const widths = rows.map((row) => width(row))
 		expect(new Set(widths).size).toBe(1)
+	})
+})
+
+// ── F6 — the broadened ANSI_PATTERN grammar (colon-SGR, charset selects, RIS, string families) ──
+// strip()/width() are the pure surface driving ANSI_PATTERN; these cases pin the NEW arms the
+// broadened alternation adds beyond plain SGR/CSI/OSC (already covered above).
+
+describe('strip — F6 broadened grammar (colon-params, nF, Fp, Fe, Fs, DCS/PM/APC/SOS)', () => {
+	it('strips a colon-delimited SGR parameter (truecolor foreground)', () => {
+		expect(strip(`${ESC_CHAR}[38:2:100:200:300mtruecolor${ESC_CHAR}[0m`)).toBe('truecolor')
+	})
+
+	it('strips an nF charset-select sequence (ESC ( 0)', () => {
+		expect(strip(`${ESC_CHAR}(0line-drawing${ESC_CHAR}(B`)).toBe('line-drawing')
+	})
+
+	it('strips the Fs RIS sequence (ESC c — full reset)', () => {
+		expect(strip(`before${ESC_CHAR}cafter`)).toBe('beforeafter')
+	})
+
+	it('strips Fe two-byte sequences (ESC D / ESC M — index/reverse-index)', () => {
+		expect(strip(`a${ESC_CHAR}Db${ESC_CHAR}Mc`)).toBe('abc')
+	})
+
+	it('strips Fp two-byte sequences (ESC 7 / ESC 8 — save/restore cursor)', () => {
+		expect(strip(`${ESC_CHAR}7moved${ESC_CHAR}8`)).toBe('moved')
+	})
+
+	it('strips a DCS string terminated by ST (ESC P … ESC \\\\)', () => {
+		expect(strip(`${ESC_CHAR}P1$rsome-dcs-payload${ST}visible`)).toBe('visible')
+	})
+
+	it('strips APC / PM / SOS string families terminated by ST', () => {
+		expect(
+			strip(
+				`${ESC_CHAR}_apc-payload${ST}a${ESC_CHAR}^pm-payload${ST}b${ESC_CHAR}Xsos-payload${ST}c`,
+			),
+		).toBe('abc')
+	})
+
+	it('an unterminated CSI/OSC still passes through untouched (the lead-arm ordering does not over-match)', () => {
+		expect(strip(`${ESC_CHAR}[31`)).toBe(`${ESC_CHAR}[31`)
+		expect(strip(`${ESC_CHAR}]8;;https://example.com`)).toBe(`${ESC_CHAR}]8;;https://example.com`)
+	})
+
+	it('is linear-time (ReDoS-safe) on an adversarial unterminated CSI with a huge parameter run', () => {
+		const hostile = `${ESC_CHAR}[${'9'.repeat(150000)}`
+		const start = performance.now()
+		const out = strip(hostile)
+		const elapsed = performance.now() - start
+		expect(out).toBe(hostile) // unterminated — passes through
+		expect(elapsed).toBeLessThan(1000) // linear alternation never hangs
+	})
+})
+
+// ── F6/(e) — stripControls: the NEW core helper stripping raw C0 controls (not ANSI escapes) ──
+
+describe('stripControls', () => {
+	it('removes BEL and NUL but leaves tab/newline/carriage-return untouched', () => {
+		expect(stripControls('a\x07b\x00c\td\ne\rf')).toBe('abc\td\ne\rf')
+	})
+
+	it('removes DEL (0x7F) too', () => {
+		expect(stripControls('a\x7fb')).toBe('ab')
+	})
+
+	it('leaves plain text untouched', () => {
+		expect(stripControls('plain text')).toBe('plain text')
+	})
+
+	it('ALSO strips the raw ESC byte (0x1B is a C0 control) — ANSI removal is strip()s job, run FIRST', () => {
+		// stripControls is a naive C0-control pass with no ANSI awareness: it removes the ESC byte
+		// itself (0x1B falls in \x0E-\x1F), leaving the SGR payload as garbage text. The server sink
+		// therefore always runs strip() BEFORE stripControls() on non-TTY output (F6/e).
+		expect(stripControls(`${ESC}31mred${ESC}0m`)).toBe('[31mred[0m')
+		expect(strip(stripControls(`${ESC}31mred${ESC}0m`))).not.toBe('red') // proves the ordering matters
+		expect(stripControls(strip(`${ESC}31mred${ESC}0m`))).toBe('red') // strip-then-stripControls is correct
+	})
+
+	it('is re-entrant across repeated calls (fresh RegExp per call, no lastIndex reuse)', () => {
+		const input = 'a\x07b'
+		expect(stripControls(input)).toBe('ab')
+		expect(stripControls(input)).toBe('ab')
+	})
+
+	it('the empty string stays empty', () => {
+		expect(stripControls('')).toBe('')
+	})
+})
+
+// ── F7 — renderBox / renderTable no longer throw RangeError on very large inputs ────────────
+
+describe('renderBox / renderTable — F7 large-input hardening (no RangeError)', () => {
+	it('renderBox handles ~150k lines of content without a RangeError (reduce, not spread-max)', () => {
+		const content = Array.from({ length: 150000 }, (_, index) => `line${index}`).join('\n')
+		expect(() => renderBox({ content })).not.toThrow()
+	})
+
+	it('renderTable handles ~150k rows without a RangeError (reduce, not spread-max)', () => {
+		const rows = Array.from({ length: 150000 }, (_, index) => [`r${index}`])
+		expect(() => renderTable({ columns: [{ label: 'X' }], rows })).not.toThrow()
+	})
+})
+
+// ── M2 — renderTreeChildren: the extracted, exported, self-recursing tree-body helper ───────
+
+describe('renderTreeChildren', () => {
+	it('renders a flat list with corner (last) and branch (non-last) connectors', () => {
+		expect(renderTreeChildren([{ label: 'a' }, { label: 'b' }], '')).toEqual(['├─ a', '└─ b'])
+	})
+
+	it('carries the correct prefix under nested children (guide `│  ` vs blank `   `)', () => {
+		const lines = renderTreeChildren(
+			[
+				{ label: 'a', children: [{ label: 'a1' }, { label: 'a2' }] },
+				{ label: 'b', children: [{ label: 'b1' }] },
+			],
+			'',
+		)
+		expect(lines).toEqual(['├─ a', '│  ├─ a1', '│  └─ a2', '└─ b', '   └─ b1'])
+	})
+
+	it('returns an empty array for an empty node list', () => {
+		expect(renderTreeChildren([], '')).toEqual([])
+	})
+
+	it('composes with renderTree — renderTree is root label + renderTreeChildren(root.children)', () => {
+		const nodes = [{ label: 'a' }, { label: 'b', children: [{ label: 'b1' }] }]
+		const direct = renderTreeChildren(nodes, '')
+		const viaTree = renderTree({ root: { label: 'root', children: nodes } })
+		expect(viaTree).toBe(['root', ...direct].join('\n'))
+	})
+
+	it('colors connectors through an optional styler chain, unchanged layout when stripped', () => {
+		const lines = renderTreeChildren([{ label: 'a' }], '', colorStyler.dim)
+		expect(lines.join('')).toContain(ESC)
+		expect(lines.map((line) => strip(line))).toEqual(['└─ a'])
+	})
+})
+
+// ── M5 — renderBox: padding is clamped (Math.max(0, Math.trunc(...))) — never throws/misrenders ──
+
+describe('renderBox — M5 padding hardening (negative / fractional padding)', () => {
+	it('a negative padding is clamped to 0 (no throw, tight box)', () => {
+		expect(() => renderBox({ content: 'x', padding: -3 })).not.toThrow()
+		expect(renderBox({ content: 'x', padding: -3 })).toBe(renderBox({ content: 'x', padding: 0 }))
+	})
+
+	it('a fractional padding is truncated toward zero', () => {
+		expect(renderBox({ content: 'x', padding: 2.9 })).toBe(renderBox({ content: 'x', padding: 2 }))
+	})
+
+	it('padding 0 renders content flush against the border', () => {
+		expect(renderBox({ content: 'x', padding: 0 })).toBe(['┌─┐', '│x│', '└─┘'].join('\n'))
 	})
 })

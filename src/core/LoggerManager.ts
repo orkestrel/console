@@ -9,9 +9,8 @@ import { Logger } from './Logger.js'
 
 /**
  * An event-free registry of named {@link Logger}s plus a convenience fan-out — the §9
- * manager over the logging layer (a registry like
- * {@link import('../agents/conversations/ConversationManager.js').ConversationManager}, never
- * observable itself; each {@link Logger} owns its own `emitter`).
+ * manager over the logging layer (a registry, never observable itself; each {@link Logger}
+ * owns its own `emitter`).
  *
  * @remarks
  * - **Registry (§9).** Loggers live in an insertion-ordered `Map` keyed by `name`.

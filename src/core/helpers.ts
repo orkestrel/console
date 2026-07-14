@@ -15,6 +15,7 @@ import {
 	BAR_EMPTY,
 	BAR_FILL,
 	BORDER_CHARS,
+	CONTROL_PATTERN,
 	DEFAULT_ALIGN,
 	DEFAULT_BAR_WIDTH,
 	DEFAULT_BORDER,
@@ -54,6 +55,29 @@ import {
  */
 export function strip(text: string): string {
 	return text.replace(new RegExp(ANSI_PATTERN.source, ANSI_PATTERN.flags), '')
+}
+
+/**
+ * Remove every non-printing C0 control character from `text` EXCEPT `\t` / `\n` / `\r`
+ * (meaningful whitespace), plus DEL — returning the sanitized string.
+ *
+ * @remarks
+ * Deliberately SEPARATE from {@link strip} (ANSI-escape removal only, so `width` /
+ * `align` stay untouched) — this is the additional pass a non-TTY output sink applies
+ * on top of `strip`, so a captured `\x07` bell or stray `\x00` never reaches a log file
+ * / non-terminal target. A FRESH `RegExp` is built per call from {@link CONTROL_PATTERN}'s
+ * `source` + `flags`, the same re-entrant idiom as `strip`.
+ *
+ * @param text - Any string, possibly carrying raw control bytes
+ * @returns `text` with C0 controls (other than tab/newline/CR) and DEL removed
+ *
+ * @example
+ * ```ts
+ * stripControls('a\x07b\nc') // 'ab\nc'
+ * ```
+ */
+export function stripControls(text: string): string {
+	return text.replace(new RegExp(CONTROL_PATTERN.source, CONTROL_PATTERN.flags), '')
 }
 
 /**
@@ -321,7 +345,7 @@ export function renderSeparator(options: SeparatorOptions): string {
  */
 export function renderBox(options: BoxOptions): string {
 	const chars = BORDER_CHARS[options.border ?? DEFAULT_BORDER]
-	const padding = options.padding ?? DEFAULT_PADDING
+	const padding = Math.max(0, Math.trunc(options.padding ?? DEFAULT_PADDING))
 	const styler = options.styler
 	const lines = options.content.split('\n')
 	// The inner content width: the widest line, the title (when present), and any explicit
@@ -335,7 +359,10 @@ export function renderBox(options: BoxOptions): string {
 			? 0
 			: width(options.title) + SEPARATOR_TITLE_GAP.length * 2 + 1 - padding * 2
 	const budget = options.width === undefined ? 0 : options.width - 2 - padding * 2
-	const inner = Math.max(0, ...lines.map((line) => width(line)), titleRoom, budget)
+	const inner = lines.reduce(
+		(max, line) => Math.max(max, width(line)),
+		Math.max(0, titleRoom, budget),
+	)
 	const gutter = ' '.repeat(padding)
 	const bar = paint(styler, chars.vertical)
 	// The top border — the two corners with the horizontal run between, optionally carrying a
@@ -390,7 +417,10 @@ export function renderTable(options: TableOptions): string {
 	const columns = options.columns
 	// Each column's visible width: the max of its header label and every cell it holds.
 	const widths = columns.map((column, index) =>
-		Math.max(width(column.label), ...options.rows.map((row) => width(cellAt(row, index)))),
+		options.rows.reduce(
+			(max, row) => Math.max(max, width(cellAt(row, index))),
+			width(column.label),
+		),
 	)
 	const aligns = columns.map((column) => column.align ?? DEFAULT_ALIGN)
 	// One framed row — each cell aligned to its column width and joined by the painted `vertical`
@@ -451,25 +481,48 @@ export function renderTable(options: TableOptions): string {
  * ```
  */
 export function renderTree(options: TreeOptions): string {
-	const styler = options.styler
-	// The connector-prefixed lines for a node list — each child drawn as `prefix` + its connector
-	// (`├─ ` for any but the last, `└─ ` for the last) + its label, its own descendants recursed
-	// beneath under the carried guide (`│  ` under a non-last node, `   ` under the last). The
-	// recursive branch of the renderer: a named local `const` arrow may call itself, so the
-	// recursion stays out of the module scope (AGENTS §5 — single caller, no reuse).
-	const treeChildLines = (nodes: readonly TreeNode[], prefix: string): readonly string[] => {
-		const lines: string[] = []
-		nodes.forEach((node, index) => {
-			const last = index === nodes.length - 1
-			lines.push(
-				`${prefix}${paint(styler, last ? TREE_CHARS.corner : TREE_CHARS.branch)}${node.label}`,
-			)
-			const carry = `${prefix}${paint(styler, last ? TREE_CHARS.gap : TREE_CHARS.guide)}`
-			lines.push(...treeChildLines(node.children ?? [], carry))
-		})
-		return lines
-	}
-	return [options.root.label, ...treeChildLines(options.root.children ?? [], '')].join('\n')
+	return [
+		options.root.label,
+		...renderTreeChildren(options.root.children ?? [], '', options.styler),
+	].join('\n')
+}
+
+/**
+ * Render the connector-prefixed lines for a {@link TreeNode} list — the recursive core
+ * behind {@link renderTree}. Each child is drawn as `prefix` + its connector (`├─ ` for
+ * any but the last, `└─ ` for the last) + its label, with its own descendants recursed
+ * beneath under the carried guide (`│  ` under a non-last node, `   ` under the last).
+ *
+ * @remarks
+ * A centralized, exported recursion branch (AGENTS §5) so it is directly testable and
+ * reusable outside {@link renderTree}'s top-level `root.label` framing.
+ *
+ * @param nodes - The sibling {@link TreeNode}s to render at this depth
+ * @param prefix - The guide/gap string carried in from the ancestor chain (`''` at the root)
+ * @param styler - The {@link StylerInterface} connectors are colored through, when supplied
+ * @returns The rendered lines for `nodes` and all their descendants
+ *
+ * @example
+ * ```ts
+ * renderTreeChildren([{ label: 'a' }, { label: 'b' }], '')
+ * // ['├─ a', '└─ b']
+ * ```
+ */
+export function renderTreeChildren(
+	nodes: readonly TreeNode[],
+	prefix: string,
+	styler?: StylerInterface,
+): readonly string[] {
+	const lines: string[] = []
+	nodes.forEach((node, index) => {
+		const last = index === nodes.length - 1
+		lines.push(
+			`${prefix}${paint(styler, last ? TREE_CHARS.corner : TREE_CHARS.branch)}${node.label}`,
+		)
+		const carry = `${prefix}${paint(styler, last ? TREE_CHARS.gap : TREE_CHARS.guide)}`
+		lines.push(...renderTreeChildren(node.children ?? [], carry, styler))
+	})
+	return lines
 }
 
 /**

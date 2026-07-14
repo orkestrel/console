@@ -136,7 +136,7 @@ export class Logger implements LoggerInterface {
 			message,
 			time: Date.now(),
 			...(this.#name === undefined ? {} : { name: this.#name }),
-			...(data === undefined ? {} : { data }),
+			...(data === undefined ? {} : { data: Object.freeze({ ...data }) }),
 		})
 	}
 

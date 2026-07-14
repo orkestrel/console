@@ -1,12 +1,5 @@
 import type { Color } from '@src/core'
-import {
-	ATTRIBUTE_CODES,
-	BACKGROUND_CODES,
-	COLORS,
-	ESC,
-	FOREGROUND_CODES,
-	RESET_CODE,
-} from '@src/core'
+import { ATTRIBUTE_CODES, BACKGROUND_CODES, COLORS, ESC, FOREGROUND_CODES } from '@src/core'
 
 // The SGR → CSS translation DATA the browser sink maps ANSI runs through (the C-f branch).
 // The core `src/core/console` is the source of truth for the SGR NUMBERS (which code is which
@@ -89,13 +82,6 @@ export const BACKGROUND_CSS: Readonly<Record<number, string>> = Object.freeze(
 		COLORS.map((color) => [BACKGROUND_CODES[color], `background:${COLOR_HEX[color]}`]),
 	),
 )
-
-/**
- * The SGR RESET parameter (re-exported from core's {@link RESET_CODE}) — when this parameter is seen
- * in a run, the accumulated CSS is cleared back to the empty style. Named here so the scanner reads
- * one local constant rather than the bare number.
- */
-export const RESET = RESET_CODE
 
 /**
  * The browser console directive that switches the active style — one `%c` prefixes every styled run

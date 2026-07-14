@@ -5,7 +5,7 @@ import type {
 	ServerSinkInterface,
 	ServerSinkOptions,
 } from './types.js'
-import { strip } from '@src/core'
+import { strip, stripControls } from '@src/core'
 import { ProcessCapture } from './ProcessCapture.js'
 import { columnsOf, isStreamTarget } from './helpers.js'
 
@@ -60,9 +60,15 @@ export function createServerSink(options?: ServerSinkOptions): ServerSinkInterfa
 	return Object.freeze({
 		write(text: string, level?: LogLevel): void {
 			const target = level === 'error' || level === 'warn' ? err : out
+			// A leading `\r` marks an in-place redraw frame (Spinner/Progress), which carries its own
+			// line endings and is written verbatim; every other (line-oriented) write gets exactly one
+			// trailing `\n` appended here, matching `console.log`'s newline-terminated behavior.
+			const framed = text.startsWith('\r')
+			const line = framed ? text : `${text}\n`
 			// On a TTY, write the ANSI verbatim (rendered; a leading `\r` overwrites natively); off a
-			// TTY (a pipe / file), strip it so the sink delivers clean text. Re-read `isTTY` per write.
-			target.write(target.isTTY === true ? text : strip(text))
+			// TTY (a pipe / file), strip ANSI + C0 control codes so the sink delivers clean text.
+			// Re-read `isTTY` per write.
+			target.write(target.isTTY === true ? line : stripControls(strip(line)))
 		},
 		get columns(): number {
 			// A fixed override wins; otherwise the live out-stream width (tracks a resize), with the
