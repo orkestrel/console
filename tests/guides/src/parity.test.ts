@@ -1,6 +1,6 @@
 // The consumer-side guides-parity drop-in (PROPOSAL §6): runs `@orkestrel/guide`'s
-// checks against this repo's own `guides/README.md` manifest — one row (Database)
-// spanning the core/server faces as a multi-dir `GuideModule` (AGENTS §22 —
+// checks against this repo's own `guides/README.md` manifest — one row (Console)
+// spanning the core/browser/server faces as a multi-dir `GuideModule` (AGENTS §22 —
 // one guide per package).
 
 import { describe, expect, it } from 'vitest'
@@ -48,8 +48,8 @@ function readText(relative: string): string {
 
 const manifest = parseManifest(readText('guides/README.md'), 'guides')
 
-// Cross-face imports are real in this multi-face package (database.md fences import
-// `createJSONDriver` from `@src/server` alongside core exports) — so the fence-import
+// Cross-face imports are real in this multi-face package (console.md fences import
+// `createProcessCapture` from `@src/server` alongside core exports) — so the fence-import
 // check resolves each specifier to ITS OWN face's exports rather than only the current
 // manifest entry's, per the specifier → module map below.
 const SPECIFIER_MODULES: Readonly<Record<string, string>> = {
