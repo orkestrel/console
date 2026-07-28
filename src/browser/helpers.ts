@@ -13,9 +13,9 @@ import {
 // can style via `console.log('%ctext', 'css')`, so `ansiToConsole` parses the SGR runs in the
 // incoming text and re-emits them as a `%c`-ready format string + parallel CSS array — the
 // translation happens at the OUTPUT boundary, leaving the core unchanged. Pure + total + `%`-safe.
-// `ansiToConsole`'s scan glue (apply / serialize / flush over its own `active` / `segments` /
-// `styles` state) lives as local closures inside it (AGENTS §5); only the standalone, reusable
-// `escapePercent` / `parseParameters` utilities are exported alongside it.
+// `ansiToConsole` carries immutable style snapshots while its local arrays assemble the final
+// `%c` output; only the standalone, reusable `escapePercent` / `parseParameters` utilities are
+// exported alongside it.
 
 /**
  * Translate an ANSI-styled string into a browser `console.log`-ready {@link ConsoleOutput} — a
@@ -53,72 +53,64 @@ export function ansiToConsole(text: string): ConsoleOutput {
 	// The accumulated active style across a run — a separate foreground / background declaration
 	// (each channel REPLACEABLE) plus an ordered, de-duplicated list of attribute declarations. An
 	// SGR reset empties all three. Serialized to a `;`-joined CSS string per emitted run.
-	const active: StyleAccumulator = { foreground: '', background: '', attributes: [] }
+	let active: StyleAccumulator = Object.freeze({
+		foreground: '',
+		background: '',
+		attributes: Object.freeze([]),
+	})
 	const segments: string[] = []
 	const styles: string[] = []
-	let styled = false
 	let cursor = 0
 	let pending = ''
+	let match: RegExpExecArray | null = scanner.exec(text)
+	if (match === null) return { format: escapePercent(text), styles: [] }
 
-	// Apply one SGR sequence's `codes` to `active` (in place): a reset clears every channel; a
-	// foreground / background code REPLACES that channel; an attribute is added once (idempotent).
-	// An unrecognized code (a 256-color / truecolor extension this layer doesn't map) is ignored,
-	// never raised — keeping the translation total.
-	const apply = (codes: readonly number[]): void => {
-		for (const code of codes) {
+	// A null match is the final text boundary, so every visible run passes through one flush path.
+	while (true) {
+		const boundary = match === null ? text.length : match.index
+		pending += escapePercent(text.slice(cursor, boundary))
+		if (pending !== '') {
+			segments.push(`${DIRECTIVE}${pending}`)
+			const declarations = [...active.attributes]
+			if (active.foreground !== '') declarations.push(active.foreground)
+			if (active.background !== '') declarations.push(active.background)
+			styles.push(declarations.join(';'))
+			pending = ''
+		}
+		if (match === null) break
+
+		// Apply one SGR sequence by replacing the readonly accumulator. A reset clears every channel;
+		// colors replace their channel; attributes accumulate once; unknown extensions are ignored.
+		for (const code of parseParameters(match[1] ?? '')) {
 			if (code === RESET_CODE) {
-				active.foreground = ''
-				active.background = ''
-				active.attributes.length = 0
+				active = Object.freeze({
+					foreground: '',
+					background: '',
+					attributes: Object.freeze([]),
+				})
 				continue
 			}
 			const foreground = FOREGROUND_CSS[code]
 			if (foreground !== undefined) {
-				active.foreground = foreground
+				active = Object.freeze({ ...active, foreground })
 				continue
 			}
 			const background = BACKGROUND_CSS[code]
 			if (background !== undefined) {
-				active.background = background
+				active = Object.freeze({ ...active, background })
 				continue
 			}
 			const attribute = ATTRIBUTE_CSS[code]
 			if (attribute !== undefined && !active.attributes.includes(attribute)) {
-				active.attributes.push(attribute)
+				active = Object.freeze({
+					...active,
+					attributes: Object.freeze([...active.attributes, attribute]),
+				})
 			}
 		}
-	}
-
-	// Serialize `active` into one `;`-joined CSS declaration string — attributes (insertion order),
-	// then foreground, then background, mirroring the renderer's stable code order; an empty style
-	// (post-reset / nothing accumulated) serializes to `''`.
-	const serialize = (): string => {
-		const declarations = [...active.attributes]
-		if (active.foreground !== '') declarations.push(active.foreground)
-		if (active.background !== '') declarations.push(active.background)
-		return declarations.join(';')
-	}
-
-	// Push `pending` (the run's already-escaped text) as one `%c` segment paired with the run's
-	// current CSS, then clear `pending`. An EMPTY run is dropped (a style change with no visible text
-	// emits no `%c`), keeping `format`'s `%c` count exactly equal to `styles.length`.
-	const flush = (): void => {
-		if (pending === '') return
-		segments.push(`${DIRECTIVE}${pending}`)
-		styles.push(serialize())
-		pending = ''
-	}
-
-	for (let match = scanner.exec(text); match !== null; match = scanner.exec(text)) {
-		styled = true
-		pending += escapePercent(text.slice(cursor, match.index))
-		flush()
-		apply(parseParameters(match[1] ?? ''))
 		cursor = match.index + match[0].length
+		match = scanner.exec(text)
 	}
-	if (!styled) return { format: escapePercent(text), styles: [] }
-	pending += escapePercent(text.slice(cursor))
-	flush()
 	return { format: segments.join(''), styles }
 }
 

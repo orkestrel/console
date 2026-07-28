@@ -62,7 +62,10 @@ export class Capture implements CaptureInterface {
 	#active = false
 
 	constructor(options?: CaptureOptions) {
-		this.#emitter = new Emitter<CaptureEventMap>({ on: options?.on, error: options?.error })
+		this.#emitter = new Emitter<CaptureEventMap>({
+			...(options?.on !== undefined ? { on: options.on } : {}),
+			...(options?.error !== undefined ? { error: options.error } : {}),
+		})
 		this.#levels = options?.levels ?? DEFAULT_CAPTURE_LEVELS
 		this.#mirror = options?.mirror ?? false
 		this.#sink = options?.sink
@@ -94,7 +97,7 @@ export class Capture implements CaptureInterface {
 			// never the live (patched) `console` (no capture loop). The restore reference stays the
 			// pristine unbound `original` above; only the mirror uses the bound form.
 			const mirror = original.bind(console)
-			target[level] = (...args: unknown[]): void => this.#intercept(level, args, mirror)
+			target[level] = this.#captureCall.bind(this, level, mirror)
 		}
 		this.#emitter.emit('start')
 	}
@@ -124,6 +127,12 @@ export class Capture implements CaptureInterface {
 	destroy(): void {
 		this.stop()
 		this.#emitter.destroy()
+	}
+
+	// Adapt the patched console's variadic call shape to the captured argument collection consumed
+	// by #intercept. Binding level and mirror in start() leaves the exact ConsoleMethod signature.
+	#captureCall(level: CaptureLevel, mirror: ConsoleMethod, ...args: unknown[]): void {
+		this.#intercept(level, args, mirror)
 	}
 
 	// The wrapper body behind every patched `console.x`: build the frozen message, buffer it

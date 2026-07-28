@@ -59,22 +59,42 @@ export class Styler {
 	 * type assertion is used (AGENTS §1 / §14 — narrow, never assert).
 	 */
 	get surface(): StylerInterface {
-		const render = (text: string): string =>
-			this.#enabled ? this.#renderer.render(this.#style, text) : text
+		const render = this.#render.bind(this)
 		const descriptors: PropertyDescriptorMap = {
 			style: { value: this.#style, enumerable: true },
 			enabled: { value: this.#enabled, enumerable: true },
 		}
 		for (const color of COLORS) {
-			descriptors[color] = { get: () => this.#foreground(color).surface, enumerable: true }
+			descriptors[color] = {
+				get: this.#foregroundSurface.bind(this, color),
+				enumerable: true,
+			}
 		}
 		for (const attribute of ATTRIBUTES) {
-			descriptors[attribute] = { get: () => this.#attribute(attribute).surface, enumerable: true }
+			descriptors[attribute] = {
+				get: this.#attributeSurface.bind(this, attribute),
+				enumerable: true,
+			}
 		}
 		const surface = Object.defineProperties(render, descriptors)
 		if (this.#isSurface(surface)) return surface
 		// Unreachable: the descriptors above install every accessor the guard checks for.
 		throw new ConsoleError('INVARIANT', 'console: styler surface construction is incomplete')
+	}
+
+	// Render through the configured target, or pass text through when styling is disabled.
+	#render(text: string): string {
+		return this.#enabled ? this.#renderer.render(this.#style, text) : text
+	}
+
+	// Resolve one lazy foreground accessor to the next immutable styler surface.
+	#foregroundSurface(color: Color): StylerInterface {
+		return this.#foreground(color).surface
+	}
+
+	// Resolve one lazy attribute accessor to the next immutable styler surface.
+	#attributeSurface(attribute: Attribute): StylerInterface {
+		return this.#attribute(attribute).surface
 	}
 
 	// Structurally confirm an assembled value is a usable styler surface — callable, with

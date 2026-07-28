@@ -63,11 +63,11 @@ export class LoggerManager implements LoggerManagerInterface {
 		// The manager's defaults flow in first; the per-register `options` override them; `name`
 		// is forced last so it always keys the registry (an `options.name` can't desync the key).
 		const logger = new Logger({
-			level: this.#level,
-			sink: this.#sink,
-			styler: this.#styler,
-			limit: this.#limit,
-			silent: this.#silent,
+			...(this.#level !== undefined ? { level: this.#level } : {}),
+			...(this.#sink !== undefined ? { sink: this.#sink } : {}),
+			...(this.#styler !== undefined ? { styler: this.#styler } : {}),
+			...(this.#limit !== undefined ? { limit: this.#limit } : {}),
+			...(this.#silent !== undefined ? { silent: this.#silent } : {}),
 			...options,
 			name,
 		})

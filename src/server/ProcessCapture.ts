@@ -72,7 +72,10 @@ export class ProcessCapture implements ProcessCaptureInterface {
 	#active = false
 
 	constructor(options?: ProcessCaptureOptions) {
-		this.#emitter = new Emitter<ProcessCaptureEventMap>({ on: options?.on, error: options?.error })
+		this.#emitter = new Emitter<ProcessCaptureEventMap>({
+			...(options?.on !== undefined ? { on: options.on } : {}),
+			...(options?.error !== undefined ? { error: options.error } : {}),
+		})
 		this.#levels = options?.levels ?? DEFAULT_CAPTURE_LEVELS
 		this.#mirror = options?.mirror ?? false
 		this.#sink = options?.sink
@@ -108,11 +111,7 @@ export class ProcessCapture implements ProcessCaptureInterface {
 			// where the 2nd arg is either a `BufferEncoding` or the completion callback — so it assigns to
 			// the stream's `write` slot AND its args forward cleanly to `mirror` (no `as`, no untyped
 			// spread).
-			stream.write = (
-				chunk: string | Uint8Array,
-				encoding?: BufferEncoding | StreamWriteCallback,
-				callback?: StreamWriteCallback,
-			): boolean => this.#intercept(level, chunk, encoding, callback, mirror)
+			stream.write = this.#captureWrite.bind(this, level, mirror)
 		}
 		this.#emitter.emit('start')
 	}
@@ -147,6 +146,18 @@ export class ProcessCapture implements ProcessCaptureInterface {
 	// StreamLevel IS the `process` property key (`'stdout'` / `'stderr'`); no `as`, no lookup map.
 	#stream(level: StreamLevel): NodeJS.WriteStream {
 		return process[level]
+	}
+
+	// Adapt the patched stream's write signature to #intercept. Binding level and the pristine
+	// mirror in start() leaves the canonical chunk / encoding / callback parameters.
+	#captureWrite(
+		level: StreamLevel,
+		mirror: StreamWriteFunction,
+		chunk: string | Uint8Array,
+		encoding?: BufferEncoding | StreamWriteCallback,
+		callback?: StreamWriteCallback,
+	): boolean {
+		return this.#intercept(level, chunk, encoding, callback, mirror)
 	}
 
 	// The wrapper body behind every patched stream write: build the frozen chunk record, buffer it

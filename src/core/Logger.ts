@@ -53,18 +53,21 @@ export class Logger implements LoggerInterface {
 	// escape into a log call.
 	readonly #emitter: Emitter<LoggerEventMap>
 	readonly #level: LogLevel
-	readonly #name: string | undefined
 	readonly #sink: SinkInterface
 	readonly #styler: StylerInterface
 	readonly #limit: number
 	readonly #silent: boolean
 	// The bounded retention ring — accepted records, oldest first, capped at #limit.
 	readonly #entries: LogRecord[] = []
+	readonly name?: string
 
 	constructor(options?: LoggerOptions) {
-		this.#emitter = new Emitter<LoggerEventMap>({ on: options?.on, error: options?.error })
+		this.#emitter = new Emitter<LoggerEventMap>({
+			...(options?.on !== undefined ? { on: options.on } : {}),
+			...(options?.error !== undefined ? { error: options.error } : {}),
+		})
 		this.#level = options?.level ?? DEFAULT_LOG_LEVEL
-		this.#name = options?.name
+		if (options?.name !== undefined) this.name = options.name
 		this.#sink = options?.sink ?? createConsoleSink()
 		this.#styler = options?.styler ?? createStyler()
 		this.#limit = options?.limit ?? DEFAULT_LOG_LIMIT
@@ -77,10 +80,6 @@ export class Logger implements LoggerInterface {
 
 	get level(): LogLevel {
 		return this.#level
-	}
-
-	get name(): string | undefined {
-		return this.#name
 	}
 
 	debug(message: string, data?: Record<string, unknown>): void {
@@ -135,7 +134,7 @@ export class Logger implements LoggerInterface {
 			level,
 			message,
 			time: Date.now(),
-			...(this.#name === undefined ? {} : { name: this.#name }),
+			...(this.name === undefined ? {} : { name: this.name }),
 			...(data === undefined ? {} : { data: Object.freeze({ ...data }) }),
 		})
 	}

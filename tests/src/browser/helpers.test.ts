@@ -225,6 +225,7 @@ describe('ansiToConsole — adversarial %c/styles alignment', () => {
 		const parts: string[] = []
 		for (let index = 0; index < 50; index += 1) {
 			const color = COLORS[index % COLORS.length]
+			if (color === undefined) throw new Error('Expected the color palette to be non-empty')
 			parts.push(styler[color](`r${index}`))
 		}
 		const { format, styles } = expectAligned(parts.join(''))

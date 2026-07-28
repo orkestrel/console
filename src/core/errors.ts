@@ -24,7 +24,7 @@ export class ConsoleError extends Error {
 		super(message)
 		this.name = 'ConsoleError'
 		this.code = code
-		this.context = context
+		if (context !== undefined) this.context = context
 	}
 }
 

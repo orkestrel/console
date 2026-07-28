@@ -53,7 +53,10 @@ export class Progress implements ProgressInterface {
 	#completed = false
 
 	constructor(options: ProgressOptions) {
-		this.#emitter = new Emitter<ProgressEventMap>({ on: options.on, error: options.error })
+		this.#emitter = new Emitter<ProgressEventMap>({
+			...(options.on !== undefined ? { on: options.on } : {}),
+			...(options.error !== undefined ? { error: options.error } : {}),
+		})
 		this.#total = options.total
 		this.#width = options.width ?? DEFAULT_BAR_WIDTH
 		this.#sink = options.sink ?? createConsoleSink()

@@ -369,19 +369,18 @@ export function renderBox(options: BoxOptions): string {
 	// leading ` title ` embedded in the run. `span` is the full inner run (`inner + 2·padding`):
 	// with no `title` the whole run is fill between the corners; with one, ` title ` sits after a
 	// single leading fill glyph, the remainder drawn as fill — its VISIBLE width stays `span` (the
-	// title's escape codes don't count). Local to the renderer (AGENTS §5 — single caller, no reuse).
-	const boxTop = (): string => {
-		const span = inner + padding * 2
-		if (options.title === undefined) {
-			return paint(styler, `${chars.topLeft}${repeatTo(chars.horizontal, span)}${chars.topRight}`)
-		}
+	// title's escape codes don't count).
+	const span = inner + padding * 2
+	let top: string
+	if (options.title === undefined) {
+		top = paint(styler, `${chars.topLeft}${repeatTo(chars.horizontal, span)}${chars.topRight}`)
+	} else {
 		const caption = `${SEPARATOR_TITLE_GAP}${options.title}${SEPARATOR_TITLE_GAP}`
 		const room = span - width(caption)
 		const lead = paint(styler, repeatTo(chars.horizontal, 1))
 		const rest = room - 1 <= 0 ? '' : paint(styler, repeatTo(chars.horizontal, room - 1))
-		return `${paint(styler, chars.topLeft)}${lead}${paint(styler, caption)}${rest}${paint(styler, chars.topRight)}`
+		top = `${paint(styler, chars.topLeft)}${lead}${paint(styler, caption)}${rest}${paint(styler, chars.topRight)}`
 	}
-	const top = boxTop()
 	const bottom = paint(
 		styler,
 		`${chars.bottomLeft}${repeatTo(chars.horizontal, inner + padding * 2)}${chars.bottomRight}`,
@@ -423,10 +422,13 @@ export function renderTable(options: TableOptions): string {
 		),
 	)
 	const aligns = columns.map((column) => column.align ?? DEFAULT_ALIGN)
-	// One framed row — each cell aligned to its column width and joined by the painted `vertical`
-	// separators, a one-space gutter each side of every cell. Local to the renderer (AGENTS §5 —
-	// single caller, no reuse); captures the shared `widths` / `aligns` / `chars` / `styler`.
-	const tableRow = (cells: readonly string[]): string => {
+	const rows = [
+		columns.map((column) => paint(styler, column.label)),
+		...options.rows.map((row) => columns.map((_column, index) => cellAt(row, index))),
+	]
+	// Frame the header and every body row in one pass: align each cell to its column width, add
+	// one-space gutters, and join with the painted vertical separator.
+	const renderedRows = rows.map((cells) => {
 		const bar = paint(styler, chars.vertical)
 		const inner = cells
 			.map(
@@ -435,26 +437,15 @@ export function renderTable(options: TableOptions): string {
 			)
 			.join(bar)
 		return `${bar}${inner}${bar}`
-	}
-	// One horizontal frame line (top / header-rule / bottom) — the `left` junction, each column's
-	// `horizontal` run (its width plus the two gutter cells) joined by `mid`, closed by `right`,
-	// the whole line painted as one styled run. Local to the renderer (AGENTS §5); captures
-	// the shared `widths` / `chars` / `styler`.
-	const tableEdge = (left: string, mid: string, right: string): string => {
-		const segments = widths.map((columnWidth) => repeatTo(chars.horizontal, columnWidth + 2))
-		return paint(styler, `${left}${segments.join(mid)}${right}`)
-	}
-	const header = tableRow(columns.map((column) => paint(styler, column.label)))
-	const body = options.rows.map((row) =>
-		tableRow(columns.map((_column, index) => cellAt(row, index))),
+	})
+	const segments = widths.map((columnWidth) => repeatTo(chars.horizontal, columnWidth + 2))
+	const top = paint(styler, `${chars.topLeft}${segments.join(chars.teeDown)}${chars.topRight}`)
+	const rule = paint(styler, `${chars.teeRight}${segments.join(chars.cross)}${chars.teeLeft}`)
+	const bottom = paint(
+		styler,
+		`${chars.bottomLeft}${segments.join(chars.teeUp)}${chars.bottomRight}`,
 	)
-	return [
-		tableEdge(chars.topLeft, chars.teeDown, chars.topRight),
-		header,
-		tableEdge(chars.teeRight, chars.cross, chars.teeLeft),
-		...body,
-		tableEdge(chars.bottomLeft, chars.teeUp, chars.bottomRight),
-	].join('\n')
+	return [top, ...renderedRows.slice(0, 1), rule, ...renderedRows.slice(1), bottom].join('\n')
 }
 
 /**

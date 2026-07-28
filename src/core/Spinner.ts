@@ -66,7 +66,10 @@ export class Spinner implements SpinnerInterface {
 	#index = 0
 
 	constructor(options?: SpinnerOptions) {
-		this.#emitter = new Emitter<SpinnerEventMap>({ on: options?.on, error: options?.error })
+		this.#emitter = new Emitter<SpinnerEventMap>({
+			...(options?.on !== undefined ? { on: options.on } : {}),
+			...(options?.error !== undefined ? { error: options.error } : {}),
+		})
 		// An explicitly-EMPTY `frames` array falls back to the default cycle too — an empty cycle
 		// would divide by zero on every wrap in tick() (AGENTS §16 hardening).
 		const frames = options?.frames ?? SPINNER_FRAMES

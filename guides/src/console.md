@@ -214,14 +214,14 @@ The default intercepted-method set, the bounded-buffer cap, the level projection
 
 The browser `%c` console sink — translates the core's ANSI output into a `console.log('%c…', css)` call at the OUTPUT boundary ([`src/browser`](../../src/browser), surfaced through `@src/browser`). The core owns the `SinkInterface` contract + the style DATA model; this module owns only the browser-side translation.
 
-| API                 | Kind      | Summary                                                                                                                             |
-| ------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `ConsoleOutput`     | interface | The `console.log`-ready output `ansiToConsole` produces — a `%c`-segmented `format` string + the parallel `styles` CSS array.       |
-| `StyleAccumulator`  | interface | The mutable scan state `ansiToConsole` carries while translating SGR codes to CSS — a `foreground` / `background` + attribute list. |
-| `createBrowserSink` | function  | Create the browser `%c` `SinkInterface` — translates ANSI `text` to a `console[method](format, ...styles)` call; level-routing.     |
-| `ansiToConsole`     | function  | Translate an ANSI-styled string into a browser `ConsoleOutput` (`%c` format + CSS array) — pure, total, and `%`-safe.               |
-| `escapePercent`     | function  | Double every literal `%` in a text segment to `%%` — the `%`-escape that keeps the console from reading a stray `%` as a directive. |
-| `parseParameters`   | function  | Parse an SGR parameter list (`'1;31'` → `[1, 31]`) into its numeric codes — a bare / empty field becomes a `0` reset.               |
+| API                 | Kind      | Summary                                                                                                                                         |
+| ------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ConsoleOutput`     | interface | The `console.log`-ready output `ansiToConsole` produces — a `%c`-segmented `format` string + the parallel `styles` CSS array.                   |
+| `StyleAccumulator`  | interface | The immutable scan state `ansiToConsole` replaces while translating SGR codes to CSS — a `foreground` / `background` + readonly attribute list. |
+| `createBrowserSink` | function  | Create the browser `%c` `SinkInterface` — translates ANSI `text` to a `console[method](format, ...styles)` call; level-routing.                 |
+| `ansiToConsole`     | function  | Translate an ANSI-styled string into a browser `ConsoleOutput` (`%c` format + CSS array) — pure, total, and `%`-safe.                           |
+| `escapePercent`     | function  | Double every literal `%` in a text segment to `%%` — the `%`-escape that keeps the console from reading a stray `%` as a directive.             |
+| `parseParameters`   | function  | Parse an SGR parameter list (`'1;31'` → `[1, 31]`) into its numeric codes — a bare / empty field becomes a `0` reset.                           |
 
 ### Browser sink constants
 

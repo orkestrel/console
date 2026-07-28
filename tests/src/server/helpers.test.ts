@@ -47,7 +47,7 @@ describe('columnsOf', () => {
 
 	it('falls back to 80 for a non-TTY / absent / invalid columns', () => {
 		expect(columnsOf({ write: () => true })).toBe(80)
-		expect(columnsOf({ write: () => true, isTTY: false, columns: undefined })).toBe(80)
+		expect(columnsOf({ write: () => true, isTTY: false })).toBe(80)
 		expect(columnsOf({ write: () => true, columns: 0 })).toBe(80)
 		expect(columnsOf({ write: () => true, columns: -5 })).toBe(80)
 		expect(columnsOf({ write: () => true, columns: Number.NaN })).toBe(80)

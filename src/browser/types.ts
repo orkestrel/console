@@ -26,23 +26,23 @@ export interface ConsoleOutput {
 }
 
 /**
- * The mutable accumulator {@link import('./helpers.js').ansiToConsole} carries across a run while
+ * The immutable accumulator {@link import('./helpers.js').ansiToConsole} carries across a run while
  * translating SGR codes to CSS — a single `foreground` and `background` declaration (each channel
  * REPLACEABLE by a later color of the same channel) plus an ordered, de-duplicated list of attribute
  * declarations. An SGR reset empties all three; {@link import('./helpers.js').ansiToConsole} folds
  * it into the `;`-joined CSS string a run emits.
  *
  * @remarks
- * Mutable BY DESIGN — it is internal scan state the scanner updates in place per SGR sequence (the
- * one place this surface departs from the `readonly` default, AGENTS §11), never a returned value. A
- * channel holds the FULL CSS declaration (`'color:#cd0000'`, not a bare hex), or `''` when unset.
+ * Each SGR sequence produces a new frozen value; earlier run snapshots never drift when a later
+ * sequence changes a channel. A channel holds the FULL CSS declaration (`'color:#cd0000'`, not a
+ * bare hex), or `''` when unset.
  * - `foreground` — the current `color:<hex>` declaration, or `''` (unset / post-reset).
  * - `background` — the current `background:<hex>` declaration, or `''`.
  * - `attributes` — the active text-effect declarations in insertion order (`'font-weight:bold'`, …),
  *   each present at most once.
  */
 export interface StyleAccumulator {
-	foreground: string
-	background: string
-	attributes: string[]
+	readonly foreground: string
+	readonly background: string
+	readonly attributes: readonly string[]
 }

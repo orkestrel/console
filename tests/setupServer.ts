@@ -48,7 +48,7 @@ export function createStreamTarget(options?: { isTTY?: boolean; columns?: number
 			return true
 		},
 		isTTY: options?.isTTY ?? false,
-		columns: options?.columns,
+		...(options?.columns !== undefined ? { columns: options.columns } : {}),
 	}
 	return { target, writes }
 }

@@ -99,9 +99,11 @@ describe('createServerSink — through Logger / Reporter (integration, F2 newlin
 		const logger = createLogger({ name: 'app', sink })
 		logger.info('hello')
 		expect(out.writes.calls).toHaveLength(1)
-		const [[line]] = out.writes.calls
-		expect(line?.endsWith('\n')).toBe(true)
-		expect(line?.endsWith('\n\n')).toBe(false)
+		const call = out.writes.calls[0]
+		if (call === undefined) throw new Error('Expected the logger to write one line')
+		const [line] = call
+		expect(line.endsWith('\n')).toBe(true)
+		expect(line.endsWith('\n\n')).toBe(false)
 	})
 
 	it('Reporter.blank() writes a real blank line (a bare newline)', () => {
@@ -119,9 +121,15 @@ describe('createServerSink — through Logger / Reporter (integration, F2 newlin
 		logger.info('one')
 		logger.info('two')
 		expect(out.writes.calls).toHaveLength(2)
-		const [[first], [second]] = out.writes.calls
-		expect(first?.endsWith('\n')).toBe(true)
-		expect(second?.endsWith('\n')).toBe(true)
+		const firstCall = out.writes.calls[0]
+		const secondCall = out.writes.calls[1]
+		if (firstCall === undefined || secondCall === undefined) {
+			throw new Error('Expected the logger to write two lines')
+		}
+		const [first] = firstCall
+		const [second] = secondCall
+		expect(first.endsWith('\n')).toBe(true)
+		expect(second.endsWith('\n')).toBe(true)
 	})
 })
 

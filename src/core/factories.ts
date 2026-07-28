@@ -322,25 +322,24 @@ export function withCapture<T>(
 ): CaptureResult<T> | Promise<CaptureResult<T>> {
 	const capture = new Capture(options)
 	capture.start()
-	// Snapshot the buffer + tear down — shared by the sync and async exits so `console` is always
-	// restored (in a finally) and the capture never leaks.
-	const settle = (value: T): CaptureResult<T> => {
-		const messages = capture.messages()
-		capture.destroy()
-		return { value, messages }
-	}
 	try {
 		const result = fn()
 		if (result instanceof Promise) {
 			return result.then(
-				(value) => settle(value),
+				(value) => {
+					const messages = capture.messages()
+					capture.destroy()
+					return { value, messages }
+				},
 				(error: unknown) => {
 					capture.destroy()
 					throw error
 				},
 			)
 		}
-		return settle(result)
+		const messages = capture.messages()
+		capture.destroy()
+		return { value: result, messages }
 	} catch (error) {
 		// A SYNC throw — restore console before rethrowing (the async rejection path is handled above).
 		capture.destroy()
