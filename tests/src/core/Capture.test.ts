@@ -229,7 +229,7 @@ describe('Capture', () => {
 
 	describe('mirror — fan out to the snapshot-original console', () => {
 		it('forwards each call to the snapshot-original method with the ORIGINAL args (not the stringified text)', () => {
-			const seen: (readonly unknown[])[] = []
+			const seen: Array<readonly unknown[]> = []
 			console.warn = (...args: unknown[]) => seen.push(args)
 			const capture = new Capture({ levels: ['warn'], mirror: true })
 			capture.start()

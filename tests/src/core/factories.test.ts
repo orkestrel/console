@@ -87,7 +87,7 @@ describe('createConsoleSink', () => {
 	})
 
 	it('routes by level: error→console.error, warn→console.warn, else→console.log', () => {
-		const seen: (readonly [stream: string, text: string])[] = []
+		const seen: Array<readonly [stream: string, text: string]> = []
 		console.log = (text: string) => seen.push(['log', text])
 		console.warn = (text: string) => seen.push(['warn', text])
 		console.error = (text: string) => seen.push(['error', text])
@@ -151,7 +151,7 @@ describe('createLogger', () => {
 
 describe('createLoggerManager', () => {
 	it('returns an event-free registry that fans out to its loggers', () => {
-		const lines: (readonly [text: string, level: LogLevel | undefined])[] = []
+		const lines: Array<readonly [text: string, level: LogLevel | undefined]> = []
 		const sink = {
 			write(text: string, level?: LogLevel) {
 				lines.push([text, level])

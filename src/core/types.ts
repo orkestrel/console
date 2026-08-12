@@ -509,7 +509,7 @@ export interface ColumnSpec {
  */
 export interface TableOptions {
 	readonly columns: readonly ColumnSpec[]
-	readonly rows: readonly (readonly string[])[]
+	readonly rows: ReadonlyArray<readonly string[]>
 	readonly border?: BorderStyle
 	readonly styler?: StylerInterface
 }
@@ -779,7 +779,7 @@ export interface CaptureInterface {
 }
 
 /**
- * The structured outcome of {@link import('./factories.js').withCapture} — the wrapped function's
+ * The structured outcome of {@link import('./helpers.js').withCapture} — the wrapped function's
  * own return `value` plus the {@link CapturedMessage}s intercepted while it ran.
  *
  * @remarks

@@ -89,7 +89,7 @@ export const EMPTY_STYLE: Style = Object.freeze({ attributes: Object.freeze([]) 
  * chainable accessors. The source of truth for the color axis; the styler drives its
  * accessors from this array so the literals live in one place.
  */
-export const COLORS: readonly Exclude<Color, 'default'>[] = Object.freeze([
+export const COLORS: ReadonlyArray<Exclude<Color, 'default'>> = Object.freeze([
 	'black',
 	'red',
 	'green',

@@ -141,7 +141,7 @@ export function createErrorRecorder(): TestRecorderInterface<
  */
 export interface RecordingSinkInterface extends SinkInterface {
 	/** Each `write` call's `(text, level)`, in order — the sink's recorded output. */
-	readonly calls: readonly (readonly [text: string, level: LogLevel | undefined])[]
+	readonly calls: ReadonlyArray<readonly [text: string, level: LogLevel | undefined]>
 }
 
 /**

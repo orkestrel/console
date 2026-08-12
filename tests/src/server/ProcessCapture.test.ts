@@ -19,13 +19,13 @@ type WriteCallback = (error?: Error | null) => void
 interface OverloadProbeInterface {
 	readonly write: NodeJS.WriteStream['write']
 	readonly texts: readonly string[]
-	readonly encodings: readonly (string | undefined)[]
+	readonly encodings: ReadonlyArray<string | undefined>
 	readonly callbacks: number
 }
 
 function createOverloadProbe(backpressure = true): OverloadProbeInterface {
 	const texts: string[] = []
-	const encodings: (string | undefined)[] = []
+	const encodings: Array<string | undefined> = []
 	let callbacks = 0
 	const write = (
 		chunk: string | Uint8Array,

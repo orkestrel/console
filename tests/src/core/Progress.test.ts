@@ -196,7 +196,7 @@ describe('Progress', () => {
 
 	describe('the update / complete events — the observation seam (§13)', () => {
 		it('initial on-hooks subscribe at construction', () => {
-			const seen: { current: number; total: number }[] = []
+			const seen: Array<{ current: number; total: number }> = []
 			const progress = new Progress({
 				total: 10,
 				sink: createRecordingSink(),
