@@ -1,6 +1,6 @@
 {
 	"name": "@orkestrel/console",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"description": "A typed console/terminal output toolkit for the @orkestrel line — logging, spinners, progress, and capture. Part of the @orkestrel line.",
 	"keywords": [
 		"ansi",

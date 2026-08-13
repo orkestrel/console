@@ -41,7 +41,6 @@ The style engine — text style as DATA, rendered by a swappable renderer (ANSI 
 | `StylerInterface`    | interface | The fluent styling surface — a render FUNCTION carrying a chainable `Color` / `Attribute` accessor per token, immutable copy-on-write.      |
 | `ANSIRenderer`       | class     | The cross-environment default `RendererInterface` — renders a `Style` as SGR escape codes (stateless, event-free).                          |
 | `createANSIRenderer` | function  | Create the default ANSI `RendererInterface`.                                                                                                |
-| `Styler`             | class     | The styling engine behind `StylerInterface` — builds a `Style` and renders it through the injected renderer; immutable, event-free.         |
 | `createStyler`       | function  | Create the fluent `StylerInterface` (ANSI by default; pass a `renderer` to retarget, `enabled: false` to disable color).                    |
 | `strip`              | function  | Remove every ANSI escape sequence from a string, returning the plain visible text (total, re-entrant).                                      |
 | `stripControls`      | function  | Remove every C0 control byte (except `\t` / `\n` / `\r`) plus DEL from a string — a SEPARATE pass from `strip`, so `width` stays untouched. |

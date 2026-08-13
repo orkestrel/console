@@ -1,5 +1,7 @@
 import type { RendererInterface, Style } from '@src/core'
-import { ANSIRenderer, createStyler, EMPTY_STYLE, Styler, strip } from '@src/core'
+import { ANSIRenderer, createStyler, EMPTY_STYLE, strip } from '@src/core'
+// `Styler` is internal: `createStyler` returns its `.surface`, so the class is not barrelled.
+import { Styler } from '../../../src/core/Styler.js'
 import { describe, expect, it } from 'vitest'
 
 // Styler — the fluent, immutable, callable styling surface. Each accessor returns a NEW
