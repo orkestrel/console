@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createLogger, createReporter, strip } from '@src/core'
 import { createProcessCapture, createServerSink } from '@src/server'
-import { createRecorder } from '../../setup.js'
+import { createRecorder } from '@orkestrel/test'
 import { createStreamTarget, createWriteProbe } from '../../setupServer.js'
 
 // A styled line with a real SGR run, for the TTY-verbatim vs non-TTY-strip assertions.

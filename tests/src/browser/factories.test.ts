@@ -2,7 +2,7 @@ import type { ConsoleCaptureInterface } from '../../setupBrowser.js'
 import { COLOR_HEX, createBrowserSink } from '@src/browser'
 import { createCapture, createLogger, createStyler } from '@src/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createRecorder } from '../../setup.js'
+import { createRecorder } from '@orkestrel/test'
 import { captureConsole } from '../../setupBrowser.js'
 
 // The browser `%c` console sink (`src/browser/console/factories.ts`), exercised against the REAL

@@ -4,53 +4,8 @@
 
 import type { LogLevel, SinkInterface } from '@src/core'
 import type { EmitterInterface, EventMap } from '@orkestrel/emitter'
-
-/**
- * Resolve after `ms` milliseconds — the single shared delay helper (AGENTS §16.1),
- * for letting a real short timer (a {@link createTimeout} expiry) elapse instead of
- * inlining a `setTimeout` promise per test.
- *
- * @param ms - Milliseconds to wait; defaults to `0` (a macrotask turn)
- * @returns A promise that resolves once the delay elapses
- */
-export function waitForDelay(ms = 0): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-/**
- * Run `thunk` and return the value it threw, or `undefined` if it returned normally — the
- * one shared form of the `try { …; return undefined } catch (error) { return error }` IIFE
- * the error-path tests repeat (AGENTS §16.1). Lets a caller assert on the captured fault
- * unconditionally, never inside a conditional `expect` — e.g. `errorCode(captureError(() =>
- * …))` (where `errorCode` lives in the env-specific setup). For a synchronous throw site; an
- * async rejection is asserted with `await expect(…).rejects` instead.
- *
- * @param thunk - The (synchronous) operation to run and capture the throw of
- * @returns The thrown value, or `undefined` when `thunk` did not throw
- */
-export function captureError(thunk: () => unknown): unknown {
-	try {
-		thunk()
-		return undefined
-	} catch (error) {
-		return error
-	}
-}
-
-/**
- * Round-trip a value through `JSON.parse(JSON.stringify(...))`, returning the structurally
- * identical clone — the one shared form of the "driver-swap parity" check the store / snapshot
- * tests repeat (AGENTS §16.1). Type-preserving by construction — the clone has the same shape
- * (`T`), so the result drops straight into a `toEqual` against the source. Environment-agnostic
- * (`JSON` is global in node and the browser alike).
- *
- * @typeParam T - The value's type, preserved across the clone
- * @param value - The (JSON-serializable) value to round-trip
- * @returns A structurally identical deep clone of `value`
- */
-export function roundTripJSON<T>(value: T): T {
-	return JSON.parse(JSON.stringify(value))
-}
+import type { RecorderInterface } from '@orkestrel/test'
+import { createRecorder } from '@orkestrel/test'
 
 /** A manually-settled promise — the `resolve` / `reject` lifted out of its executor. */
 export interface TestGateInterface<T> {
@@ -78,46 +33,9 @@ export function createGate<T = void>(): TestGateInterface<T> {
 	return { promise, resolve, reject }
 }
 
-// ── Recorder — a real callback with recorded calls, not a mock ─────────────────
-// Use instead of a test-framework spy when the test only needs to count calls or
-// inspect arguments (AGENTS §16.1).
-
-/** A real call-recording callback over an argument tuple (AGENTS §16.1). */
-export interface TestRecorderInterface<TArgs extends readonly unknown[]> {
-	readonly calls: readonly TArgs[]
-	readonly count: number
-	readonly handler: (...args: TArgs) => void
-	clear(): void
-}
-
-/**
- * Create a {@link TestRecorderInterface} — a real callback that records each
- * invocation's arguments, for asserting what fired and with what (AGENTS §16.1).
- *
- * @typeParam TArgs - The argument tuple the recorded handler receives
- * @returns A recorder whose `handler` records into `calls`
- */
-export function createRecorder<TArgs extends readonly unknown[]>(): TestRecorderInterface<TArgs> {
-	const calls: TArgs[] = []
-	return {
-		get calls() {
-			return calls
-		},
-		get count() {
-			return calls.length
-		},
-		handler(...args: TArgs) {
-			calls.push(args)
-		},
-		clear() {
-			calls.length = 0
-		},
-	}
-}
-
 /**
  * Create a recorder for an {@link import('@src/core').EmitterErrorHandler} — the emitter's
- * own listener-error channel (AGENTS §13): a `TestRecorderInterface<[error, event]>` whose
+ * own listener-error channel (AGENTS §13): a `RecorderInterface<[error, event]>` whose
  * `handler` is wired as the `error` option, so an emit-safety test asserts a buggy listener's
  * throw was routed here (with the offending event name) instead of corrupting the entity.
  * Argument order is `(error, event)`, matching `EmitterErrorHandler`. A thin alias over
@@ -125,9 +43,7 @@ export function createRecorder<TArgs extends readonly unknown[]>(): TestRecorder
  *
  * @returns A recorder of `[error: unknown, event: string]` calls
  */
-export function createErrorRecorder(): TestRecorderInterface<
-	readonly [error: unknown, event: string]
-> {
+export function createErrorRecorder(): RecorderInterface<readonly [error: unknown, event: string]> {
 	return createRecorder<readonly [error: unknown, event: string]>()
 }
 
@@ -165,7 +81,7 @@ export function createRecordingSink(): RecordingSinkInterface {
 
 /** A {@link createRecorder} per listed event of an `EmitterInterface`, keyed by event name. */
 export type EmitterRecorders<TMap extends EventMap, TName extends keyof TMap> = {
-	readonly [K in TName]: TestRecorderInterface<TMap[K]>
+	readonly [K in TName]: RecorderInterface<TMap[K]>
 }
 
 /**

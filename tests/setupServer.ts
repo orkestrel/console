@@ -3,12 +3,12 @@
 // here, never in `setup.ts`, which browser projects also load. Anchor every path to
 // `WORKSPACE_ROOT` so the runner's cwd never matters (AGENTS §16.1).
 
-import type { TestRecorderInterface } from './setup.js'
 import type { StreamTargetInterface } from '@src/server'
+import type { RecorderInterface } from '@orkestrel/test'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createRecorder } from './setup.js'
+import { createRecorder } from '@orkestrel/test'
 
 // Absolute path to the repository root, resolved from this file's URL.
 export const WORKSPACE_ROOT = fileURLToPath(new URL('../', import.meta.url))
@@ -39,7 +39,7 @@ export function fileExists(relativePath: string): boolean {
  */
 export function createStreamTarget(options?: { isTTY?: boolean; columns?: number }): {
 	readonly target: StreamTargetInterface
-	readonly writes: TestRecorderInterface<readonly [text: string]>
+	readonly writes: RecorderInterface<readonly [text: string]>
 } {
 	const writes = createRecorder<readonly [text: string]>()
 	const target: StreamTargetInterface = {

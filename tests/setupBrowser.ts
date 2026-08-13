@@ -1,5 +1,5 @@
-import type { TestRecorderInterface } from './setup.js'
-import { createRecorder } from './setup.js'
+import type { RecorderInterface } from '@orkestrel/test'
+import { createRecorder } from '@orkestrel/test'
 
 // ── Console capture (swap + restore the three console methods) ────────────────
 
@@ -7,11 +7,11 @@ import { createRecorder } from './setup.js'
  *  swap (AGENTS §16.1), not a framework spy. */
 export interface ConsoleCaptureInterface {
 	/** `console.log`'s recorded `(format, ...styles)` calls. */
-	readonly log: TestRecorderInterface<readonly [format: string, ...styles: string[]]>
+	readonly log: RecorderInterface<readonly [format: string, ...styles: string[]]>
 	/** `console.warn`'s recorded calls. */
-	readonly warn: TestRecorderInterface<readonly [format: string, ...styles: string[]]>
+	readonly warn: RecorderInterface<readonly [format: string, ...styles: string[]]>
 	/** `console.error`'s recorded calls. */
-	readonly error: TestRecorderInterface<readonly [format: string, ...styles: string[]]>
+	readonly error: RecorderInterface<readonly [format: string, ...styles: string[]]>
 	/** Restore the original `console.log` / `warn` / `error`. */
 	restore(): void
 }
