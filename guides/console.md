@@ -2,7 +2,7 @@
 
 > One unified output-control system for a terminal, a browser, and a server. It composes five concerns over one shared substrate: a **style engine** (text style is DATA, rendered by a swappable renderer), **structured logging** (a leveled `Logger` whose record + `entry` event ARE the transport seam), **narrative reporting** (a `Reporter` of sections / steps / timings / tables / trees / boxes), **console & stream capture** (take control of `console.*` / `process.*` on the read side), and **live animations** (a self-driving `Spinner`, an update-driven `Progress`). The unifying ideas: **style as data** (a `Style` is a frozen record, not a baked escape string), the **`Sink` seam** (the one place text leaves the system — swap it to retarget), and the **`entry` / `capture` event** as the transport seam (records flow to file / JSON / remote transports off an emitter, never a second code path).
 >
-> The design is **one engine, environment sinks**. The cross-environment core owns the contract and all the universal logic; each environment provides only the platform output backend at the `Sink` seam: ANSI / SGR escape codes are the default (the `ANSIRenderer` + the `createConsoleSink`), the browser translates ANSI to `console.log('%c…', css)` at the sink (`createBrowserSink`), and the server writes to the real `process` streams — ANSI verbatim on a TTY, [`strip`](#styling)ped to clean text down a pipe (`createServerSink`). The animations push the line-OVERWRITE decision down to the sink too: a `Spinner` / `Progress` writes a leading `\r` + its frame, and a TTY sink overwrites the line natively while a browser / plain sink degrades to a fresh line — the same code, a live redraw or a clean fallback per environment. Source: [`src/core`](../src/core) (surfaced through `@src/core`), with the browser sink in [`src/browser`](../src/browser) (`@src/browser`) and the server sink + process capture in [`src/server`](../src/server) (`@src/server`).
+> The design is **one engine, environment sinks**. The cross-environment core owns the contract and all the universal logic; each environment provides only the platform output backend at the `Sink` seam: ANSI / SGR escape codes are the default (the `ANSIRenderer` + the `createConsoleSink`), the browser translates ANSI to `console.log('%c…', css)` at the sink (`createBrowserSink`), and the server writes to the real `process` streams — ANSI verbatim on a TTY, [`strip`](#styling)ped to clean text down a pipe (`createServerSink`). The animations push the line-OVERWRITE decision down to the sink too: a `Spinner` / `Progress` writes a leading `\r` + its frame to EVERY sink, and each sink decides what that means — the server TTY sink writes it verbatim and the terminal redraws in place, core's console sink also writes it verbatim and `console.log` terminates the call so the frame lands on a fresh line, and the browser sink strips the `\r` for the same fresh-line degrade. The same code, a live redraw or a clean fallback per environment. Source: [`src/core`](../src/core) (surfaced through `@src/core`), with the browser sink in [`src/browser`](../src/browser) (`@src/browser`) and the server sink + process capture in [`src/server`](../src/server) (`@src/server`).
 
 ## Surface
 
@@ -95,7 +95,7 @@ Narrative reporting — pure width-aware LAYOUT renderers + a lean `Reporter` fr
 | `renderSeparator`    | function  | Render a horizontal rule, optionally carrying a centered title — pure `SeparatorOptions → string`, width-aware.                     |
 | `renderBox`          | function  | Render content framed in box-drawing characters, optionally captioned — pure `BoxOptions → string`, width-aware.                    |
 | `renderTable`        | function  | Render a bordered grid of columns + rows with per-column alignment and width-aware sizing — pure `TableOptions → string`.           |
-| `renderTree`         | function  | Render a nested `TreeNode` tree with box-drawing connectors — pure `TreeOptions → string`.                                          |
+| `renderTree`         | function  | Render a nested `TreeNode` tree, its connectors derived from the chosen `border` set — pure `TreeOptions → string`.                 |
 | `renderTreeChildren` | function  | Render the connector-prefixed lines for a `TreeNode` list — the exported recursive core behind `renderTree`.                        |
 | `renderBar`          | function  | Render a determinate progress-bar string (`█████░░░░░ 50% (5/10)`) — pure `ProgressBarOptions → string`, width-aware.               |
 | `align`              | function  | Pad (or truncate) text to exactly N VISIBLE columns by an `Alignment` — the cell-fitting primitive the renderers align with.        |
@@ -177,7 +177,7 @@ The SGR code data the ANSI renderer maps through, and the styler's color / attri
 
 ### Logging & reporting constants
 
-The level order + label colors, the box-drawing junction sets, status icons / colors, tree connectors, and default widths / glyphs (`src/core`). All `Object.freeze`d data; the box-drawing + braille glyphs are fixed Unicode.
+The level order + label colors, the box-drawing junction sets, status icons / colors, and default widths / glyphs (`src/core`). All `Object.freeze`d data; the box-drawing + braille glyphs are fixed Unicode. There is no separate tree-connector table: a tree derives its branch / corner / guide runs from the same `BORDER_CHARS` set a box or a table draws with, so all three answer to one `border`.
 
 | API                   | Kind  | Summary                                                                                                                |
 | --------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -244,7 +244,7 @@ The SGR → CSS translation data the browser sink maps ANSI runs through (`src/b
 
 ### Server sink + process capture
 
-The server output backend — a TTY-aware `Sink` over the real `process` streams + a RAW process-stream capture ([`src/server`](../src/server), surfaced through `@src/server`). The core owns the `SinkInterface` / `LogLevel` contracts + the `console` `Capture`; this module owns the server-only stream backend.
+The server output backend — a TTY-aware `Sink` over the real `process` streams + a RAW process-stream capture ([`src/server`](../src/server), surfaced through `@src/server`). The core owns the `SinkInterface` / `LogLevel` contracts + the `console` `Capture`; this module owns the server-only stream backend. Color DETECTION lives here and only here: `inferStyled` reads the environment, `createServerSink` fixes each target's `styled` fact at construction, and nothing in core or the browser probes for color (contract 10 below).
 
 | API                       | Kind      | Summary                                                                                                                                            |
 | ------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -301,9 +301,9 @@ The public methods of each behavioral interface — one table per type, keyed by
 
 #### `SinkInterface`
 
-| Method  | Returns | Behavior                                                                                                          |
-| ------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
-| `write` | `void`  | Write one already-formatted chunk; the optional `level` lets a stream-aware sink ROUTE (a plain sink ignores it). |
+| Method  | Returns | Behavior                                                                                                                                                                                             |
+| ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `write` | `void`  | Write one already-formatted chunk — one line without its terminator, or a `\r`-leading redraw frame carrying its own; the optional `level` lets a stream-aware sink ROUTE (a plain sink ignores it). |
 
 #### `LoggerInterface`
 
@@ -394,15 +394,22 @@ These invariants hold across `src/core` ↔ `src/browser` ↔ `src/server` ↔ `
 2. **DOC ↔ SOURCE method bijection.** Every behavioral interface's `## Methods` table lists exactly its public methods (call-signature members) — exhaustive, both directions — and each implementing class (`ANSIRenderer` / `Logger` / `LoggerManager` / `Reporter` / `Capture` / `Spinner` / `Progress` / `ProcessCapture`) implements every method of its interface and adds none beyond it (AGENTS §22). A renamed / added / removed method breaks the gate until the table is reconciled.
 3. **One coherent `LogLevel`; styling orthogonal to level.** A `LogLevel` is one ascending-severity scale (`debug` < `info` < `warn` < `error`, ordered by `LEVEL_SEVERITY`); a logger gates by THRESHOLD via `meetsLevel`. A level's color (`LEVEL_COLORS`) is a STYLING choice, never a separate level — there are no `success` / `ready` pseudo-levels (those that look like outcomes are the reporter's `StatusLevel`, a narrative axis with no ordering or gating).
 4. **Style is DATA + a swappable renderer.** A `Style` is a frozen `{ foreground?, background?, attributes }` record, NOT a baked escape string; a `RendererInterface` turns it into output for one target. The cross-environment default is the `ANSIRenderer` (SGR codes); a browser `%c` renderer implements the SAME contract over the SAME `Style`, so retargeting swaps the renderer and never the style model. The `Styler` is immutable copy-on-write (a later color of a channel wins; a repeated attribute is idempotent), so a base styler is freely reusable.
-5. **The `Sink` seam + the no-capture-loop.** `SinkInterface` is the ONE place text leaves the system — redirect output by supplying a different sink, with no change to the logger / reporter / animation. The default `createConsoleSink` (and `createBrowserSink` / `createServerSink`) SNAPSHOTS the underlying `console` / `process` write at creation and writes through that snapshot, so a `Capture` / `ProcessCapture` installed AFTERWARD can never feed the system's own output back into itself — create sinks (and loggers) BEFORE installing a capture.
-6. **The record + `entry` / `capture` event is the transport seam.** A `Logger` ALWAYS emits an accepted record on `entry` (even when `silent` — silence suppresses only the SINK WRITE), and a `Capture` / `ProcessCapture` emits every intercepted call on `capture`; file / JSON / remote transports ride that emitter rather than a second code path. Listener isolation is the emitter's (§13): a listener throw routes to the emitter's OWN `error` handler, never onto the domain `EventMap`, so a buggy transport / capture listener can never perturb logging — nor (for the captures) escape into the host's `console.*` / `process.*.write` call.
-7. **Bounded retention.** Every buffer is capped, never unbounded: a logger's `entries()` tail at `DEFAULT_LOG_LIMIT`, a `Capture` / `ProcessCapture`'s total buffer AND each per-level / per-stream bucket at `DEFAULT_CAPTURE_LIMIT` — oldest dropped first. A long-running logger or capture can never grow without bound.
-8. **The environment split — one engine, environment sinks.** The cross-environment core owns the contract (`Style` / `SinkInterface` / `LogLevel`) and all the universal logic; each environment supplies only the platform output backend at the `Sink` seam. ANSI in core (`ANSIRenderer` + `createConsoleSink`); the browser translates ANSI to `console.log('%c…', css)` AT THE SINK (`createBrowserSink` over the pure, total, `%`-safe `ansiToConsole`); the server writes to the real `process` streams — ANSI verbatim on a TTY, `strip`ped to clean text down a pipe (`createServerSink`). The browser / server modules import the core contracts (never redeclare them) and add only their backend.
-9. **Animations: redraw deferred to the sink + timer leak-freedom.** A `Spinner` / `Progress` builds a frame line and writes a leading `\r` + that line to its sink, then emits it — the actual line-OVERWRITE is the SINK's job: a TTY `ServerSink` overwrites on the `\r` for a smooth animation, a browser / plain sink drops the leading `\r` and degrades to a fresh, non-overwriting line (the locked decision). A `Spinner`'s internal timer is ALWAYS cleared on `success` / `failure` / `stop` / `destroy`, so it never leaks; a `Progress` has no self-timer (the caller drives `update`). Both are universal — `setInterval` + the one styler + the one sink, no `node:*`, no `process.stdout`.
-10. **Capture never-throws, non-reentrant, pristine restore.** A `Capture` / `ProcessCapture` builds its record through a TOTAL stringify / decode (`formatArgs` / `decodeChunk`), so intercepting `console.*` / `process.*.write` can never throw and crash the host. Each is PROCESS-GLOBAL + NON-REENTRANT — it patches the one global, so at most one may be active at a time; `start()` is idempotent (never double-patches) and `stop()` restores the EXACT snapshot reference, leaving the global pristine. A `ProcessCapture` additionally returns the snapshot-original's backpressure boolean so a caller's `write` handling keeps working.
-11. **`width()`-aware rendering.** Every layout (`renderSeparator` / `renderBox` / `renderTable` / `renderTree` / `renderBar`, via `align` / `repeatTo`) measures on the VISIBLE `width` (ANSI stripped, counted in code points), so an already-styled cell or title keeps its columns — its escape codes never break the layout.
+5. **A theme is the application's vocabulary; an option is this instance's presentation.** A `Theme` binds the semantic roles the WHOLE application shares to `Style` values — a label style per `LogLevel` under `levels`, an icon + style per `StatusLevel` under `statuses`, one `accent` (spinner glyph, bar fill, step prefix) and one `chrome` (separators, box / table / tree connectors, a log line's timestamp / name / data surround). Hand ONE theme to the logger, the reporter, the spinner, and the progress bar and every surface speaks it; `createTheme` merges per role — and per entry within `levels` / `statuses` — over `DEFAULT_THEME`, so an override restyles one role and leaves the rest. A per-entity option carries what only THAT instance draws with: a spinner's `frames`, a progress bar's `fill` / `empty`, a box's / table's / tree's `border`. The test is which axis the value keys on: a domain axis (level, status, accent, chrome) is a theme role; a glyph one instance happens to use is an option, and it never enters the theme.
+6. **The `Sink` seam + the no-capture-loop.** `SinkInterface` is the ONE place text leaves the system — redirect output by supplying a different sink, with no change to the logger / reporter / animation. The default `createConsoleSink` (and `createBrowserSink` / `createServerSink`) SNAPSHOTS the underlying `console` / `process` write at creation and writes through that snapshot, so a `Capture` / `ProcessCapture` installed AFTERWARD can never feed the system's own output back into itself — create sinks (and loggers) BEFORE installing a capture.
+7. **`format` owns the human line; the record + `entry` / `capture` event owns the machine record.** A `Logger` ALWAYS emits an accepted record on `entry`, and a `Capture` / `ProcessCapture` emits every intercepted call on `capture`; a file / JSON / remote transport rides that emitter rather than a second code path, and it rides `entry` rather than `format` — the record is already structured there, so no transport parses a line back apart. `format` (a `LogFormatFunction`, defaulting to `formatRecord`) decides only what the human line looks like, and the order is fixed: gate, freeze the record, retain it, emit `entry`, then — unless `silent` — `format` and write. `silent` suppresses the WRITE and never invokes `format`, so a silent logger still feeds every transport and pays nothing for a line nobody reads. A formatter throw propagates to the `logger.info` caller and prevents that one write; the record and its event have already left. Listener isolation is the emitter's (§13): a listener throw routes to the emitter's OWN `error` handler, never onto the domain `EventMap`, so a buggy transport / capture listener can never perturb logging — nor (for the captures) escape into the host's `console.*` / `process.*.write` call.
+8. **Bounded retention.** Every buffer is capped, never unbounded: a logger's `entries()` tail at `DEFAULT_LOG_LIMIT`, a `Capture` / `ProcessCapture`'s total buffer AND each per-level / per-stream bucket at `DEFAULT_CAPTURE_LIMIT` — oldest dropped first. A long-running logger or capture can never grow without bound.
+9. **The environment split — one engine, environment sinks.** The cross-environment core owns the contract (`Style` / `SinkInterface` / `LogLevel`) and all the universal logic; each environment supplies only the platform output backend at the `Sink` seam. ANSI in core (`ANSIRenderer` + `createConsoleSink`); the browser translates ANSI to `console.log('%c…', css)` AT THE SINK (`createBrowserSink` over the pure, total, `%`-safe `ansiToConsole`); the server writes to the real `process` streams — ANSI verbatim on a TTY, `strip`ped to clean text down a pipe (`createServerSink`). The browser / server modules import the core contracts (never redeclare them) and add only their backend.
+10. **Color detection is the server sink's alone.** `createServerSink` decides each target's styling ONCE, at construction: `options.color` when supplied, otherwise `inferStyled(target, process.env)` — a PRESENT `FORCE_COLOR` decides first and only the exact value `'0'` disables it, then a present, non-empty `NO_COLOR` disables, and otherwise the target's own `isTTY === true` decides. The sink stores that fact per target (`out` and `err` can differ), keys its ANSI stripping off it, and exposes the `out` fact as `styled`. Nothing else reads the environment: core's `createStyler` takes `enabled` from its caller and defaults to `true` (core is host-independent and has no environment to read), and the browser sink always styles, since a DevTools console has no pipe to degrade to. That is why the server pairing is `createStyler({ enabled: sink.styled })` — one inferred fact drives both the ANSI a styler generates and the stripping the sink applies, so the two can never disagree.
+11. **Animations: every sink gets the frame, the sink decides the redraw + timer leak-freedom.** A `Spinner` / `Progress` builds a frame line and writes a leading `\r` + that line to its sink, then emits it — every sink receives the SAME frame and the line-OVERWRITE is the SINK's decision. A `ServerSink` writes the frame straight to the stream and appends no newline (a plain target loses the frame's ANSI, never its `\r`), so a terminal returns to column 0 and redraws in place. Core's `createConsoleSink` also writes it verbatim, and because `console.log` terminates each call the frame lands as a fresh line rather than an overwrite — the plain-environment degrade, with no `\r`-specific branch in core. `createBrowserSink` strips the leading `\r` (a DevTools console cannot overwrite a line, and the stray control character would be rendered) and writes a fresh line — the locked browser degrade. A `Spinner`'s internal timer is ALWAYS cleared on `success` / `failure` / `stop` / `destroy`, so it never leaks; a `Progress` has no self-timer (the caller drives `update`). Both are universal — `setInterval` + the one styler + the one sink, no `node:*`, no `process.stdout`.
+12. **Capture never-throws, non-reentrant, pristine restore.** A `Capture` / `ProcessCapture` builds its record through a TOTAL stringify / decode (`formatArgs` / `decodeChunk`), so intercepting `console.*` / `process.*.write` can never throw and crash the host. Each is PROCESS-GLOBAL + NON-REENTRANT — it patches the one global, so at most one may be active at a time; `start()` is idempotent (never double-patches) and `stop()` restores the EXACT snapshot reference, leaving the global pristine. A `ProcessCapture` additionally returns the snapshot-original's backpressure boolean so a caller's `write` handling keeps working.
+13. **`width()`-aware rendering.** Every layout (`renderSeparator` / `renderBox` / `renderTable` / `renderTree` / `renderBar`, via `align` / `repeatTo`) measures on the VISIBLE `width` (ANSI stripped, counted in code points), so an already-styled cell or title keeps its columns — its escape codes never break the layout.
 
-What ships is the **cross-environment core** (the style engine, structured logging, narrative reporting, the `console` `Capture`, and the live animations) plus the two environment backends (the browser `%c` sink, the server TTY sink + raw-stream `ProcessCapture`). Deliberately **not** part of this surface yet, by the same "build only what earns its keep" discipline: a file / JSON / remote sink (those ride the shipped `entry` transport seam — a consumer writes the sink), east-asian (wide-glyph) width handling (`width` counts code points, documented), and a multi-capture coordinator (capture is process-global by design).
+What ships is the **cross-environment core** (the style engine, structured logging, narrative reporting, the `console` `Capture`, and the live animations) plus the two environment backends (the browser `%c` sink, the server TTY sink + raw-stream `ProcessCapture`). Deliberately **not** part of this surface, by the same "build only what earns its keep" discipline:
+
+- **A file / JSON / remote sink.** Those ride the shipped `entry` transport seam — a consumer writes the sink.
+- **East-asian (wide-glyph) width handling.** `width` counts code points, so a wide glyph (CJK, most emoji) counts as one column while a terminal gives it two — a layout holding one renders wider than it measured, and its border stops lining up.
+- **256-color and 24-bit color depth.** `Color` stays the closed 16-name union, and that is a decision rather than an omission. That union is what generates the fluent styler — one chainable accessor per name, `styler.brightCyan.bold('…')` — and an open numeric or hex axis has no accessor set to generate. A consumer who wants different ink behind those names already has it: `BrowserPalette` maps each name to exact CSS. A consumer who wants true color implements one `RendererInterface`, which receives the `Style` DATA and emits whatever its target understands — the 24-bit seam is already open, and it costs the style model every environment shares nothing.
+- **A multi-capture coordinator.** Capture is process-global by design.
 
 ## Patterns
 
@@ -421,6 +428,21 @@ logger.entries() // the bounded tail — [the info record, the warn record]
 logger.emitter.on('entry', (record) => archive(record)) // fires even when the logger is `silent`
 logger.clear() // drop retained entries (listeners are untouched)
 logger.destroy() // clear() then destroy the emitter
+```
+
+### The line a logger writes
+
+```ts
+import { createLogger } from '@orkestrel/console'
+
+// `format` owns the human line and nothing else — the record is already structured on `entry`.
+const logger = createLogger({ format: (record) => `${record.level}: ${record.message}` })
+logger.info('ready') // info: ready
+
+// `silent` suppresses the WRITE only: the record is still emitted, and `format` is never invoked.
+const quiet = createLogger({ silent: true, format: () => 'never built' })
+quiet.emitter.on('entry', (record) => archive(record)) // still fires
+quiet.info('archived') // nothing written, no formatter call
 ```
 
 ### A logger registry
@@ -451,11 +473,42 @@ reporter.table({
 		['web', 'ok'],
 	],
 }) // a bordered, width-aware grid
-reporter.tree({ root: { label: 'root', children: [{ label: 'a' }, { label: 'b' }] } }) // nested box-connectors
+reporter.tree({ root: { label: 'root', children: [{ label: 'a' }, { label: 'b' }] } }) // root / ├─ a / └─ b
+reporter.tree({
+	root: { label: 'root', children: [{ label: 'a' }, { label: 'b' }] },
+	border: 'double',
+}) // the same tree, root / ╠═ a / ╚═ b
 reporter.box({ content: 'hello', title: 'Note' }) // content framed in box-drawing characters
 reporter.line('raw text') // one raw line, no prefix, no icon
 reporter.blank() // one blank line (reporter.blank(3) — three)
 reporter.status('success', 'all green') // ✔ all green
+```
+
+### One theme, every entity
+
+```ts
+import {
+	createLogger,
+	createProgress,
+	createReporter,
+	createSpinner,
+	createStyler,
+	createTheme,
+} from '@orkestrel/console'
+
+// A theme is the app-wide vocabulary. Override a role; the rest keep their defaults.
+const theme = createTheme({
+	statuses: { success: { icon: '+', style: createStyler().brightMagenta.style } },
+	accent: createStyler().magenta.style, // the spinner glyph, the bar fill, the step prefix
+})
+
+createLogger({ name: 'http', theme }).warn('slow') // …Z WARN [http] slow — WARN still in theme.levels.warn
+createReporter({ theme }).status('success', 'all green') // + all green — glyph and line both bright magenta
+createSpinner({ message: 'deploying', theme }).tick() // ⠋ deploying — the glyph in the accent
+
+// A per-entity option is THIS instance's presentation, never a shared role.
+createSpinner({ message: 'deploying', frames: ['-', '\\', '|', '/'] }).tick() // - deploying
+createProgress({ total: 10, width: 10, fill: '=', empty: '.' }).update(4) // ====...... 40% (4/10)
 ```
 
 ### Scoping third-party `console.*` with `withCapture`
@@ -534,11 +587,15 @@ logger.error('boom') // → console.error('%c…', 'color:#cd0000;…') in DevTo
 import { createLogger, createReporter, createStyler } from '@orkestrel/console'
 import { createProcessCapture, createServerSink } from '@orkestrel/console/server'
 
-const sink = createServerSink() // color inferred per target at construction
+const sink = createServerSink() // FORCE_COLOR, then NO_COLOR, then isTTY — per target, at construction
 const styler = createStyler({ enabled: sink.styled }) // keep generated ANSI paired with out stripping
 const logger = createLogger({ name: 'server', sink, styler })
 logger.error('boom') // → process.stderr (the error stream)
 const reporter = createReporter({ sink, width: sink.columns }) // size the layout to the live terminal
+
+// `color` overrides the inference outright — for a CI log that renders ANSI off a TTY, say.
+const forced = createServerSink({ color: true })
+forced.styled // true, whatever the environment and the streams say
 
 // Own ALL output — a direct process.stdout.write, library output, child-process pipes (not just console.*):
 const capture = createProcessCapture({ levels: ['stderr'], mirror: true })
@@ -609,18 +666,18 @@ isBufferEncoding('nope') // false
 - [`tests/guides.test.ts`](../tests/guides.test.ts) — the `## Surface` ↔ source bijection across `src/core` and the `src/browser` + `src/server` backends (value + type exports), plus each interface ↔ implementing-class method bijection.
 - [`tests/src/core/ANSIRenderer.test.ts`](../tests/src/core/ANSIRenderer.test.ts) — the ANSI renderer: foreground / background / attribute SGR codes, multi-attribute composition, `default` / unset / empty-style / empty-string pass-through.
 - [`tests/src/core/Styler.test.ts`](../tests/src/core/Styler.test.ts) — the fluent styler: chainable `Color` / `Attribute` accessors, immutability + composition either way, last-color-wins / idempotent-attribute, the `enabled` verbatim switch, a swapped renderer, and `render` by value (the merge precedence, a themed role, the frozen merged style handed to the renderer).
-- [`tests/src/core/Logger.test.ts`](../tests/src/core/Logger.test.ts) — the logger: the level gate (drop below threshold), the frozen `LogRecord`, bounded `entries()` retention + `clear`, the `entry` transport event (fires even when `silent`), the styled line, and the emitter's listener-isolation (`error` handler) emit-safety.
-- [`tests/src/core/LoggerManager.test.ts`](../tests/src/core/LoggerManager.test.ts) — the registry: `register` (defaults flow in, re-register overwrites) / `logger` / `loggers` / `count`, the `debug`…`error` fan-out, and `remove` ALL / one / batch.
-- [`tests/src/core/Reporter.test.ts`](../tests/src/core/Reporter.test.ts) — the reporter verbs: `section` / `step` (with / without position) / `timing` / `status` (icon + color, `error` → error stream) / `table` / `tree` / `box` / `line` / `blank`.
+- [`tests/src/core/Logger.test.ts`](../tests/src/core/Logger.test.ts) — the logger: the level gate (drop below threshold), the frozen `LogRecord`, bounded `entries()` retention + `clear`, the `entry` transport event (fires even when `silent`), the styled line, the themed level label, the `format` contract (the return written exactly, never invoked when `silent` or when the gate drops a record, a throw preventing only the write), and the emitter's listener-isolation (`error` handler) emit-safety.
+- [`tests/src/core/LoggerManager.test.ts`](../tests/src/core/LoggerManager.test.ts) — the registry: `register` (defaults flow in — `theme` / `format` included — and a register override wins, re-register overwrites) / `logger` / `loggers` / `count`, the `debug`…`error` fan-out, and `remove` ALL / one / batch.
+- [`tests/src/core/Reporter.test.ts`](../tests/src/core/Reporter.test.ts) — the reporter verbs: `section` / `step` (with / without position) / `timing` / `status` (the theme's icon + style, `error` → error stream) / `table` / `tree` / `box` / `line` / `blank`, each verb's bytes unchanged under the explicit default theme.
 - [`tests/src/core/Capture.test.ts`](../tests/src/core/Capture.test.ts) — the console interceptor: snapshot-at-`start` + restore, capture (total + by level) + bounded buffers, the `capture` event + `start` / `stop` lifecycle, `mirror` / `sink` forwarding, idempotency, and the no-capture-loop.
-- [`tests/src/core/Spinner.test.ts`](../tests/src/core/Spinner.test.ts) — the spinner: deterministic `tick()` frame advance + the `\r` write, idempotent `start`, the leak-free timer (armed / always cleared, fake timers), `update`, `success` / `failure` outcome lines, and the `frame` / `start` / `stop` events.
-- [`tests/src/core/Progress.test.ts`](../tests/src/core/Progress.test.ts) — the progress bar: `update` clamp + render + `\r` write, the `update` event, terminal `complete` (full bar + `complete` event) / `failure` (error stream, no complete), and the post-terminal ignore.
-- [`tests/src/core/helpers.test.ts`](../tests/src/core/helpers.test.ts) — the pure helpers: `strip` / `width` (ANSI-aware, code points), `meetsLevel` / `formatTime` / `formatRecord`, `align` / `paint` / `repeatTo` / `cellAt`, `renderSeparator` / `renderBox` / `renderTable` / `renderTree` / `renderBar`, `formatDuration`, and the total `stringifyValue` / `formatArgs` (Error / cycle / BigInt).
-- [`tests/src/core/factories.test.ts`](../tests/src/core/factories.test.ts) — each `create*` returns a working instance of its interface, `createTheme`'s per-role / per-entry merge over the frozen `DEFAULT_THEME`, `createConsoleSink`'s level routing + snapshot, and `withCapture` (sync + async, restore-on-throw).
-- [`tests/src/browser/helpers.test.ts`](../tests/src/browser/helpers.test.ts) — `ansiToConsole` in real Chromium: SGR runs → `%c` segments + parallel CSS, the reset clear, last-color-wins, the plain-text short-circuit, and `%`-safety; plus `escapePercent` / `parseParameters`.
-- [`tests/src/browser/factories.test.ts`](../tests/src/browser/factories.test.ts) — `createBrowserSink` in real Chromium: the ANSI → `%c` `console[method](format, ...styles)` call, level routing, the leading-`\r` animation degrade, and the snapshot (no capture loop).
-- [`tests/src/server/helpers.test.ts`](../tests/src/server/helpers.test.ts) — the server helpers: `isStreamTarget` (the boundary guard), `columnsOf` (live TTY width / fallback), and the total `decodeChunk` (string / Buffer / Uint8Array / bad encoding) + `isBufferEncoding`.
-- [`tests/src/server/factories.test.ts`](../tests/src/server/factories.test.ts) — `createServerSink` over a fake `StreamTargetInterface`: level routing to `out` / `err`, ANSI verbatim on a TTY vs. stripped off one, and the live / fixed `columns`.
+- [`tests/src/core/Spinner.test.ts`](../tests/src/core/Spinner.test.ts) — the spinner: deterministic `tick()` frame advance + the `\r` write, idempotent `start`, the leak-free timer (armed / always cleared, fake timers), `update`, `success` / `failure` outcome lines (the theme's status icon + style), the accent glyph, and the `frame` / `start` / `stop` events.
+- [`tests/src/core/Progress.test.ts`](../tests/src/core/Progress.test.ts) — the progress bar: `update` clamp + render + `\r` write, the `update` event, terminal `complete` (full bar + `complete` event) / `failure` (error stream, no complete), the custom `fill` / `empty` glyphs with the accent on the filled run only, and the post-terminal ignore.
+- [`tests/src/core/helpers.test.ts`](../tests/src/core/helpers.test.ts) — the pure helpers: `strip` / `width` (ANSI-aware, code points), `meetsLevel` / `formatTime` / `formatRecord`, `align` / `paint` / `repeatTo` / `cellAt`, `renderSeparator` / `renderBox` / `renderTable` / `renderTree` (every connector derived from the selected border set, an omitted `border` byte-identical to an explicit `single`) / `renderBar`, `formatDuration`, and the total `stringifyValue` / `formatArgs` (Error / cycle / BigInt).
+- [`tests/src/core/factories.test.ts`](../tests/src/core/factories.test.ts) — each `create*` returns a working instance of its interface, `createTheme`'s per-role / per-entry merge over the frozen `DEFAULT_THEME`, `createConsoleSink`'s level routing + snapshot + the verbatim `\r` redraw frame (a real `Spinner` driven through a recorder, against a plain-write control), and `withCapture` (sync + async, restore-on-throw).
+- [`tests/src/browser/helpers.test.ts`](../tests/src/browser/helpers.test.ts) — `ansiToConsole` in real Chromium: SGR runs → `%c` segments + parallel CSS, the reset clear, last-color-wins, the plain-text short-circuit, `%`-safety, and a partial `BrowserPalette` overriding named colors / attributes while every omission stays byte-identical; plus `escapePercent` / `parseParameters`.
+- [`tests/src/browser/factories.test.ts`](../tests/src/browser/factories.test.ts) — `createBrowserSink` in real Chromium: the ANSI → `%c` `console[method](format, ...styles)` call, level routing, a threaded `palette`, the leading-`\r` animation degrade (only the leading one), and the snapshot (no capture loop).
+- [`tests/src/server/helpers.test.ts`](../tests/src/server/helpers.test.ts) — the server helpers: `inferStyled` over the full `FORCE_COLOR` × `NO_COLOR` × `isTTY` matrix, `isStreamTarget` (the boundary guard), `columnsOf` (live TTY width / fallback), and the total `decodeChunk` (string / Buffer / Uint8Array / bad encoding) + `isBufferEncoding`.
+- [`tests/src/server/factories.test.ts`](../tests/src/server/factories.test.ts) — `createServerSink` over a fake `StreamTargetInterface`: level routing to `out` / `err`, ANSI verbatim on a TTY vs. stripped off one, a `color` override winning over both targets' inference, the construction-time facts staying fixed when a target's `isTTY` changes afterward, the `\r` frame written without an appended newline, and the live / fixed `columns`.
 - [`tests/src/server/ProcessCapture.test.ts`](../tests/src/server/ProcessCapture.test.ts) — the process capture over a `process.*.write` probe: snapshot-at-`start` + pristine restore, capture (total + per-stream) + bounded buffers, the `capture` / `start` / `stop` events, `mirror` (backpressure passed through) / `sink` forwarding, idempotency, and the never-throw decode.
 
 ## See also
