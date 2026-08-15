@@ -181,6 +181,18 @@ describe('formatRecord', () => {
 		expect(strip(styled)).toBe('1970-01-01T00:00:00.000Z WARN [x] hot')
 	})
 
+	it('pins the exact default-theme bytes for a fixed-time logger line', () => {
+		expect(
+			formatRecord(
+				record({ level: 'warn', message: 'low disk', name: 'fs' }),
+				createStyler(),
+				DEFAULT_THEME,
+			),
+		).toBe(
+			`${ESC}2m1970-01-01T00:00:00.000Z${ESC}0m ${ESC}33mWARN${ESC}0m ${ESC}2m[fs]${ESC}0m low disk`,
+		)
+	})
+
 	it('renders the level role and every surround through the supplied theme', () => {
 		const theme = createTheme({
 			levels: { warn: createStyler().brightMagenta.bold.style },
@@ -1049,7 +1061,7 @@ describe('renderTreeChildren', () => {
 	})
 
 	it('colors connectors through an optional styler chain, unchanged layout when stripped', () => {
-		const lines = renderTreeChildren([{ label: 'a' }], '', colorStyler.dim)
+		const lines = renderTreeChildren([{ label: 'a' }], '', { styler: colorStyler.dim })
 		expect(lines.join('')).toContain(ESC)
 		expect(lines.map((line) => strip(line))).toEqual(['└─ a'])
 	})

@@ -21,7 +21,7 @@ import type {
 } from './types.js'
 import { ANSIRenderer } from './ANSIRenderer.js'
 import { Capture } from './Capture.js'
-import { DEFAULT_THEME, EMPTY_STYLE } from './constants.js'
+import { DEFAULT_THEME, EMPTY_STYLE, STATUS_LEVELS } from './constants.js'
 import { Logger } from './Logger.js'
 import { LoggerManager } from './LoggerManager.js'
 import { Progress } from './Progress.js'
@@ -97,9 +97,8 @@ export function createStyler(options?: StylerOptions): StylerInterface {
  *   `statuses` merge per ENTRY — `{ levels: { warn: … } }` restyles the `warn` label and
  *   leaves `debug` / `info` / `error` untouched.
  * - **Frozen and shareable.** The returned theme and its `levels` / `statuses` records are
- *   frozen, and every {@link import('./types.js').Style} in it is a frozen style value — the
- *   defaults by construction, an override by the `Style` contract — so one theme is safely
- *   shared across every entity. Build an override with a styler chain's `style`.
+ *   frozen. Each supplied status record is copied and frozen; its `Style` leaf stays by reference
+ *   under the frozen-`Style` contract. One theme is therefore safely shared across every entity.
  *
  * @example
  * ```ts
@@ -114,9 +113,16 @@ export function createStyler(options?: StylerOptions): StylerInterface {
  * ```
  */
 export function createTheme(options?: ThemeOptions): Theme {
+	const statuses = { ...DEFAULT_THEME.statuses }
+	for (const status of STATUS_LEVELS) {
+		const supplied = options?.statuses?.[status]
+		if (supplied !== undefined) {
+			statuses[status] = Object.freeze({ icon: supplied.icon, style: supplied.style })
+		}
+	}
 	return Object.freeze({
 		levels: Object.freeze({ ...DEFAULT_THEME.levels, ...options?.levels }),
-		statuses: Object.freeze({ ...DEFAULT_THEME.statuses, ...options?.statuses }),
+		statuses: Object.freeze(statuses),
 		accent: options?.accent ?? DEFAULT_THEME.accent,
 		chrome: options?.chrome ?? DEFAULT_THEME.chrome,
 	})

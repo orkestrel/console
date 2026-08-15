@@ -91,6 +91,12 @@ describe('Spinner', () => {
 			spinner.tick()
 			expect(sink.calls[0]?.[0]).toBe('\r\x1b[1;95m*\x1b[0m go')
 		})
+
+		it('pins the exact default-theme bytes for a tick frame', () => {
+			const sink = createRecordingSink()
+			new Spinner({ message: 'spin', sink }).tick()
+			expect(sink.calls).toEqual([['\r\x1b[36m⠋\x1b[0m spin', undefined]])
+		})
 	})
 
 	describe('update — change the message', () => {

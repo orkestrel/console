@@ -94,6 +94,30 @@ describe('LoggerManager', () => {
 	})
 
 	describe('fan-out', () => {
+		it('propagates a formatter throw and leaves later loggers untouched for that call', () => {
+			const sink = createRecordingSink()
+			const manager = new LoggerManager({ level: 'debug', sink })
+			const error = new Error('format failed')
+			const first = manager.register('first', {
+				format: () => {
+					throw error
+				},
+			})
+			let entries = 0
+			const second = manager.register('second', {
+				on: {
+					entry: () => {
+						entries += 1
+					},
+				},
+			})
+			expect(() => manager.info('halt')).toThrow(error)
+			expect(first.entries().map((record) => record.message)).toEqual(['halt'])
+			expect(second.entries()).toHaveLength(0)
+			expect(entries).toBe(0)
+			expect(sink.calls).toHaveLength(0)
+		})
+
 		it('forwards a log to every registered logger', () => {
 			const { manager } = createTestManager()
 			const a = manager.register('a')

@@ -1,6 +1,5 @@
 import type {
 	Alignment,
-	BorderStyle,
 	BoxOptions,
 	CaptureOptions,
 	CaptureResult,
@@ -317,7 +316,6 @@ export function cellAt(row: readonly string[], index: number): string {
  *   on the visible content (AGENTS — width-aware via {@link width}).
  *
  * @param options - See {@link SeparatorOptions}
- * @param style - An optional by-value style for the rule and title
  * @returns The rule line (no trailing newline)
  *
  * @example
@@ -326,15 +324,16 @@ export function cellAt(row: readonly string[], index: number): string {
  * renderSeparator({ title: 'Build', width: 13 }) // '── Build ──'  (centered)
  * ```
  */
-export function renderSeparator(options: SeparatorOptions, style?: Style): string {
+export function renderSeparator(options: SeparatorOptions): string {
 	const total = options.width ?? DEFAULT_WIDTH
 	const fill = options.fill ?? SEPARATOR_FILL
-	if (options.title === undefined) return paint(options.styler, repeatTo(fill, total), style)
-	const gapped = `${SEPARATOR_TITLE_GAP}${paint(options.styler, options.title, style)}${SEPARATOR_TITLE_GAP}`
+	if (options.title === undefined)
+		return paint(options.styler, repeatTo(fill, total), options.style)
+	const gapped = `${SEPARATOR_TITLE_GAP}${paint(options.styler, options.title, options.style)}${SEPARATOR_TITLE_GAP}`
 	const room = total - width(options.title) - SEPARATOR_TITLE_GAP.length * 2
 	if (room <= 0) return gapped
 	const left = Math.floor(room / 2)
-	return `${paint(options.styler, repeatTo(fill, left), style)}${gapped}${paint(options.styler, repeatTo(fill, room - left), style)}`
+	return `${paint(options.styler, repeatTo(fill, left), options.style)}${gapped}${paint(options.styler, repeatTo(fill, room - left), options.style)}`
 }
 
 /**
@@ -356,10 +355,9 @@ export function renderSeparator(options: SeparatorOptions, style?: Style): strin
  *   bottom) with no trailing newline.
  *
  * @param options - See {@link BoxOptions}
- * @param style - An optional by-value style for the frame and title
  * @returns The framed box (multiple lines joined by `\n`)
  */
-export function renderBox(options: BoxOptions, style?: Style): string {
+export function renderBox(options: BoxOptions): string {
 	const chars = BORDER_CHARS[options.border ?? DEFAULT_BORDER]
 	const padding = Math.max(0, Math.trunc(options.padding ?? DEFAULT_PADDING))
 	const styler = options.styler
@@ -380,7 +378,7 @@ export function renderBox(options: BoxOptions, style?: Style): string {
 		Math.max(0, titleRoom, budget),
 	)
 	const gutter = ' '.repeat(padding)
-	const bar = paint(styler, chars.vertical, style)
+	const bar = paint(styler, chars.vertical, options.style)
 	// The top border — the two corners with the horizontal run between, optionally carrying a
 	// leading ` title ` embedded in the run. `span` is the full inner run (`inner + 2·padding`):
 	// with no `title` the whole run is fill between the corners; with one, ` title ` sits after a
@@ -392,19 +390,20 @@ export function renderBox(options: BoxOptions, style?: Style): string {
 		top = paint(
 			styler,
 			`${chars.topLeft}${repeatTo(chars.horizontal, span)}${chars.topRight}`,
-			style,
+			options.style,
 		)
 	} else {
 		const caption = `${SEPARATOR_TITLE_GAP}${options.title}${SEPARATOR_TITLE_GAP}`
 		const room = span - width(caption)
-		const lead = paint(styler, repeatTo(chars.horizontal, 1), style)
-		const rest = room - 1 <= 0 ? '' : paint(styler, repeatTo(chars.horizontal, room - 1), style)
-		top = `${paint(styler, chars.topLeft, style)}${lead}${paint(styler, caption, style)}${rest}${paint(styler, chars.topRight, style)}`
+		const lead = paint(styler, repeatTo(chars.horizontal, 1), options.style)
+		const rest =
+			room - 1 <= 0 ? '' : paint(styler, repeatTo(chars.horizontal, room - 1), options.style)
+		top = `${paint(styler, chars.topLeft, options.style)}${lead}${paint(styler, caption, options.style)}${rest}${paint(styler, chars.topRight, options.style)}`
 	}
 	const bottom = paint(
 		styler,
 		`${chars.bottomLeft}${repeatTo(chars.horizontal, inner + padding * 2)}${chars.bottomRight}`,
-		style,
+		options.style,
 	)
 	const body = lines.map((line) => `${bar}${gutter}${align(line, inner)}${gutter}${bar}`)
 	return [top, ...body, bottom].join('\n')
@@ -429,10 +428,9 @@ export function renderBox(options: BoxOptions, style?: Style): string {
  *   bottom), no trailing newline.
  *
  * @param options - See {@link TableOptions}
- * @param style - An optional by-value style for the frame and headers
  * @returns The rendered table (multiple lines joined by `\n`)
  */
-export function renderTable(options: TableOptions, style?: Style): string {
+export function renderTable(options: TableOptions): string {
 	const chars = BORDER_CHARS[options.border ?? DEFAULT_BORDER]
 	const styler = options.styler
 	const columns = options.columns
@@ -445,13 +443,13 @@ export function renderTable(options: TableOptions, style?: Style): string {
 	)
 	const aligns = columns.map((column) => column.align ?? DEFAULT_ALIGN)
 	const rows = [
-		columns.map((column) => paint(styler, column.label, style)),
+		columns.map((column) => paint(styler, column.label, options.style)),
 		...options.rows.map((row) => columns.map((_column, index) => cellAt(row, index))),
 	]
 	// Frame the header and every body row in one pass: align each cell to its column width, add
 	// one-space gutters, and join with the painted vertical separator.
 	const renderedRows = rows.map((cells) => {
-		const bar = paint(styler, chars.vertical, style)
+		const bar = paint(styler, chars.vertical, options.style)
 		const inner = cells
 			.map(
 				(cell, index) =>
@@ -464,17 +462,17 @@ export function renderTable(options: TableOptions, style?: Style): string {
 	const top = paint(
 		styler,
 		`${chars.topLeft}${segments.join(chars.teeDown)}${chars.topRight}`,
-		style,
+		options.style,
 	)
 	const rule = paint(
 		styler,
 		`${chars.teeRight}${segments.join(chars.cross)}${chars.teeLeft}`,
-		style,
+		options.style,
 	)
 	const bottom = paint(
 		styler,
 		`${chars.bottomLeft}${segments.join(chars.teeUp)}${chars.bottomRight}`,
-		style,
+		options.style,
 	)
 	return [top, ...renderedRows.slice(0, 1), rule, ...renderedRows.slice(1), bottom].join('\n')
 }
@@ -492,7 +490,6 @@ export function renderTable(options: TableOptions, style?: Style): string {
  * the connectors when supplied. Returns the tree as `\n`-joined lines, no trailing newline.
  *
  * @param options - See {@link TreeOptions}
- * @param style - An optional by-value style for the connectors
  * @returns The rendered tree (multiple lines joined by `\n`)
  *
  * @example
@@ -503,12 +500,10 @@ export function renderTable(options: TableOptions, style?: Style): string {
  * // └─ b
  * ```
  */
-export function renderTree(options: TreeOptions, style?: Style): string {
-	const border = options.border ?? DEFAULT_BORDER
-	return [
-		options.root.label,
-		...renderTreeChildren(options.root.children ?? [], '', options.styler, border, style),
-	].join('\n')
+export function renderTree(options: TreeOptions): string {
+	return [options.root.label, ...renderTreeChildren(options.root.children ?? [], '', options)].join(
+		'\n',
+	)
 }
 
 /**
@@ -523,9 +518,7 @@ export function renderTree(options: TreeOptions, style?: Style): string {
  *
  * @param nodes - The sibling {@link TreeNode}s to render at this depth
  * @param prefix - The guide/gap string carried in from the ancestor chain (`''` at the root)
- * @param styler - The {@link StylerInterface} connectors are colored through, when supplied
- * @param border - The {@link BorderStyle} whose junctions form the connectors
- * @param style - An optional by-value style for the connectors
+ * @param options - The connector `styler`, by-value `style`, and `border` selection
  * @returns The rendered lines for `nodes` and all their descendants
  *
  * @example
@@ -537,10 +530,9 @@ export function renderTree(options: TreeOptions, style?: Style): string {
 export function renderTreeChildren(
 	nodes: readonly TreeNode[],
 	prefix: string,
-	styler?: StylerInterface,
-	border: BorderStyle = DEFAULT_BORDER,
-	style?: Style,
+	options: Pick<TreeOptions, 'border' | 'style' | 'styler'> = {},
 ): readonly string[] {
+	const border = options.border ?? DEFAULT_BORDER
 	const chars = BORDER_CHARS[border]
 	const branch = `${chars.teeRight}${chars.horizontal} `
 	const corner = `${chars.bottomLeft}${chars.horizontal} `
@@ -548,9 +540,11 @@ export function renderTreeChildren(
 	const lines: string[] = []
 	nodes.forEach((node, index) => {
 		const last = index === nodes.length - 1
-		lines.push(`${prefix}${paint(styler, last ? corner : branch, style)}${node.label}`)
-		const carry = `${prefix}${paint(styler, last ? '   ' : guide, style)}`
-		lines.push(...renderTreeChildren(node.children ?? [], carry, styler, border, style))
+		lines.push(
+			`${prefix}${paint(options.styler, last ? corner : branch, options.style)}${node.label}`,
+		)
+		const carry = `${prefix}${paint(options.styler, last ? '   ' : guide, options.style)}`
+		lines.push(...renderTreeChildren(node.children ?? [], carry, options))
 	})
 	return lines
 }
@@ -648,7 +642,6 @@ export function formatArgs(args: readonly unknown[]): string {
  *   `current` over `total` (`(5/10)`), a single space separating the track, the percent, and the count.
  *
  * @param options - See {@link ProgressBarOptions}
- * @param style - An optional by-value style for the filled run
  * @returns The rendered bar line (no trailing newline)
  *
  * @example
@@ -657,7 +650,7 @@ export function formatArgs(args: readonly unknown[]): string {
  * renderBar({ current: 10, total: 10, width: 4 }) // '████ 100% (10/10)'
  * ```
  */
-export function renderBar(options: ProgressBarOptions, style?: Style): string {
+export function renderBar(options: ProgressBarOptions): string {
 	const track = options.width ?? DEFAULT_BAR_WIDTH
 	const fill = options.fill ?? BAR_FILL
 	const empty = options.empty ?? BAR_EMPTY
@@ -666,7 +659,7 @@ export function renderBar(options: ProgressBarOptions, style?: Style): string {
 	const current = options.total <= 0 ? 0 : Math.max(0, Math.min(options.total, options.current))
 	const fraction = options.total <= 0 ? 1 : current / options.total
 	const filledCells = Math.round(fraction * track)
-	const bar = `${paint(options.styler, repeatTo(fill, filledCells), style)}${repeatTo(empty, track - filledCells)}`
+	const bar = `${paint(options.styler, repeatTo(fill, filledCells), options.style)}${repeatTo(empty, track - filledCells)}`
 	const percent = Math.round(fraction * 100)
 	return `${bar} ${percent}% (${current}/${options.total})`
 }

@@ -25,8 +25,9 @@ import { Logger } from './Logger.js'
  *   (Removal does NOT `destroy` the returned loggers — a caller still holding one keeps using
  *   it; the manager simply stops tracking it.)
  * - **Fan-out.** `debug` / `info` / `warn` / `error(message, data?)` forward the one call to
- *   EVERY registered logger; each gates / emits / writes per its own `level` and `sink`. A
- *   fan-out over an empty registry is a no-op.
+ *   every registered logger in insertion order; each gates / emits / writes per its own `level`
+ *   and `sink`. A formatter throw is a programmer error and propagates, stopping the remaining
+ *   loggers for that call. A fan-out over an empty registry is a no-op.
  * - **Event-free.** No emitter, no events — the manager is a pure registry; observability is
  *   per-{@link Logger}.
  *

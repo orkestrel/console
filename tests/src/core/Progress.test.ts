@@ -215,6 +215,13 @@ describe('Progress', () => {
 			expect(sink.calls[0]?.[0]).toBe('\r\x1b[1;95m====\x1b[0m---- 50% (2/4)')
 		})
 
+		it('pins the exact default-theme bytes for an update frame', () => {
+			const sink = createRecordingSink()
+			const progress = new Progress({ total: 4, width: 4, message: 'work', sink })
+			progress.update(2)
+			expect(sink.calls).toEqual([['\r\x1b[36m██\x1b[0m░░ 50% (2/4) work', undefined]])
+		})
+
 		it('keeps update, completion, and failure bytes identical with the explicit default theme', () => {
 			const implicitSink = createRecordingSink()
 			const explicitSink = createRecordingSink()

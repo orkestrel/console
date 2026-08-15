@@ -24,8 +24,9 @@ import { columnsOf, inferStyled, isStreamTarget } from './helpers.js'
  * - **Routes by level.** `error` / `warn` → the error stream (`process.stderr` by default), every
  *   other level (and an omitted level) → the out stream (`process.stdout`) — the SAME routing as
  *   core's `createConsoleSink`, so a logger's `error` reaches `stderr`.
- * - **Per-target styled facts.** At construction, each target uses `options.color` when supplied;
- *   otherwise {@link inferStyled} applies `FORCE_COLOR`, `NO_COLOR`, then that target's `isTTY`.
+ * - **Per-target styled facts.** At construction, each target uses `options.styled` when supplied;
+ *   otherwise {@link inferStyled} applies the injected `environment` (default `process.env`) and
+ *   then that target's `isTTY`.
  *   Writes use those stored facts, so `styled` and the out target's strip decision never disagree;
  *   the err target keeps its own fact internally.
  * - **Width.** `columns` reflects the live `out.columns` (so it tracks a terminal resize), falling
@@ -55,9 +56,10 @@ export function createServerSink(options?: ServerSinkOptions): ServerSinkInterfa
 	// default. `out` carries info/debug, `err` carries error/warn.
 	const out = isStreamTarget(options?.out) ? options.out : process.stdout
 	const err = isStreamTarget(options?.err) ? options.err : process.stderr
-	const color = options?.color
-	const outStyled = color ?? inferStyled(out, process.env)
-	const errStyled = color ?? inferStyled(err, process.env)
+	const styled = options?.styled
+	const environment = options?.environment ?? process.env
+	const outStyled = styled ?? inferStyled(out, environment)
+	const errStyled = styled ?? inferStyled(err, environment)
 	const fixed = options?.columns
 	return Object.freeze({
 		styled: outStyled,

@@ -21,7 +21,7 @@ import type { SinkInterface } from '@src/core'
  *   backpressure boolean (`false` when the kernel buffer is full). A `process` stream returns it;
  *   a fake may return `void` (read as truthy / no backpressure).
  * - `isTTY` — present and `true` on a real terminal, absent / `false` when the stream is piped to a
- *   file or another process. When no explicit color override exists, the sink reads it at
+ *   file or another process. When no explicit styling override exists, the sink reads it at
  *   construction to decide whether to keep ANSI or {@link import('@src/core').strip} it to clean
  *   text.
  * - `columns` — the terminal width in character cells when the stream is a TTY, `undefined`
@@ -42,8 +42,9 @@ export interface StreamTargetInterface {
  * - `out` — the stream `info` / `debug` (and an omitted level) are written to; defaults to
  *   `process.stdout`. Any {@link StreamTargetInterface} is accepted, so a test injects a fake.
  * - `err` — the stream `error` / `warn` are written to; defaults to `process.stderr`.
- * - `color` — an explicit styling decision for both targets. When omitted, each target infers its
+ * - `styled` — an explicit styling decision for both targets. When omitted, each target infers its
  *   own fact from `FORCE_COLOR`, `NO_COLOR`, and `isTTY` at construction.
+ * - `environment` — the environment used for inference; defaults to `process.env`.
  * - `columns` — an explicit width override for {@link ServerSinkInterface.columns}. When omitted,
  *   the sink reads the live `out.columns` (so it tracks a terminal resize), falling back to
  *   {@link import('./constants.js').DEFAULT_COLUMNS} when the out stream is not a TTY.
@@ -51,7 +52,8 @@ export interface StreamTargetInterface {
 export interface ServerSinkOptions {
 	readonly out?: StreamTargetInterface
 	readonly err?: StreamTargetInterface
-	readonly color?: boolean
+	readonly styled?: boolean
+	readonly environment?: Readonly<Record<string, string | undefined>>
 	readonly columns?: number
 }
 

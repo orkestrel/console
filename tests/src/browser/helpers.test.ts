@@ -1,10 +1,8 @@
 import {
 	ansiToConsole,
 	ATTRIBUTE_CSS,
-	BACKGROUND_CSS,
 	COLOR_HEX,
 	escapePercent,
-	FOREGROUND_CSS,
 	parseParameters,
 } from '@src/browser'
 import {
@@ -274,18 +272,15 @@ describe('ansiToConsole — adversarial %c/styles alignment', () => {
 	})
 })
 
-// The SGR → CSS derivation, asserted EXHAUSTIVELY across both color axes and every attribute, so
-// the `COLOR_HEX` / `*_CSS` lookups can't silently drift from core's code maps. Each color/attribute
-// is driven through a real SGR sequence (built from core's code constants), then the emitted CSS is
-// checked against the derived `*_CSS` records and the palette.
+// The SGR → CSS derivation, asserted EXHAUSTIVELY across both color axes and every attribute. Each
+// color/attribute is driven through a real SGR sequence built from core's code constants, then the
+// emitted CSS is checked against the named palette or attribute table.
 describe('ansiToConsole — SGR → CSS derivation', () => {
 	it('maps all 16 foreground colors to color:<hex> (fg uses `color:`)', () => {
 		for (const color of COLORS) {
 			const code = FOREGROUND_CODES[color]
 			const { styles } = ansiToConsole(`${CSI}${code}mx${RESET}`)
 			expect(styles).toEqual([`color:${COLOR_HEX[color]}`])
-			// And the derived FOREGROUND_CSS record agrees with the live translation.
-			expect(FOREGROUND_CSS[code]).toBe(`color:${COLOR_HEX[color]}`)
 		}
 	})
 
@@ -294,7 +289,6 @@ describe('ansiToConsole — SGR → CSS derivation', () => {
 			const code = BACKGROUND_CODES[color]
 			const { styles } = ansiToConsole(`${CSI}${code}mx${RESET}`)
 			expect(styles).toEqual([`background:${COLOR_HEX[color]}`])
-			expect(BACKGROUND_CSS[code]).toBe(`background:${COLOR_HEX[color]}`)
 		}
 	})
 

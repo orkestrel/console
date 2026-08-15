@@ -128,6 +128,20 @@ describe('Reporter', () => {
 	})
 
 	describe('theme roles', () => {
+		it('pins the exact default-theme bytes for a chrome-framed section', () => {
+			const sink = createRecordingSink()
+			const reporter = new Reporter({ sink, width: 8 })
+			reporter.section('S')
+			expect(firstLine(sink)).toBe('\x1b[2m──\x1b[0m \x1b[2mS\x1b[0m \x1b[2m───\x1b[0m')
+		})
+
+		it('pins the exact default-theme bytes for a two-level tree', () => {
+			const sink = createRecordingSink()
+			const reporter = new Reporter({ sink })
+			reporter.tree({ root: { label: 'root', children: [{ label: 'a' }, { label: 'b' }] } })
+			expect(firstLine(sink)).toBe('root\n\x1b[2m├─ \x1b[0ma\n\x1b[2m└─ \x1b[0mb')
+		})
+
 		it('uses accent only for the positioned step prefix', () => {
 			const sink = createRecordingSink()
 			const reporter = new Reporter({
@@ -190,6 +204,18 @@ describe('Reporter', () => {
 	})
 
 	describe('table / tree / box delegate to the renderers + write', () => {
+		it('lets a caller-supplied table styler own the frame without merging theme chrome', () => {
+			const sink = createRecordingSink()
+			const reporter = new Reporter({ sink, styler: createStyler() })
+			reporter.table({
+				columns: [{ label: 'A' }],
+				rows: [['1']],
+				styler: createStyler().red,
+			})
+			expect(firstLine(sink)).toContain('\x1b[31m┌───┐\x1b[0m')
+			expect(firstLine(sink)).not.toContain('\x1b[2;31m')
+		})
+
 		it('table writes a bordered grid built from the columns + rows', () => {
 			const { reporter, sink } = createTestReporter()
 			reporter.table({ columns: [{ label: 'A' }, { label: 'B' }], rows: [['1', '22']] })
@@ -297,8 +323,7 @@ describe('Reporter', () => {
 		})
 
 		it('status colors only via the styler — a disabled styler yields a plain icon + message', () => {
-			// The reporter's default `.dim` chain still resolves to the level color; a disabled styler
-			// (createTestReporter) paints nothing, so the icon + message come through plain.
+			// A disabled styler paints nothing, so the icon + message come through plain.
 			const { reporter, sink } = createTestReporter()
 			reporter.status('warn', 'plain warn')
 			expect(firstLine(sink)).toBe('⚠ plain warn')

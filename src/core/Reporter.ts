@@ -60,7 +60,12 @@ export class Reporter implements ReporterInterface {
 	section(title: string): void {
 		// The theme's chrome role styles the rule and title through the shared styler.
 		this.#sink.write(
-			renderSeparator({ title, width: this.#width, styler: this.#styler }, this.#theme.chrome),
+			renderSeparator({
+				title,
+				width: this.#width,
+				styler: this.#styler,
+				style: this.#theme.chrome,
+			}),
 		)
 	}
 
@@ -86,19 +91,16 @@ export class Reporter implements ReporterInterface {
 	}
 
 	table(options: TableOptions): void {
-		// The theme's chrome role styles the frame and header; a caller's own styler still wins.
-		this.#sink.write(renderTable({ styler: this.#styler, ...options }, this.#theme.chrome))
+		this.#sink.write(renderTable(this.#resolveStyle(options)))
 	}
 
 	tree(options: TreeOptions): void {
-		this.#sink.write(renderTree({ styler: this.#styler, ...options }, this.#theme.chrome))
+		this.#sink.write(renderTree(this.#resolveStyle(options)))
 	}
 
 	box(options: BoxOptions): void {
-		// Default the box width here; explicit options win, while the theme supplies frame chrome.
-		this.#sink.write(
-			renderBox({ width: this.#width, styler: this.#styler, ...options }, this.#theme.chrome),
-		)
+		// Default the box width here; explicit options win.
+		this.#sink.write(renderBox(this.#resolveStyle({ width: this.#width, ...options })))
 	}
 
 	line(text: string): void {
@@ -107,5 +109,17 @@ export class Reporter implements ReporterInterface {
 
 	blank(count = 1): void {
 		for (let index = 0; index < count; index += 1) this.#sink.write('')
+	}
+
+	// Use theme chrome only when the caller supplied neither half of the styling decision. The
+	// reporter's base styler still renders a caller's by-value style when no caller styler exists.
+	#resolveStyle<T extends BoxOptions | TableOptions | TreeOptions>(options: T): T {
+		return {
+			styler: this.#styler,
+			...(options.styler === undefined && options.style === undefined
+				? { style: this.#theme.chrome }
+				: {}),
+			...options,
+		}
 	}
 }

@@ -11,7 +11,7 @@ describe('createServerSink — level routing', () => {
 	it('routes error and warn to the err stream, everything else to out', () => {
 		const out = createStreamTarget({ isTTY: true })
 		const err = createStreamTarget({ isTTY: true })
-		const sink = createServerSink({ out: out.target, err: err.target, color: true })
+		const sink = createServerSink({ out: out.target, err: err.target, styled: true })
 
 		sink.write('plain') // no level → out
 		sink.write('an info', 'info')
@@ -25,35 +25,58 @@ describe('createServerSink — level routing', () => {
 })
 
 describe('createServerSink — construction-time styled facts', () => {
-	it('writes ANSI verbatim to a TTY (animations render natively), with one trailing newline appended', () => {
+	it('infers styling independently for a TTY out target and a piped err target', () => {
+		const out = createStreamTarget({ isTTY: true })
+		const err = createStreamTarget({ isTTY: false })
+		const sink = createServerSink({ out: out.target, err: err.target, environment: {} })
+		sink.write(STYLED, 'info')
+		sink.write(STYLED, 'error')
+		expect(sink.styled).toBe(true)
+		expect(out.writes.calls).toEqual([[`${STYLED}\n`]])
+		expect(err.writes.calls).toEqual([['red\n']])
+	})
+
+	it('uses the injected environment for construction-time inference', () => {
+		const out = createStreamTarget({ isTTY: false })
+		const sink = createServerSink({
+			out: out.target,
+			err: createStreamTarget({ isTTY: false }).target,
+			environment: { FORCE_COLOR: '1' },
+		})
+		sink.write(STYLED)
+		expect(sink.styled).toBe(true)
+		expect(out.writes.calls).toEqual([[`${STYLED}\n`]])
+	})
+
+	it('writes ANSI verbatim when styled is true, with one trailing newline appended', () => {
 		const out = createStreamTarget({ isTTY: true })
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: true,
+			styled: true,
 		})
 		expect(sink.styled).toBe(true)
 		sink.write(STYLED)
 		expect(out.writes.calls).toEqual([[`${STYLED}\n`]])
 	})
 
-	it('preserves a leading carriage return on a TTY (live redraw) — no newline appended (framed)', () => {
+	it('preserves a leading carriage return when styled is true — no newline appended', () => {
 		const out = createStreamTarget({ isTTY: true })
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: true,
+			styled: true,
 		})
 		sink.write('\rframe')
 		expect(out.writes.calls).toEqual([['\rframe']])
 	})
 
-	it('strips ANSI when the target is not a TTY (clean log file), newline appended before stripping', () => {
+	it('strips ANSI when styled is false, with the newline appended before stripping', () => {
 		const out = createStreamTarget({ isTTY: false })
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: false,
+			styled: false,
 		})
 		expect(sink.styled).toBe(false)
 		sink.write(STYLED)
@@ -61,10 +84,10 @@ describe('createServerSink — construction-time styled facts', () => {
 		expect(out.writes.calls).toEqual([['red\n']])
 	})
 
-	it('applies color:false to out and err even when one target is a TTY', () => {
+	it('applies styled:false to out and err even when one target is a TTY', () => {
 		const out = createStreamTarget({ isTTY: true })
 		const err = createStreamTarget({ isTTY: false })
-		const sink = createServerSink({ out: out.target, err: err.target, color: false })
+		const sink = createServerSink({ out: out.target, err: err.target, styled: false })
 		sink.write(STYLED, 'info')
 		sink.write(STYLED, 'error')
 		expect(sink.styled).toBe(false)
@@ -72,10 +95,10 @@ describe('createServerSink — construction-time styled facts', () => {
 		expect(err.writes.calls).toEqual([['red\n']])
 	})
 
-	it('applies color:true to out and err even when neither target is a TTY', () => {
+	it('applies styled:true to out and err even when neither target is a TTY', () => {
 		const out = createStreamTarget({ isTTY: false })
 		const err = createStreamTarget({ isTTY: false })
-		const sink = createServerSink({ out: out.target, err: err.target, color: true })
+		const sink = createServerSink({ out: out.target, err: err.target, styled: true })
 		sink.write(STYLED, 'info')
 		sink.write(STYLED, 'error')
 		expect(sink.styled).toBe(true)
@@ -88,7 +111,7 @@ describe('createServerSink — construction-time styled facts', () => {
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: true,
+			styled: true,
 		})
 		sink.write('\r\x1b[2Kspinner frame')
 		sink.write('\r\x1b[2Kanother frame')
@@ -102,7 +125,7 @@ describe('createServerSink — construction-time styled facts', () => {
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: false,
+			styled: false,
 		})
 		sink.write('first')
 		sink.write('second')
@@ -110,24 +133,24 @@ describe('createServerSink — construction-time styled facts', () => {
 	})
 })
 
-describe('createServerSink — C0 control stripping (non-TTY)', () => {
+describe('createServerSink — C0 control stripping', () => {
 	it('strips C0 control codes (bell, null) while preserving tab/newline/carriage-return content', () => {
 		const out = createStreamTarget({ isTTY: false })
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: false,
+			styled: false,
 		})
 		sink.write('bell\x07null\x00tab\ttext')
 		expect(out.writes.calls).toEqual([['bellnulltab\ttext\n']])
 	})
 
-	it('does NOT strip C0 controls on a TTY (verbatim + trailing newline)', () => {
+	it('does not strip C0 controls when styled is true', () => {
 		const out = createStreamTarget({ isTTY: true })
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: true,
+			styled: true,
 		})
 		sink.write('bell\x07text')
 		expect(out.writes.calls).toEqual([['bell\x07text\n']])
@@ -140,7 +163,7 @@ describe('createServerSink — through Logger / Reporter (integration, F2 newlin
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: false,
+			styled: false,
 		})
 		const logger = createLogger({ name: 'app', sink })
 		logger.info('hello')
@@ -157,7 +180,7 @@ describe('createServerSink — through Logger / Reporter (integration, F2 newlin
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: false,
+			styled: false,
 		})
 		const reporter = createReporter({ sink })
 		reporter.blank()
@@ -169,7 +192,7 @@ describe('createServerSink — through Logger / Reporter (integration, F2 newlin
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: false,
+			styled: false,
 		})
 		const logger = createLogger({ name: 'app', sink })
 		logger.info('one')
@@ -193,7 +216,7 @@ describe('createServerSink — columns', () => {
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: false,
+			styled: false,
 		})
 		expect(sink.columns).toBe(120)
 	})
@@ -203,7 +226,7 @@ describe('createServerSink — columns', () => {
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: false,
+			styled: false,
 		})
 		expect(sink.columns).toBe(80)
 	})
@@ -213,7 +236,7 @@ describe('createServerSink — columns', () => {
 		const sink = createServerSink({
 			out: out.target,
 			err: createStreamTarget().target,
-			color: false,
+			styled: false,
 			columns: 40,
 		})
 		expect(sink.columns).toBe(40)
@@ -231,7 +254,7 @@ describe('createServerSink — columns', () => {
 		const sink = createServerSink({
 			out: target,
 			err: createStreamTarget().target,
-			color: false,
+			styled: false,
 		})
 		expect(sink.columns).toBe(100)
 		width = 200
@@ -255,7 +278,7 @@ describe('createServerSink — stable construction facts', () => {
 		const sink = createServerSink({
 			out: target,
 			err: createStreamTarget().target,
-			color: true,
+			styled: true,
 		})
 		sink.write(STYLED)
 		tty = false
@@ -264,12 +287,12 @@ describe('createServerSink — stable construction facts', () => {
 		expect(writes.calls).toEqual([[`${STYLED}\n`], [`${STYLED}\n`]])
 	})
 
-	it('color:false strips a write-only target with no isTTY fact', () => {
+	it('styled:false strips a write-only target with no isTTY fact', () => {
 		const writes = createRecorder<readonly [text: string]>()
 		const out = { write: (text: string): boolean => (writes.handler(text), true) } // no isTTY
-		const sink = createServerSink({ out, err: createStreamTarget().target, color: false })
+		const sink = createServerSink({ out, err: createStreamTarget().target, styled: false })
 		sink.write(STYLED)
-		expect(writes.calls).toEqual([['red\n']]) // stripped (isTTY absent ⇒ not a TTY)
+		expect(writes.calls).toEqual([['red\n']]) // explicit styled:false strips without a TTY fact
 	})
 })
 
@@ -299,7 +322,7 @@ describe('createServerSink — default-stream fallback (the isStreamTarget(undef
 
 	it('routes a non-error write to the real process.stdout when out is omitted', () => {
 		// out omitted → isStreamTarget(undefined) false → process.stdout (the probe).
-		const sink = createServerSink({ err: createStreamTarget().target, color: false })
+		const sink = createServerSink({ err: createStreamTarget().target, styled: false })
 		sink.write('to the default out')
 		expect(outProbe.texts).toEqual(['to the default out\n'])
 	})
@@ -307,7 +330,7 @@ describe('createServerSink — default-stream fallback (the isStreamTarget(undef
 	it('routes error / warn to the real process.stderr when err is omitted', () => {
 		// err omitted → process.stderr (the probe); the injected out is honored separately.
 		const out = createStreamTarget({ isTTY: true })
-		const sink = createServerSink({ out: out.target, color: false })
+		const sink = createServerSink({ out: out.target, styled: false })
 		sink.write('boom', 'error')
 		sink.write('careful', 'warn')
 		expect(errProbe.texts).toEqual(['boom\n', 'careful\n'])
@@ -315,7 +338,7 @@ describe('createServerSink — default-stream fallback (the isStreamTarget(undef
 	})
 
 	it('falls back on both targets when neither stream option is given', () => {
-		const sink = createServerSink({ color: false })
+		const sink = createServerSink({ styled: false })
 		sink.write('plain out')
 		sink.write('an error', 'error')
 		expect(outProbe.texts).toEqual(['plain out\n'])
@@ -337,7 +360,7 @@ describe('createServerSink — injected void-write target', () => {
 		const sink = createServerSink({
 			out: target,
 			err: createStreamTarget().target,
-			color: true,
+			styled: true,
 		})
 		sink.write('void-write target')
 		expect(seen).toEqual(['void-write target\n'])
@@ -348,7 +371,7 @@ describe('createServerSink — level routing exhaustiveness', () => {
 	it('routes only error and warn to err; info / debug / an omitted level go to out', () => {
 		const out = createStreamTarget({ isTTY: true })
 		const err = createStreamTarget({ isTTY: true })
-		const sink = createServerSink({ out: out.target, err: err.target, color: true })
+		const sink = createServerSink({ out: out.target, err: err.target, styled: true })
 		sink.write('a', 'info')
 		sink.write('b', 'debug')
 		sink.write('c') // omitted level → out
@@ -364,7 +387,7 @@ describe('createServerSink — frozen, stable surface', () => {
 		const sink = createServerSink({
 			out: createStreamTarget().target,
 			err: createStreamTarget().target,
-			color: false,
+			styled: false,
 		})
 		expect(Object.isFrozen(sink)).toBe(true)
 	})
@@ -375,7 +398,7 @@ describe('createServerSink — frozen, stable surface', () => {
 		const sink = createServerSink({
 			out: createStreamTarget({ isTTY: false }).target,
 			err: createStreamTarget().target,
-			color: false,
+			styled: false,
 			columns: 1,
 		})
 		expect(sink.columns).toBe(1)
@@ -387,7 +410,7 @@ describe('createServerSink — defaults', () => {
 		// A sink with no target options uses process.stdout / process.stderr; columns is the live
 		// process width or the 80 fallback (the isStreamTarget(undefined) → default path). We only
 		// assert it constructs and reads a sane width.
-		const sink = createServerSink({ color: false })
+		const sink = createServerSink({ styled: false })
 		expect(typeof sink.columns).toBe('number')
 		expect(sink.columns).toBeGreaterThan(0)
 	})
@@ -397,7 +420,7 @@ describe('createServerSink — defaults', () => {
 		// (so nothing reaches the real stdout and pollutes the reporter); the out-default path is
 		// exercised by the width-read test above and the probed default-stream-fallback block.
 		const err = createStreamTarget({ isTTY: true })
-		const sink = createServerSink({ err: err.target, color: true })
+		const sink = createServerSink({ err: err.target, styled: true })
 		sink.write('to the fake err', 'error')
 		expect(err.writes.calls).toEqual([['to the fake err\n']])
 	})

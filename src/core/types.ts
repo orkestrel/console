@@ -197,9 +197,8 @@ export interface StylerInterface {
  *
  * @remarks
  * The themed counterpart of the {@link STATUS_ICONS} / {@link STATUS_COLORS} defaults: those
- * two constants are the SOURCE of {@link DEFAULT_THEME}'s statuses, and a consumer overrides
- * either half per status (a different glyph, a different color, or both) through
- * {@link ThemeOptions}.
+ * two constants are the SOURCE of {@link DEFAULT_THEME}'s statuses. A status override supplies
+ * the whole record — both `icon` and `style` — through {@link ThemeOptions}.
  */
 export interface ThemeStatus {
 	readonly icon: string
@@ -237,9 +236,11 @@ export interface Theme {
  * @remarks
  * Every key is optional and merges per ROLE, never per theme: an omitted role keeps its
  * default, and `levels` / `statuses` merge per entry, so `{ levels: { warn: … } }` restyles
- * the `warn` label and leaves the other three alone. Supply a frozen {@link Style} value —
- * a styler chain's `style` (`createStyler().brightMagenta.bold.style`) is the ready-made
- * source, and {@link EMPTY_STYLE} is the unstyled one.
+ * the `warn` label and leaves the other three alone. A status override supplies its whole
+ * `{ icon, style }` record; {@link createTheme} copies and freezes that record while retaining
+ * its frozen `Style` leaf by reference. Supply frozen {@link Style} values — a styler chain's
+ * `style` (`createStyler().brightMagenta.bold.style`) is the ready-made source, and
+ * {@link EMPTY_STYLE} is the unstyled one.
  */
 export interface ThemeOptions {
 	readonly levels?: Readonly<Partial<Record<LogLevel, Style>>>
@@ -316,7 +317,8 @@ export interface SinkInterface {
 	 * Write one already-formatted chunk of output. `text` receives ONE LINE WITHOUT its
 	 * terminator — the sink's target supplies it (e.g. `console.log`; the server TTY sink
 	 * appends one) — UNLESS `text` begins with `\r`: that is an in-place REDRAW frame (the
-	 * Spinner / Progress animation protocol) carrying its own line endings, written verbatim.
+	 * Spinner / Progress animation protocol), written verbatim. A tick frame carries no
+	 * terminator; a final frame carries its own.
 	 * `level` is the originating record's {@link LogLevel} — supplied so a stream-aware sink
 	 * can route (e.g. `error` to `stderr`); a plain sink ignores it.
 	 */
@@ -356,6 +358,7 @@ export type LoggerEventMap = {
  * The formatter owns the LINE; the `entry` event owns the RECORD. A transport that wants
  * structure rides the event rather than parsing a line back out of this. A formatter throw
  * propagates to the caller of `logger.info` and prevents that line's write, so keep it total.
+ * A manager fans out sequentially; a formatter throw stops the remaining loggers for that call.
  */
 export type LogFormatFunction = (record: LogRecord, styler: StylerInterface, theme: Theme) => string
 
@@ -557,12 +560,14 @@ export interface BorderChars {
  *   (`─`). The VISIBLE width of the rule is `width` regardless of the fill's escape codes.
  * - `styler` — colors the rule (and the embedded title) when supplied; the layout is
  *   identical with or without it, since width is measured on the visible content.
+ * - `style` — an optional by-value style rendered through `styler` for the rule and title.
  */
 export interface SeparatorOptions {
 	readonly title?: string
 	readonly width?: number
 	readonly fill?: string
 	readonly styler?: StylerInterface
+	readonly style?: Style
 }
 
 /**
@@ -582,6 +587,7 @@ export interface SeparatorOptions {
  *   that wide (content wider than the budget is not truncated — `renderTable` is the
  *   width-bounded renderer).
  * - `styler` — colors the border (and title) when supplied; alignment is unaffected.
+ * - `style` — an optional by-value style rendered through `styler` for the frame and title.
  */
 export interface BoxOptions {
 	readonly content: string
@@ -590,6 +596,7 @@ export interface BoxOptions {
 	readonly border?: BorderStyle
 	readonly width?: number
 	readonly styler?: StylerInterface
+	readonly style?: Style
 }
 
 /**
@@ -620,12 +627,14 @@ export interface ColumnSpec {
  * - `styler` — colors the border + header labels when supplied; the cells are written as
  *   given (already-styled cells are honored — their VISIBLE width drives column sizing, never
  *   their raw `.length`).
+ * - `style` — an optional by-value style rendered through `styler` for the frame and headers.
  */
 export interface TableOptions {
 	readonly columns: readonly ColumnSpec[]
 	readonly rows: ReadonlyArray<readonly string[]>
 	readonly border?: BorderStyle
 	readonly styler?: StylerInterface
+	readonly style?: Style
 }
 
 /**
@@ -652,11 +661,13 @@ export interface TreeNode {
  * - `border` — the {@link BorderStyle} whose junction set supplies every connector;
  *   defaults to {@link DEFAULT_BORDER} (`single`).
  * - `styler` — colors the connectors when supplied; node labels are written as given.
+ * - `style` — an optional by-value style rendered through `styler` for the connectors.
  */
 export interface TreeOptions {
 	readonly root: TreeNode
 	readonly border?: BorderStyle
 	readonly styler?: StylerInterface
+	readonly style?: Style
 }
 
 /**
@@ -937,6 +948,7 @@ export interface CaptureResult<T> {
  *   import('./helpers.js').width}), so a multi-cell glyph still yields a `width`-wide track.
  * - `styler` — colors the FILLED run when supplied (the empty run + the trailing label stay plain);
  *   the layout is identical with or without color, since the track is measured on visible width.
+ * - `style` — an optional by-value style rendered through `styler` for the filled run.
  */
 export interface ProgressBarOptions {
 	readonly current: number
@@ -945,6 +957,7 @@ export interface ProgressBarOptions {
 	readonly fill?: string
 	readonly empty?: string
 	readonly styler?: StylerInterface
+	readonly style?: Style
 }
 
 /**

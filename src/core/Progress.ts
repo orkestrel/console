@@ -135,17 +135,15 @@ export class Progress implements ProgressInterface {
 	// bar is not overwritten); `level` routes a failure() write to the error stream. The single render
 	// path shared by update()/complete()/failure().
 	#paint(final: boolean, level?: 'error'): void {
-		const bar = renderBar(
-			{
-				current: this.#current,
-				total: this.#total,
-				width: this.#width,
-				...(this.#fill === undefined ? {} : { fill: this.#fill }),
-				...(this.#empty === undefined ? {} : { empty: this.#empty }),
-				styler: this.#styler,
-			},
-			this.#theme.accent,
-		)
+		const bar = renderBar({
+			current: this.#current,
+			total: this.#total,
+			width: this.#width,
+			...(this.#fill === undefined ? {} : { fill: this.#fill }),
+			...(this.#empty === undefined ? {} : { empty: this.#empty }),
+			styler: this.#styler,
+			style: this.#theme.accent,
+		})
 		const line = this.#message === '' ? bar : `${bar} ${this.#message}`
 		this.#sink.write(`\r${line}${final ? '\n' : ''}`, level)
 	}

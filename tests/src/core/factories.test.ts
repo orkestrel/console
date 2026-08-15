@@ -114,6 +114,18 @@ describe('createTheme', () => {
 		expect(theme.statuses.info).toEqual(DEFAULT_THEME.statuses.info)
 	})
 
+	it('copies and freezes a supplied status record so later caller mutation cannot retheme it', () => {
+		const supplied = { icon: '+', style: createStyler().green.style }
+		const theme = createTheme({ statuses: { success: supplied } })
+		expect(Object.isFrozen(supplied)).toBe(false)
+		expect(theme.statuses.success).not.toBe(supplied)
+		expect(Object.isFrozen(theme.statuses.success)).toBe(true)
+		expect(theme.statuses.success.style).toBe(supplied.style)
+		supplied.icon = '-'
+		expect(supplied.icon).toBe('-')
+		expect(theme.statuses.success.icon).toBe('+')
+	})
+
 	it('overrides accent and chrome independently of each other', () => {
 		const accent = createStyler().magenta.style
 		const theme = createTheme({ accent })
