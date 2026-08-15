@@ -66,14 +66,14 @@ export function createServerSink(options?: ServerSinkOptions): ServerSinkInterfa
 		write(text: string, level?: LogLevel): void {
 			const error = level === 'error' || level === 'warn'
 			const target = error ? err : out
-			const styled = error ? errStyled : outStyled
+			const keep = error ? errStyled : outStyled
 			// A leading `\r` marks an in-place redraw frame (Spinner/Progress), which carries its own
 			// line endings and is written verbatim; every other (line-oriented) write gets exactly one
 			// trailing `\n` appended here, matching `console.log`'s newline-terminated behavior.
 			const framed = text.startsWith('\r')
 			const line = framed ? text : `${text}\n`
 			// A styled target receives the line verbatim; a plain target receives visible text only.
-			target.write(styled ? line : stripControls(strip(line)))
+			target.write(keep ? line : stripControls(strip(line)))
 		},
 		get columns(): number {
 			// A fixed override wins; otherwise the live out-stream width (tracks a resize), with the
