@@ -1,5 +1,5 @@
 import type { LoggerInterface, LogLevel, LogRecord } from '@src/core'
-import { createLogger, createStyler, Logger, strip } from '@src/core'
+import { createLogger, createStyler, createTheme, Logger, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
@@ -150,6 +150,84 @@ describe('Logger', () => {
 			expect(logger.entries()).toHaveLength(2)
 			expect(sink.calls).toHaveLength(0)
 		})
+
+		it('never invokes a custom formatter', () => {
+			const sink = createRecordingSink()
+			let calls = 0
+			const logger = new Logger({
+				level: 'debug',
+				silent: true,
+				sink,
+				format: () => {
+					calls += 1
+					return 'should not run'
+				},
+			})
+			logger.info('quiet')
+			expect(calls).toBe(0)
+			expect(logger.entries()).toHaveLength(1)
+			expect(sink.calls).toHaveLength(0)
+		})
+	})
+
+	describe('custom format', () => {
+		it('does not invoke the formatter for a record rejected by the level gate', () => {
+			let calls = 0
+			const logger = new Logger({
+				level: 'warn',
+				sink: createRecordingSink(),
+				format: () => {
+					calls += 1
+					return 'unexpected'
+				},
+			})
+			logger.info('dropped')
+			expect(calls).toBe(0)
+			expect(logger.entries()).toHaveLength(0)
+		})
+
+		it('writes the formatter return exactly and gives it the unmodified frozen record', () => {
+			const sink = createRecordingSink()
+			const styler = createStyler({ enabled: false })
+			const theme = createTheme()
+			let seen: LogRecord | undefined
+			let context = false
+			const logger = new Logger({
+				level: 'debug',
+				sink,
+				styler,
+				theme,
+				format: (record, actualStyler, actualTheme) => {
+					seen = record
+					context = actualStyler === styler && actualTheme === theme
+					return 'custom bytes'
+				},
+			})
+			logger.warn('original', { n: 1 })
+			expect(sink.calls).toEqual([['custom bytes', 'warn']])
+			expect(seen).toBe(logger.entries()[0])
+			expect(seen?.message).toBe('original')
+			expect(seen?.data).toEqual({ n: 1 })
+			expect(Object.isFrozen(seen)).toBe(true)
+			expect(context).toBe(true)
+		})
+
+		it('propagates a formatter throw after retention and entry while preventing only the write', () => {
+			const sink = createRecordingSink()
+			const error = new Error('format failed')
+			const logger = new Logger({
+				level: 'debug',
+				sink,
+				format: () => {
+					throw error
+				},
+			})
+			const events = recordEmitterEvents(logger.emitter, ['entry'])
+			expect(() => logger.error('kept')).toThrow(error)
+			expect(logger.entries().map((record) => record.message)).toEqual(['kept'])
+			expect(events.entry.calls[0]?.[0]).toBe(logger.entries()[0])
+			expect(sink.calls).toHaveLength(0)
+		})
 	})
 
 	describe('bounded retention', () => {
@@ -213,6 +291,20 @@ describe('Logger', () => {
 			const { logger, sink } = createTestLogger()
 			logger.info('no name')
 			expect(sink.calls[0]?.[0]).toMatch(/ INFO no name$/)
+		})
+
+		it('renders the level through the supplied theme', () => {
+			const sink = createRecordingSink()
+			const logger = new Logger({
+				level: 'debug',
+				sink,
+				styler: createStyler(),
+				theme: createTheme({ levels: { warn: createStyler().brightMagenta.bold.style } }),
+			})
+			logger.warn('themed')
+			const text = sink.calls[0]?.[0] ?? ''
+			expect(text).toContain('\x1b[1;95mWARN\x1b[0m')
+			expect(strip(text)).toMatch(/ WARN themed$/)
 		})
 	})
 

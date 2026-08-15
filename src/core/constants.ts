@@ -347,18 +347,6 @@ export const STATUS_LEVELS: readonly StatusLevel[] = Object.freeze([
 ])
 
 /**
- * The tree connectors {@link import('./helpers.js').renderTree} draws — the `├─` branch (a
- * non-last child), the `└─` corner (the last child), the `│ ` guide (carried down through an
- * earlier branch's descendants), and the `  ` gap (under a last branch). Frozen.
- */
-export const TREE_CHARS = Object.freeze({
-	branch: '├─ ',
-	corner: '└─ ',
-	guide: '│  ',
-	gap: '   ',
-})
-
-/**
  * The default visible column width for the width-aware renderers — the separator rule and a
  * {@link import('./helpers.js').renderBox} with no explicit `width`, and the reporter's
  * `section` rule. A sane terminal default (80 columns); a caller overrides it per-call or via

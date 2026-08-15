@@ -1,4 +1,11 @@
-import { createProgress, createStyler, Progress, strip } from '@src/core'
+import {
+	createProgress,
+	createStyler,
+	createTheme,
+	DEFAULT_THEME,
+	Progress,
+	strip,
+} from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
@@ -191,6 +198,44 @@ describe('Progress', () => {
 			expect(strip(text)).not.toBe(text) // cyan escapes present on the filled run
 			// Strip ANSI via the framework helper; remove the leading \r.
 			expect(strip(text).replace(/^\r/, '')).toBe('█████░░░░░ 50% (5/10)')
+		})
+
+		it('uses custom fill and empty glyphs and the theme accent only on the filled run', () => {
+			const sink = createRecordingSink()
+			const progress = new Progress({
+				total: 4,
+				width: 8,
+				fill: '=',
+				empty: '-',
+				sink,
+				styler: createStyler(),
+				theme: createTheme({ accent: createStyler().brightMagenta.bold.style }),
+			})
+			progress.update(2)
+			expect(sink.calls[0]?.[0]).toBe('\r\x1b[1;95m====\x1b[0m---- 50% (2/4)')
+		})
+
+		it('keeps update, completion, and failure bytes identical with the explicit default theme', () => {
+			const implicitSink = createRecordingSink()
+			const explicitSink = createRecordingSink()
+			const implicit = new Progress({ total: 4, message: 'work', sink: implicitSink })
+			const explicit = new Progress({
+				total: 4,
+				message: 'work',
+				sink: explicitSink,
+				theme: DEFAULT_THEME,
+			})
+			implicit.update(2)
+			explicit.update(2)
+			implicit.complete('done')
+			explicit.complete('done')
+			const implicitFailure = new Progress({ total: 4, sink: implicitSink })
+			const explicitFailure = new Progress({ total: 4, sink: explicitSink, theme: DEFAULT_THEME })
+			implicitFailure.update(1)
+			explicitFailure.update(1)
+			implicitFailure.failure('failed')
+			explicitFailure.failure('failed')
+			expect(implicitSink.calls).toEqual(explicitSink.calls)
 		})
 	})
 

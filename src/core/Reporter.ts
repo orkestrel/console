@@ -7,9 +7,10 @@ import type {
 	StepPosition,
 	StylerInterface,
 	TableOptions,
+	Theme,
 	TreeOptions,
 } from './types.js'
-import { DEFAULT_WIDTH, STATUS_COLORS, STATUS_ICONS } from './constants.js'
+import { DEFAULT_THEME, DEFAULT_WIDTH } from './constants.js'
 import { createConsoleSink, createStyler } from './factories.js'
 import { formatDuration, renderBox, renderSeparator, renderTable, renderTree } from './helpers.js'
 
@@ -26,7 +27,7 @@ import { formatDuration, renderBox, renderSeparator, renderTable, renderTree } f
  *   capture (the capture chunk), no level retention (the logger). Just format + write.
  * - **`status` is a narrative OUTCOME, not a log level.** Its {@link StatusLevel} (`success` /
  *   `error` / `warn` / `info`) is distinct from {@link import('./types.js').LogLevel}: an icon
- *   ({@link STATUS_ICONS}) + a color ({@link STATUS_COLORS}), with `error` routed to the sink's
+ *   supplied theme status icon + style, with `error` routed to the sink's
  *   error stream (the `level` hint forwarded to {@link SinkInterface.write}) — there is no
  *   gating and no severity ordering.
  * - **Width-aware.** `section` (and a `box` with no explicit `width`) lay out to the reporter's
@@ -46,49 +47,58 @@ import { formatDuration, renderBox, renderSeparator, renderTable, renderTree } f
 export class Reporter implements ReporterInterface {
 	readonly #sink: SinkInterface
 	readonly #styler: StylerInterface
+	readonly #theme: Theme
 	readonly #width: number
 
 	constructor(options?: ReporterOptions) {
 		this.#sink = options?.sink ?? createConsoleSink()
 		this.#styler = options?.styler ?? createStyler()
+		this.#theme = options?.theme ?? DEFAULT_THEME
 		this.#width = options?.width ?? DEFAULT_WIDTH
 	}
 
 	section(title: string): void {
-		// The rule is dimmed chrome; the styler colors with its accumulated chain, so a base
-		// styler is given a concrete `.dim` treatment (exactly as the logger dims its timestamp).
-		this.#sink.write(renderSeparator({ title, width: this.#width, styler: this.#styler.dim }))
+		// The theme's chrome role styles the rule and title through the shared styler.
+		this.#sink.write(
+			renderSeparator({ title, width: this.#width, styler: this.#styler }, this.#theme.chrome),
+		)
 	}
 
 	step(message: string, position?: StepPosition): void {
 		const prefix =
-			position === undefined ? '' : `${this.#styler.cyan(`[${position.index}/${position.total}]`)} `
+			position === undefined
+				? ''
+				: `${this.#styler.render(this.#theme.accent, `[${position.index}/${position.total}]`)} `
 		this.#sink.write(`${prefix}${message}`)
 	}
 
 	timing(label: string, ms: number): void {
-		this.#sink.write(`${label} ${this.#styler.dim(`… ${formatDuration(ms)}`)}`)
+		this.#sink.write(
+			`${label} ${this.#styler.render(this.#theme.chrome, `… ${formatDuration(ms)}`)}`,
+		)
 	}
 
 	status(level: StatusLevel, message: string): void {
-		const color = this.#styler[STATUS_COLORS[level]]
-		const line = `${color(STATUS_ICONS[level])} ${color(message)}`
+		const status = this.#theme.statuses[level]
+		const line = `${this.#styler.render(status.style, status.icon)} ${this.#styler.render(status.style, message)}`
 		// `error` is the one outcome that routes to the sink's error stream; the rest write plain.
 		this.#sink.write(line, level === 'error' ? 'error' : undefined)
 	}
 
 	table(options: TableOptions): void {
-		// Frame + header dimmed by default (the `.dim` chain); a caller's own `options.styler` wins.
-		this.#sink.write(renderTable({ styler: this.#styler.dim, ...options }))
+		// The theme's chrome role styles the frame and header; a caller's own styler still wins.
+		this.#sink.write(renderTable({ styler: this.#styler, ...options }, this.#theme.chrome))
 	}
 
 	tree(options: TreeOptions): void {
-		this.#sink.write(renderTree({ styler: this.#styler.dim, ...options }))
+		this.#sink.write(renderTree({ styler: this.#styler, ...options }, this.#theme.chrome))
 	}
 
 	box(options: BoxOptions): void {
-		// Default the box to the reporter's width + a dimmed frame; an explicit option in `options` wins.
-		this.#sink.write(renderBox({ width: this.#width, styler: this.#styler.dim, ...options }))
+		// Default the box width here; explicit options win, while the theme supplies frame chrome.
+		this.#sink.write(
+			renderBox({ width: this.#width, styler: this.#styler, ...options }, this.#theme.chrome),
+		)
 	}
 
 	line(text: string): void {

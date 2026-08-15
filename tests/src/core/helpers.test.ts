@@ -3,6 +3,8 @@ import {
 	align,
 	cellAt,
 	createStyler,
+	createTheme,
+	DEFAULT_THEME,
 	formatArgs,
 	formatDuration,
 	formatRecord,
@@ -134,28 +136,38 @@ describe('formatTime', () => {
 
 describe('formatRecord', () => {
 	it('lays out time LEVEL [name] message with a plain styler', () => {
-		const line = formatRecord(record({ level: 'warn', message: 'low disk', name: 'fs' }), plain)
+		const line = formatRecord(
+			record({ level: 'warn', message: 'low disk', name: 'fs' }),
+			plain,
+			DEFAULT_THEME,
+		)
 		expect(line).toBe('1970-01-01T00:00:00.000Z WARN [fs] low disk')
 	})
 
 	it('omits the name segment when absent', () => {
-		const line = formatRecord(record({ level: 'info', message: 'plain' }), plain)
+		const line = formatRecord(record({ level: 'info', message: 'plain' }), plain, DEFAULT_THEME)
 		expect(line).toBe('1970-01-01T00:00:00.000Z INFO plain')
 	})
 
 	it('upper-cases the level label', () => {
-		expect(formatRecord(record({ level: 'error', message: 'x' }), plain)).toContain(' ERROR ')
-		expect(formatRecord(record({ level: 'debug', message: 'x' }), plain)).toContain(' DEBUG ')
+		expect(formatRecord(record({ level: 'error', message: 'x' }), plain, DEFAULT_THEME)).toContain(
+			' ERROR ',
+		)
+		expect(formatRecord(record({ level: 'debug', message: 'x' }), plain, DEFAULT_THEME)).toContain(
+			' DEBUG ',
+		)
 	})
 
 	it('appends structured data as compact JSON, omitting it when absent or empty', () => {
-		expect(formatRecord(record({ level: 'info', message: 'm', data: { a: 1 } }), plain)).toContain(
-			'{"a":1}',
-		)
-		expect(formatRecord(record({ level: 'info', message: 'm', data: {} }), plain)).not.toContain(
-			'{',
-		)
-		expect(formatRecord(record({ level: 'info', message: 'm' }), plain)).not.toContain('{')
+		expect(
+			formatRecord(record({ level: 'info', message: 'm', data: { a: 1 } }), plain, DEFAULT_THEME),
+		).toContain('{"a":1}')
+		expect(
+			formatRecord(record({ level: 'info', message: 'm', data: {} }), plain, DEFAULT_THEME),
+		).not.toContain('{')
+		expect(
+			formatRecord(record({ level: 'info', message: 'm' }), plain, DEFAULT_THEME),
+		).not.toContain('{')
 	})
 
 	it('colors the label through the styler (styling orthogonal to level)', () => {
@@ -163,9 +175,26 @@ describe('formatRecord', () => {
 		const styled = formatRecord(
 			record({ level: 'warn', message: 'hot', name: 'x' }),
 			createStyler(),
+			DEFAULT_THEME,
 		)
 		expect(styled).toContain(`${ESC}33m`) // yellow
 		expect(strip(styled)).toBe('1970-01-01T00:00:00.000Z WARN [x] hot')
+	})
+
+	it('renders the level role and every surround through the supplied theme', () => {
+		const theme = createTheme({
+			levels: { warn: createStyler().brightMagenta.bold.style },
+			chrome: createStyler().underline.style,
+		})
+		const styled = formatRecord(
+			record({ level: 'warn', message: 'hot', name: 'x', data: { n: 1 } }),
+			createStyler(),
+			theme,
+		)
+		expect(styled).toContain(`${ESC}1;95mWARN${ESC}0m`)
+		expect(styled).toContain(`${ESC}4m1970-01-01T00:00:00.000Z${ESC}0m`)
+		expect(styled).toContain(`${ESC}4m[x]${ESC}0m`)
+		expect(styled).toContain(`${ESC}4m{"n":1}${ESC}0m`)
 	})
 })
 
@@ -409,6 +438,22 @@ describe('renderTree', () => {
 		})
 		expect(tree).toContain(ESC) // a connector is colored
 		expect(strip(tree)).toBe(['root', '└─ a'].join('\n'))
+	})
+
+	it('derives every connector from the selected heavy border set', () => {
+		const tree = renderTree({
+			border: 'heavy',
+			root: {
+				label: 'root',
+				children: [{ label: 'a', children: [{ label: 'a1' }] }, { label: 'b' }],
+			},
+		})
+		expect(tree).toBe(['root', '┣━ a', '┃  ┗━ a1', '┗━ b'].join('\n'))
+	})
+
+	it('keeps the omitted border byte-identical to an explicit single border', () => {
+		const root = { label: 'root', children: [{ label: 'a' }, { label: 'b' }] }
+		expect(renderTree({ root })).toBe(renderTree({ root, border: 'single' }))
 	})
 })
 

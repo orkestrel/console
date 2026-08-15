@@ -1,5 +1,12 @@
 import type { LogLevel } from '@src/core'
-import { createLoggerManager, createStyler, LoggerManager } from '@src/core'
+import {
+	createLoggerManager,
+	createStyler,
+	createTheme,
+	formatRecord,
+	LoggerManager,
+	strip,
+} from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createRecordingSink } from '../../setup.js'
 
@@ -58,6 +65,23 @@ describe('LoggerManager', () => {
 			const overridden = manager.register('overrides', { level: 'debug' })
 			expect(inherited.level).toBe('warn')
 			expect(overridden.level).toBe('debug')
+		})
+
+		it('flows theme and format defaults while a register override wins', () => {
+			const sink = createRecordingSink()
+			const manager = new LoggerManager({
+				level: 'debug',
+				sink,
+				styler: createStyler(),
+				theme: createTheme({ levels: { warn: createStyler().brightMagenta.style } }),
+				format: () => 'manager format',
+			})
+			manager.register('formatted').warn('x')
+			manager.register('themed', { format: formatRecord }).warn('y')
+			expect(sink.calls[0]?.[0]).toBe('manager format')
+			const themed = sink.calls[1]?.[0] ?? ''
+			expect(themed).toContain('\x1b[95mWARN\x1b[0m')
+			expect(strip(themed)).toMatch(/ WARN \[themed\] y$/)
 		})
 
 		it('the registry key always wins over an options.name (no key desync)', () => {

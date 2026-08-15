@@ -1,5 +1,12 @@
 import type { ReporterInterface } from '@src/core'
-import { createReporter, createStyler, Reporter, strip } from '@src/core'
+import {
+	createReporter,
+	createStyler,
+	createTheme,
+	DEFAULT_THEME,
+	Reporter,
+	strip,
+} from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createRecordingSink } from '../../setup.js'
 
@@ -102,6 +109,83 @@ describe('Reporter', () => {
 			expect(text).toContain('\x1b[31m') // red — error's color
 			expect(strip(text)).toBe('✖ failure')
 			expect(sink.calls[0]?.[1]).toBe('error')
+		})
+
+		it('uses the supplied status icon and style for both icon and message', () => {
+			const sink = createRecordingSink()
+			const reporter = new Reporter({
+				sink,
+				styler: createStyler(),
+				theme: createTheme({
+					statuses: {
+						warn: { icon: '?', style: createStyler().brightMagenta.bold.style },
+					},
+				}),
+			})
+			reporter.status('warn', 'check')
+			expect(firstLine(sink)).toBe('\x1b[1;95m?\x1b[0m \x1b[1;95mcheck\x1b[0m')
+		})
+	})
+
+	describe('theme roles', () => {
+		it('uses accent only for the positioned step prefix', () => {
+			const sink = createRecordingSink()
+			const reporter = new Reporter({
+				sink,
+				styler: createStyler(),
+				theme: createTheme({ accent: createStyler().brightMagenta.bold.style }),
+			})
+			reporter.step('bundle', { index: 2, total: 5 })
+			expect(firstLine(sink)).toBe('\x1b[1;95m[2/5]\x1b[0m bundle')
+		})
+
+		it('uses chrome for section, timing suffix, table, tree, and box frames', () => {
+			const sink = createRecordingSink()
+			const reporter = new Reporter({
+				sink,
+				styler: createStyler(),
+				width: 8,
+				theme: createTheme({ chrome: createStyler().underline.style }),
+			})
+			reporter.section('S')
+			reporter.timing('build', 1000)
+			reporter.table({ columns: [{ label: 'A' }], rows: [['1']] })
+			reporter.tree({ root: { label: 'root', children: [{ label: 'leaf' }] } })
+			reporter.box({ content: 'body' })
+			const output = sink.calls.map(([text]) => text)
+			expect(output[0]).toContain('\x1b[4m')
+			expect(output[1]).toBe('build \x1b[4m… 1.00s\x1b[0m')
+			expect(output[2]).toContain('\x1b[4m┌───┐\x1b[0m')
+			expect(output[2]).toContain('\n\x1b[4m│\x1b[0m 1 \x1b[4m│\x1b[0m')
+			expect(output[3]).toBe('root\n\x1b[4m└─ \x1b[0mleaf')
+			expect(output[4]).toContain('\x1b[4m┌──────┐\x1b[0m')
+			expect(output[4]).toContain('\n\x1b[4m│\x1b[0m body \x1b[4m│\x1b[0m')
+		})
+
+		it('keeps all nine verb outputs byte-identical with the explicit default theme', () => {
+			const implicitSink = createRecordingSink()
+			const explicitSink = createRecordingSink()
+			const implicit = new Reporter({ sink: implicitSink, width: 12 })
+			const explicit = new Reporter({ sink: explicitSink, width: 12, theme: DEFAULT_THEME })
+			implicit.section('S')
+			explicit.section('S')
+			implicit.step('step', { index: 1, total: 2 })
+			explicit.step('step', { index: 1, total: 2 })
+			implicit.timing('time', 12)
+			explicit.timing('time', 12)
+			implicit.status('success', 'ok')
+			explicit.status('success', 'ok')
+			implicit.table({ columns: [{ label: 'A' }], rows: [['1']] })
+			explicit.table({ columns: [{ label: 'A' }], rows: [['1']] })
+			implicit.tree({ root: { label: 'root', children: [{ label: 'leaf' }] } })
+			explicit.tree({ root: { label: 'root', children: [{ label: 'leaf' }] } })
+			implicit.box({ content: 'body' })
+			explicit.box({ content: 'body' })
+			implicit.line('raw')
+			explicit.line('raw')
+			implicit.blank()
+			explicit.blank()
+			expect(implicitSink.calls).toEqual(explicitSink.calls)
 		})
 	})
 

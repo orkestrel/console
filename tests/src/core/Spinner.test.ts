@@ -1,4 +1,12 @@
-import { createSpinner, createStyler, SPINNER_FRAMES, Spinner, strip } from '@src/core'
+import {
+	createSpinner,
+	createStyler,
+	createTheme,
+	DEFAULT_THEME,
+	SPINNER_FRAMES,
+	Spinner,
+	strip,
+} from '@src/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
@@ -69,6 +77,19 @@ describe('Spinner', () => {
 			// …but the visible content (escapes stripped via the framework helper) is the plain frame
 			// line, with the leading \r removed.
 			expect(strip(text).replace(/^\r/, '')).toBe('* go')
+		})
+
+		it('uses the theme accent for the glyph and leaves the message unchanged', () => {
+			const sink = createRecordingSink()
+			const spinner = new Spinner({
+				message: 'go',
+				frames: ['*'],
+				sink,
+				styler: createStyler(),
+				theme: createTheme({ accent: createStyler().brightMagenta.bold.style }),
+			})
+			spinner.tick()
+			expect(sink.calls[0]?.[0]).toBe('\r\x1b[1;95m*\x1b[0m go')
 		})
 	})
 
@@ -239,6 +260,38 @@ describe('Spinner', () => {
 			expect(strip(text)).not.toBe(text) // escapes present
 			// Strip ANSI via the framework helper; remove the leading \r + trailing newline.
 			expect(strip(text).replace(/^\r/, '').replace(/\n$/, '')).toBe('✔ green')
+		})
+
+		it('uses the theme status icon and style for outcome lines', () => {
+			const sink = createRecordingSink()
+			const spinner = new Spinner({
+				sink,
+				styler: createStyler(),
+				theme: createTheme({
+					statuses: {
+						success: { icon: '+', style: createStyler().brightBlue.underline.style },
+						error: { icon: '-', style: createStyler().brightMagenta.bold.style },
+					},
+				}),
+			})
+			spinner.success('done')
+			spinner.failure('failed')
+			expect(sink.calls).toEqual([
+				['\r\x1b[4;94m+\x1b[0m \x1b[4;94mdone\x1b[0m\n', undefined],
+				['\r\x1b[1;95m-\x1b[0m \x1b[1;95mfailed\x1b[0m\n', 'error'],
+			])
+		})
+
+		it('keeps frame and outcome bytes identical with the explicit default theme', () => {
+			const implicitSink = createRecordingSink()
+			const explicitSink = createRecordingSink()
+			new Spinner({ sink: implicitSink, message: 'spin' }).tick()
+			new Spinner({ sink: explicitSink, message: 'spin', theme: DEFAULT_THEME }).tick()
+			new Spinner({ sink: implicitSink }).success('done')
+			new Spinner({ sink: explicitSink, theme: DEFAULT_THEME }).success('done')
+			new Spinner({ sink: implicitSink }).failure('failed')
+			new Spinner({ sink: explicitSink, theme: DEFAULT_THEME }).failure('failed')
+			expect(implicitSink.calls).toEqual(explicitSink.calls)
 		})
 	})
 

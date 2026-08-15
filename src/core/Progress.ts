@@ -5,9 +5,10 @@ import type {
 	ProgressOptions,
 	SinkInterface,
 	StylerInterface,
+	Theme,
 } from './types.js'
 import { Emitter } from '@orkestrel/emitter'
-import { DEFAULT_BAR_WIDTH } from './constants.js'
+import { DEFAULT_BAR_WIDTH, DEFAULT_THEME } from './constants.js'
 import { createConsoleSink, createStyler } from './factories.js'
 import { renderBar } from './helpers.js'
 
@@ -45,8 +46,11 @@ export class Progress implements ProgressInterface {
 	readonly #emitter: Emitter<ProgressEventMap>
 	readonly #total: number
 	readonly #width: number
+	readonly #fill: ProgressOptions['fill']
+	readonly #empty: ProgressOptions['empty']
 	readonly #sink: SinkInterface
 	readonly #styler: StylerInterface
+	readonly #theme: Theme
 	#message: string
 	#current = 0
 	#active = true
@@ -59,8 +63,11 @@ export class Progress implements ProgressInterface {
 		})
 		this.#total = options.total
 		this.#width = options.width ?? DEFAULT_BAR_WIDTH
+		this.#fill = options.fill
+		this.#empty = options.empty
 		this.#sink = options.sink ?? createConsoleSink()
 		this.#styler = options.styler ?? createStyler()
+		this.#theme = options.theme ?? DEFAULT_THEME
 		this.#message = options.message ?? ''
 	}
 
@@ -128,12 +135,17 @@ export class Progress implements ProgressInterface {
 	// bar is not overwritten); `level` routes a failure() write to the error stream. The single render
 	// path shared by update()/complete()/failure().
 	#paint(final: boolean, level?: 'error'): void {
-		const bar = renderBar({
-			current: this.#current,
-			total: this.#total,
-			width: this.#width,
-			styler: this.#styler.cyan,
-		})
+		const bar = renderBar(
+			{
+				current: this.#current,
+				total: this.#total,
+				width: this.#width,
+				...(this.#fill === undefined ? {} : { fill: this.#fill }),
+				...(this.#empty === undefined ? {} : { empty: this.#empty }),
+				styler: this.#styler,
+			},
+			this.#theme.accent,
+		)
 		const line = this.#message === '' ? bar : `${bar} ${this.#message}`
 		this.#sink.write(`\r${line}${final ? '\n' : ''}`, level)
 	}

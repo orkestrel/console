@@ -5,14 +5,10 @@ import type {
 	SpinnerInterface,
 	SpinnerOptions,
 	StylerInterface,
+	Theme,
 } from './types.js'
 import { Emitter } from '@orkestrel/emitter'
-import {
-	DEFAULT_SPINNER_INTERVAL,
-	SPINNER_FRAMES,
-	STATUS_COLORS,
-	STATUS_ICONS,
-} from './constants.js'
+import { DEFAULT_SPINNER_INTERVAL, DEFAULT_THEME, SPINNER_FRAMES } from './constants.js'
 import { createConsoleSink, createStyler } from './factories.js'
 
 /**
@@ -35,7 +31,7 @@ import { createConsoleSink, createStyler } from './factories.js'
  * - **Idempotent `start`.** A {@link start} while already `active` is a no-op (it never arms a second
  *   timer).
  * - **Outcome lines.** {@link success} / {@link failure} clear the timer then write + emit a FINAL line —
- *   the {@link STATUS_ICONS} `✔` / `✖` (colored via {@link STATUS_COLORS}) + the message — terminated
+ *   the supplied theme status icon + style (`✔` / `✖` by default) + the message — terminated
  *   by a newline (the activity is over; the line is committed, not overwritten). {@link failure} routes to
  *   the sink's error stream.
  * - **Lifecycle (§10).** {@link stop} clears the timer and LEAVES the current line; {@link destroy}
@@ -58,6 +54,7 @@ export class Spinner implements SpinnerInterface {
 	readonly #interval: number
 	readonly #sink: SinkInterface
 	readonly #styler: StylerInterface
+	readonly #theme: Theme
 	#message: string
 	// The running interval handle — undefined while inactive. Its presence IS `active`; the timer is
 	// armed in start() and cleared everywhere the spinner stops, so it is never leaked.
@@ -77,6 +74,7 @@ export class Spinner implements SpinnerInterface {
 		this.#interval = options?.interval ?? DEFAULT_SPINNER_INTERVAL
 		this.#sink = options?.sink ?? createConsoleSink()
 		this.#styler = options?.styler ?? createStyler()
+		this.#theme = options?.theme ?? DEFAULT_THEME
 		this.#message = options?.message ?? ''
 	}
 
@@ -142,8 +140,8 @@ export class Spinner implements SpinnerInterface {
 		this.stop()
 		const text = message ?? this.#message
 		if (message !== undefined) this.#message = message
-		const color = this.#styler[STATUS_COLORS[level]]
-		const line = `${color(STATUS_ICONS[level])} ${color(text)}`
+		const status = this.#theme.statuses[level]
+		const line = `${this.#styler.render(status.style, status.icon)} ${this.#styler.render(status.style, text)}`
 		this.#emitter.emit('frame', line)
 		// The trailing newline commits the line; `error` is the one outcome routed to the error stream.
 		this.#sink.write(`\r${line}\n`, level === 'error' ? 'error' : undefined)
@@ -152,7 +150,7 @@ export class Spinner implements SpinnerInterface {
 	// Build the styled frame line for the CURRENT index — the colored spinner glyph, then the message
 	// when present (a bare glyph otherwise). Kept off the public surface (a render fragment, AGENTS §5).
 	#line(): string {
-		const glyph = this.#styler.cyan(this.#frames[this.#index] ?? '')
+		const glyph = this.#styler.render(this.#theme.accent, this.#frames[this.#index] ?? '')
 		return this.#message === '' ? glyph : `${glyph} ${this.#message}`
 	}
 

@@ -15,7 +15,8 @@ import { Logger } from './Logger.js'
  * @remarks
  * - **Registry (§9).** Loggers live in an insertion-ordered `Map` keyed by `name`.
  *   `register(name, options?)` mints a {@link Logger} named `name` — the manager's default
- *   `level` / `sink` / `styler` / `limit` / `silent` flow in unless `options` OVERRIDES them
+ *   `level` / `sink` / `styler` / `theme` / `format` / `limit` / `silent` flow in unless
+ *   `options` OVERRIDES them
  *   (`name` is always the registry key, so any `options.name` is ignored) — stores it (a
  *   re-`register` of the same name OVERWRITES, last write wins), and returns it. `count` is
  *   the map size, `logger(name)` looks one up, `loggers()` lists them in insertion order.
@@ -44,6 +45,8 @@ export class LoggerManager implements LoggerManagerInterface {
 	readonly #level: LoggerManagerOptions['level']
 	readonly #sink: LoggerManagerOptions['sink']
 	readonly #styler: LoggerManagerOptions['styler']
+	readonly #theme: LoggerManagerOptions['theme']
+	readonly #format: LoggerManagerOptions['format']
 	readonly #limit: LoggerManagerOptions['limit']
 	readonly #silent: LoggerManagerOptions['silent']
 
@@ -51,6 +54,8 @@ export class LoggerManager implements LoggerManagerInterface {
 		this.#level = options?.level
 		this.#sink = options?.sink
 		this.#styler = options?.styler
+		this.#theme = options?.theme
+		this.#format = options?.format
 		this.#limit = options?.limit
 		this.#silent = options?.silent
 	}
@@ -66,6 +71,8 @@ export class LoggerManager implements LoggerManagerInterface {
 			...(this.#level !== undefined ? { level: this.#level } : {}),
 			...(this.#sink !== undefined ? { sink: this.#sink } : {}),
 			...(this.#styler !== undefined ? { styler: this.#styler } : {}),
+			...(this.#theme !== undefined ? { theme: this.#theme } : {}),
+			...(this.#format !== undefined ? { format: this.#format } : {}),
 			...(this.#limit !== undefined ? { limit: this.#limit } : {}),
 			...(this.#silent !== undefined ? { silent: this.#silent } : {}),
 			...options,

@@ -66,9 +66,9 @@ Structured logging — the immutable `LogRecord` + the `entry` event ARE the tra
 | `createLoggerManager`    | function  | Create an event-free `LoggerManagerInterface` — a registry of named loggers + fan-out.                                               |
 | `LoggerEventMap`         | type      | A logger's observable events (§13) — `entry(record)` for every accepted record (the transport seam).                                 |
 | `LogFormatFunction`      | type      | The line layout a logger writes — `(record, styler, theme) => string`; `formatRecord` is the default (the event owns the record).    |
-| `LoggerOptions`          | interface | `createLogger` options — `on?` / `error?` / `level?` / `name?` / `sink?` / `styler?` / `limit?` / `silent?`.                         |
+| `LoggerOptions`          | interface | `createLogger` options — `on?` / `error?` / `level?` / `name?` / `sink?` / `styler?` / `theme?` / `format?` / `limit?` / `silent?`.  |
 | `LoggerInterface`        | interface | The leveled logger — `emitter` / `level` / `name` data + `debug` / `info` / `warn` / `error` / `entries` / `clear` / `destroy`.      |
-| `LoggerManagerOptions`   | interface | `createLoggerManager` options — the `level?` / `sink?` / `styler?` / `limit?` / `silent?` defaults flowed into every minted logger.  |
+| `LoggerManagerOptions`   | interface | `createLoggerManager` options — the `level?` / `sink?` / `styler?` / `theme?` / `format?` / `limit?` / `silent?` logger defaults.    |
 | `LoggerManagerInterface` | interface | The logger registry — a `count` data member + `register` / `logger` / `loggers` / the `debug`…`error` fan-out / `remove` / `clear`.  |
 
 ### Reporting
@@ -85,10 +85,10 @@ Narrative reporting — pure width-aware LAYOUT renderers + a lean `Reporter` fr
 | `ColumnSpec`         | interface | One column of a `TableOptions` — its `label` and how its cells `align`.                                                             |
 | `TableOptions`       | interface | `renderTable` options — `columns` / `rows` / `border?` / `styler?` (a bordered, width-aware grid).                                  |
 | `TreeNode`           | interface | One node of a tree — a `label` plus optional `children`, recursively.                                                               |
-| `TreeOptions`        | interface | `renderTree` options — a `root` `TreeNode` + an optional `styler` (a nested tree drawn with box connectors).                        |
+| `TreeOptions`        | interface | `renderTree` options — `root` / `border?` / `styler?` (a nested tree drawn with connectors from the selected border set).           |
 | `StatusLevel`        | type      | A narrative OUTCOME level — `success` / `error` / `warn` / `info`, each with its own icon + color (DISTINCT from `LogLevel`).       |
 | `StepPosition`       | interface | A step's place in a sequence — the `{ index, total }` a `step` renders as a `[2/5]` prefix.                                         |
-| `ReporterOptions`    | interface | `createReporter` options — `sink?` / `styler?` / `width?` (the shared substrate + the default layout width).                        |
+| `ReporterOptions`    | interface | `createReporter` options — `sink?` / `styler?` / `theme?` / `width?` (the shared substrate, semantic roles, and layout width).      |
 | `ReporterInterface`  | interface | The narrative reporter — `section` / `step` / `timing` / `status` / `table` / `tree` / `box` / `line` / `blank`.                    |
 | `Reporter`           | class     | The lean, event-free narrative reporter — formats through the shared styler + the pure renderers and writes to a sink.              |
 | `createReporter`     | function  | Create a lean, event-free `ReporterInterface` — the entry point into narrative reporting.                                           |
@@ -144,12 +144,12 @@ Live activity animations — pure frame PRODUCERS over the SAME styler + sink su
 | -------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `ProgressBarOptions` | interface | `renderBar` options — `current` / `total` / `width?` / `fill?` / `empty?` / `styler?` (a determinate bar string).                        |
 | `SpinnerEventMap`    | type      | A spinner's observable events (§13) — `frame(line)` per advance / outcome + the `start` / `stop` timer-lifecycle signals.                |
-| `SpinnerOptions`     | interface | `createSpinner` options — `on?` / `error?` / `message?` / `frames?` / `interval?` / `sink?` / `styler?`.                                 |
+| `SpinnerOptions`     | interface | `createSpinner` options — `on?` / `error?` / `message?` / `frames?` / `interval?` / `sink?` / `styler?` / `theme?`.                      |
 | `SpinnerInterface`   | interface | The activity spinner — `emitter` / `active` / `message` data + `start` / `tick` / `update` / `success` / `failure` / `stop` / `destroy`. |
 | `Spinner`            | class     | The self-driving, observable spinner — a timer-advanced glyph cycle writing `\r` + a frame line to its sink; leak-free.                  |
 | `createSpinner`      | function  | Create a self-driving, observable `SpinnerInterface` — a live activity spinner (inactive until `start()`).                               |
 | `ProgressEventMap`   | type      | A progress bar's observable events (§13) — `update({current,total})` per report + a `complete` signal on a successful finish.            |
-| `ProgressOptions`    | interface | `createProgress` options — `on?` / `error?` / `total` (required) / `message?` / `width?` / `sink?` / `styler?`.                          |
+| `ProgressOptions`    | interface | `createProgress` options — `on?` / `error?` / `total` / `message?` / `width?` / `fill?` / `empty?` / `sink?` / `styler?` / `theme?`.     |
 | `ProgressInterface`  | interface | The progress bar — `emitter` / `active` / `completed` / `current` / `total` data + `update` / `complete` / `failure` / `destroy`.        |
 | `Progress`           | class     | The update-driven, observable progress bar — recomputes + writes `\r` + the bar on each `update`; no self-timer (the caller drives).     |
 | `createProgress`     | function  | Create an update-driven, observable `ProgressInterface` — a live progress bar.                                                           |
@@ -190,7 +190,6 @@ The level order + label colors, the box-drawing junction sets, status icons / co
 | `STATUS_ICONS`        | const | Each `StatusLevel`'s icon glyph — `success` ✔, `error` ✖, `warn` ⚠, `info` ℹ.                                          |
 | `STATUS_COLORS`       | const | Each `StatusLevel`'s `Color` — `success` green, `error` red, `warn` yellow, `info` blue; excludes `default`.           |
 | `STATUS_LEVELS`       | const | Every `StatusLevel` — the outcomes a `status` line supports.                                                           |
-| `TREE_CHARS`          | const | The tree connectors `renderTree` draws — the `├─` branch, `└─` corner, `│ ` guide, and gap.                            |
 | `DEFAULT_WIDTH`       | const | The default visible width for the width-aware renderers + the reporter's `section` rule — `80`.                        |
 | `DEFAULT_PADDING`     | const | The default horizontal padding inside a box's edges — one cell.                                                        |
 | `DEFAULT_BORDER`      | const | The default `BorderStyle` when none is given — `single`.                                                               |

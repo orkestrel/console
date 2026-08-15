@@ -373,6 +373,10 @@ export type LogFormatFunction = (record: LogRecord, styler: StylerInterface, the
  *   {@link import('./factories.js').createConsoleSink} (the snapshotted-console sink).
  * - `styler` — the {@link StylerInterface} the line is colored through; defaults to
  *   {@link import('./factories.js').createStyler} (ANSI). Styling is orthogonal to level.
+ * - `theme` — the {@link Theme} supplying the line's semantic styles; defaults to
+ *   {@link DEFAULT_THEME}.
+ * - `format` — the {@link LogFormatFunction} that owns the written line; defaults to
+ *   {@link import('./helpers.js').formatRecord}.
  * - `limit` — the bounded retention cap: at most this many recent records are kept
  *   (oldest dropped first). Defaults to {@link DEFAULT_LOG_LIMIT}; never unbounded.
  * - `silent` — when `true`, suppresses the SINK WRITE only; `entry` still fires and the
@@ -385,6 +389,8 @@ export interface LoggerOptions {
 	readonly name?: string
 	readonly sink?: SinkInterface
 	readonly styler?: StylerInterface
+	readonly theme?: Theme
+	readonly format?: LogFormatFunction
 	readonly limit?: number
 	readonly silent?: boolean
 }
@@ -435,12 +441,15 @@ export interface LoggerInterface {
  * registered {@link LoggerInterface} owns its observable `emitter`). These options supply
  * the DEFAULTS flowed into every logger the manager mints, unless a per-`register` override
  * wins: `level` (default threshold), `sink` (shared output target), `styler` (shared
- * coloring), `limit` (retention cap), and `silent`.
+ * coloring), `theme` (semantic styles), `format` (line layout), `limit` (retention cap),
+ * and `silent`.
  */
 export interface LoggerManagerOptions {
 	readonly level?: LogLevel
 	readonly sink?: SinkInterface
 	readonly styler?: StylerInterface
+	readonly theme?: Theme
+	readonly format?: LogFormatFunction
 	readonly limit?: number
 	readonly silent?: boolean
 }
@@ -640,10 +649,13 @@ export interface TreeNode {
  * - `root` — the top {@link TreeNode}; its `label` is the unindented first line and its
  *   `children` descend beneath it (`├─` for each but the last, `└─` for the last, `│` guides
  *   carried down through earlier branches).
+ * - `border` — the {@link BorderStyle} whose junction set supplies every connector;
+ *   defaults to {@link DEFAULT_BORDER} (`single`).
  * - `styler` — colors the connectors when supplied; node labels are written as given.
  */
 export interface TreeOptions {
 	readonly root: TreeNode
+	readonly border?: BorderStyle
 	readonly styler?: StylerInterface
 }
 
@@ -685,6 +697,8 @@ export interface StepPosition {
  * - `styler` — the {@link StylerInterface} every line is colored through; defaults to
  *   {@link import('./factories.js').createStyler} (ANSI). The ONE styler the whole system
  *   shares — no second colorizer. A disabled styler yields plain narration.
+ * - `theme` — the {@link Theme} supplying status, accent, and chrome roles; defaults to
+ *   {@link DEFAULT_THEME}.
  * - `width` — the default column width handed to the separator / box renderers (the section
  *   rule, a `box` with no explicit width); defaults to {@link DEFAULT_WIDTH}.
  *
@@ -694,6 +708,7 @@ export interface StepPosition {
 export interface ReporterOptions {
 	readonly sink?: SinkInterface
 	readonly styler?: StylerInterface
+	readonly theme?: Theme
 	readonly width?: number
 }
 
@@ -977,6 +992,8 @@ export type SpinnerEventMap = {
  *   {@link import('./factories.js').createConsoleSink}. A TTY sink (C-g) overwrites on the `\r`.
  * - `styler` — the {@link StylerInterface} the glyph is colored through; defaults to
  *   {@link import('./factories.js').createStyler} (ANSI). The ONE styler the whole system shares.
+ * - `theme` — the {@link Theme} supplying the accent and outcome roles; defaults to
+ *   {@link DEFAULT_THEME}.
  */
 export interface SpinnerOptions {
 	readonly on?: EmitterHooks<SpinnerEventMap>
@@ -986,6 +1003,7 @@ export interface SpinnerOptions {
 	readonly interval?: number
 	readonly sink?: SinkInterface
 	readonly styler?: StylerInterface
+	readonly theme?: Theme
 }
 
 /**
@@ -1004,7 +1022,7 @@ export interface SpinnerOptions {
  * - **Idempotent `start`.** A `start()` while already `active` is a no-op (it never arms a second
  *   timer). `active` reflects whether the timer is currently armed.
  * - **Outcome lines.** `success(message?)` / `failure(message?)` clear the timer, then write + emit a
- *   FINAL line — the {@link STATUS_ICONS} `✔` / `✖` (colored via {@link STATUS_COLORS}) + the
+ *   FINAL line — the theme's success / error status icon + style (`✔` / `✖` by default) + the
  *   message — terminated by a newline (the activity is over; the line is committed, not overwritten).
  *   `failure` routes to the sink's error stream.
  * - **Lifecycle (§10).** `stop()` clears the timer and LEAVES the current line (no final write);
@@ -1068,10 +1086,14 @@ export type ProgressEventMap = {
  *   `complete` / `failure` argument.
  * - `width` — the bar track's visible cell count, handed to {@link import('./helpers.js').renderBar};
  *   defaults to {@link DEFAULT_BAR_WIDTH}.
+ * - `fill` / `empty` — the filled and empty track glyphs handed to
+ *   {@link import('./helpers.js').renderBar}; default to {@link BAR_FILL} / {@link BAR_EMPTY}.
  * - `sink` — where each `\r` + bar line is written; defaults to
  *   {@link import('./factories.js').createConsoleSink}. A TTY sink (C-g) overwrites on the `\r`.
  * - `styler` — the {@link StylerInterface} the filled run is colored through; defaults to
  *   {@link import('./factories.js').createStyler} (ANSI). The ONE styler the whole system shares.
+ * - `theme` — the {@link Theme} supplying the filled run's accent role; defaults to
+ *   {@link DEFAULT_THEME}.
  */
 export interface ProgressOptions {
 	readonly on?: EmitterHooks<ProgressEventMap>
@@ -1079,8 +1101,11 @@ export interface ProgressOptions {
 	readonly total: number
 	readonly message?: string
 	readonly width?: number
+	readonly fill?: string
+	readonly empty?: string
 	readonly sink?: SinkInterface
 	readonly styler?: StylerInterface
+	readonly theme?: Theme
 }
 
 /**

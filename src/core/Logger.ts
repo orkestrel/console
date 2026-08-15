@@ -1,15 +1,17 @@
 import type { EmitterInterface } from '@orkestrel/emitter'
 import type {
 	LoggerEventMap,
+	LogFormatFunction,
 	LoggerInterface,
 	LoggerOptions,
 	LogLevel,
 	LogRecord,
 	SinkInterface,
 	StylerInterface,
+	Theme,
 } from './types.js'
 import { Emitter } from '@orkestrel/emitter'
-import { DEFAULT_LOG_LEVEL, DEFAULT_LOG_LIMIT } from './constants.js'
+import { DEFAULT_LOG_LEVEL, DEFAULT_LOG_LIMIT, DEFAULT_THEME } from './constants.js'
 import { createConsoleSink, createStyler } from './factories.js'
 import { formatRecord, meetsLevel } from './helpers.js'
 
@@ -55,6 +57,8 @@ export class Logger implements LoggerInterface {
 	readonly #level: LogLevel
 	readonly #sink: SinkInterface
 	readonly #styler: StylerInterface
+	readonly #theme: Theme
+	readonly #format: LogFormatFunction
 	readonly #limit: number
 	readonly #silent: boolean
 	// The bounded retention ring — accepted records, oldest first, capped at #limit.
@@ -70,6 +74,8 @@ export class Logger implements LoggerInterface {
 		if (options?.name !== undefined) this.name = options.name
 		this.#sink = options?.sink ?? createConsoleSink()
 		this.#styler = options?.styler ?? createStyler()
+		this.#theme = options?.theme ?? DEFAULT_THEME
+		this.#format = options?.format ?? formatRecord
 		this.#limit = options?.limit ?? DEFAULT_LOG_LIMIT
 		this.#silent = options?.silent ?? false
 	}
@@ -123,7 +129,7 @@ export class Logger implements LoggerInterface {
 		if (this.#silent) return
 		// Pass the level so a stream-aware sink (the default console sink, the C-g TTY sink)
 		// can route error/warn to the right stream; a plain sink ignores it.
-		this.#sink.write(formatRecord(record, this.#styler), level)
+		this.#sink.write(this.#format(record, this.#styler, this.#theme), level)
 	}
 
 	// Build the immutable, serializable record — `name` / `data` omitted when absent so the
