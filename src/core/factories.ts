@@ -21,7 +21,8 @@ import type {
 } from './types.js'
 import { ANSIRenderer } from './ANSIRenderer.js'
 import { Capture } from './Capture.js'
-import { DEFAULT_THEME, EMPTY_STYLE, STATUS_LEVELS } from './constants.js'
+import { DEFAULT_THEME, EMPTY_STYLE, LEVELS, STATUS_LEVELS } from './constants.js'
+import { freezeStyle } from './helpers.js'
 import { Logger } from './Logger.js'
 import { LoggerManager } from './LoggerManager.js'
 import { Progress } from './Progress.js'
@@ -96,9 +97,9 @@ export function createStyler(options?: StylerOptions): StylerInterface {
  * - **Merges per ROLE, not per theme.** An omitted role keeps its default, and `levels` /
  *   `statuses` merge per ENTRY — `{ levels: { warn: … } }` restyles the `warn` label and
  *   leaves `debug` / `info` / `error` untouched.
- * - **Frozen and shareable.** The returned theme and its `levels` / `statuses` records are
- *   frozen. Each supplied status record is copied and frozen; its `Style` leaf stays by reference
- *   under the frozen-`Style` contract. One theme is therefore safely shared across every entity.
+ * - **Frozen and shareable.** The factory snapshots and deep-freezes every style leaf. The
+ *   returned theme and its `levels` / `statuses` records are frozen. Each status record is also
+ *   copied and frozen. One theme is therefore safely shared across every entity.
  *
  * @example
  * ```ts
@@ -113,18 +114,20 @@ export function createStyler(options?: StylerOptions): StylerInterface {
  * ```
  */
 export function createTheme(options?: ThemeOptions): Theme {
+	const levels = { ...DEFAULT_THEME.levels }
+	for (const level of LEVELS) {
+		levels[level] = freezeStyle(options?.levels?.[level] ?? DEFAULT_THEME.levels[level])
+	}
 	const statuses = { ...DEFAULT_THEME.statuses }
 	for (const status of STATUS_LEVELS) {
-		const supplied = options?.statuses?.[status]
-		if (supplied !== undefined) {
-			statuses[status] = Object.freeze({ icon: supplied.icon, style: supplied.style })
-		}
+		const source = options?.statuses?.[status] ?? DEFAULT_THEME.statuses[status]
+		statuses[status] = Object.freeze({ icon: source.icon, style: freezeStyle(source.style) })
 	}
 	return Object.freeze({
-		levels: Object.freeze({ ...DEFAULT_THEME.levels, ...options?.levels }),
+		levels: Object.freeze(levels),
 		statuses: Object.freeze(statuses),
-		accent: options?.accent ?? DEFAULT_THEME.accent,
-		chrome: options?.chrome ?? DEFAULT_THEME.chrome,
+		accent: freezeStyle(options?.accent ?? DEFAULT_THEME.accent),
+		chrome: freezeStyle(options?.chrome ?? DEFAULT_THEME.chrome),
 	})
 }
 

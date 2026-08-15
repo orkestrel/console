@@ -109,6 +109,25 @@ export function width(text: string): number {
 }
 
 /**
+ * Snapshot and deeply freeze one {@link Style} value.
+ *
+ * @param style - The caller-owned style to snapshot
+ * @returns A frozen style record with an independently frozen attributes list
+ *
+ * @remarks
+ * The record spread captures accessor values once and preserves each present color channel.
+ * Copying `attributes` prevents later mutation of a caller-owned list from changing the result.
+ *
+ * @example
+ * ```ts
+ * freezeStyle({ foreground: 'red', attributes: ['bold'] })
+ * ```
+ */
+export function freezeStyle(style: Style): Style {
+	return Object.freeze({ ...style, attributes: Object.freeze([...style.attributes]) })
+}
+
+/**
  * Whether a record at `level` passes a logger gated at `threshold` — i.e. its severity is
  * at or above the threshold's.
  *
@@ -501,9 +520,11 @@ export function renderTable(options: TableOptions): string {
  * ```
  */
 export function renderTree(options: TreeOptions): string {
-	return [options.root.label, ...renderTreeChildren(options.root.children ?? [], '', options)].join(
-		'\n',
-	)
+	const border = options.border ?? DEFAULT_BORDER
+	return [
+		options.root.label,
+		...renderTreeChildren(options.root.children ?? [], '', { ...options, border }),
+	].join('\n')
 }
 
 /**
@@ -518,22 +539,22 @@ export function renderTree(options: TreeOptions): string {
  *
  * @param nodes - The sibling {@link TreeNode}s to render at this depth
  * @param prefix - The guide/gap string carried in from the ancestor chain (`''` at the root)
- * @param options - The connector `styler`, by-value `style`, and `border` selection
+ * @param options - The required `border` selection plus optional connector `styler` and
+ * by-value `style`
  * @returns The rendered lines for `nodes` and all their descendants
  *
  * @example
  * ```ts
- * renderTreeChildren([{ label: 'a' }, { label: 'b' }], '')
+ * renderTreeChildren([{ label: 'a' }, { label: 'b' }], '', { border: 'single' })
  * // ['├─ a', '└─ b']
  * ```
  */
 export function renderTreeChildren(
 	nodes: readonly TreeNode[],
 	prefix: string,
-	options: Pick<TreeOptions, 'border' | 'style' | 'styler'> = {},
+	options: Required<Pick<TreeOptions, 'border'>> & Pick<TreeOptions, 'style' | 'styler'>,
 ): readonly string[] {
-	const border = options.border ?? DEFAULT_BORDER
-	const chars = BORDER_CHARS[border]
+	const chars = BORDER_CHARS[options.border]
 	const branch = `${chars.teeRight}${chars.horizontal} `
 	const corner = `${chars.bottomLeft}${chars.horizontal} `
 	const guide = `${chars.vertical}  `

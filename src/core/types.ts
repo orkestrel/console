@@ -220,8 +220,8 @@ export interface ThemeStatus {
  *   timestamp / name / data surround.
  * - A theme is the vocabulary the WHOLE application shares; a per-entity option (a
  *   `ProgressOptions.fill`, a `BoxOptions.border`) is the presentation of that one instance.
- * - The value is frozen, and every {@link Style} it carries is a frozen style value, so one
- *   theme is safely shared across every entity. Build one with {@link createTheme}.
+ * - A theme returned by {@link createTheme} is frozen with every {@link Style} leaf deeply
+ *   frozen, so one theme is safely shared across every entity.
  */
 export interface Theme {
 	readonly levels: Readonly<Record<LogLevel, Style>>
@@ -237,10 +237,8 @@ export interface Theme {
  * Every key is optional and merges per ROLE, never per theme: an omitted role keeps its
  * default, and `levels` / `statuses` merge per entry, so `{ levels: { warn: … } }` restyles
  * the `warn` label and leaves the other three alone. A status override supplies its whole
- * `{ icon, style }` record; {@link createTheme} copies and freezes that record while retaining
- * its frozen `Style` leaf by reference. Supply frozen {@link Style} values — a styler chain's
- * `style` (`createStyler().brightMagenta.bold.style`) is the ready-made source, and
- * {@link EMPTY_STYLE} is the unstyled one.
+ * `{ icon, style }` record; {@link createTheme} snapshots and freezes that record and every
+ * style leaf it receives.
  */
 export interface ThemeOptions {
 	readonly levels?: Readonly<Partial<Record<LogLevel, Style>>>

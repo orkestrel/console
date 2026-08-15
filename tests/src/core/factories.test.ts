@@ -1,10 +1,11 @@
-import type { CaptureLevel, LogLevel, RendererInterface, Style } from '@src/core'
+import type { Attribute, CaptureLevel, Color, LogLevel, RendererInterface, Style } from '@src/core'
 import {
 	createANSIRenderer,
 	createCapture,
 	createConsoleSink,
 	createLogger,
 	createLoggerManager,
+	createReporter,
 	createSpinner,
 	createStyler,
 	createTheme,
@@ -18,6 +19,7 @@ import {
 	withCapture,
 } from '@src/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { createRecordingSink } from '../../setup.js'
 
 // createANSIRenderer / createStyler — the public factories. createANSIRenderer returns
 // the default ANSI renderer; createStyler returns the fluent surface, defaulting to ANSI
@@ -114,26 +116,91 @@ describe('createTheme', () => {
 		expect(theme.statuses.info).toEqual(DEFAULT_THEME.statuses.info)
 	})
 
-	it('copies and freezes a supplied status record so later caller mutation cannot retheme it', () => {
+	it('copies and freezes a supplied status record and style', () => {
 		const supplied = { icon: '+', style: createStyler().green.style }
 		const theme = createTheme({ statuses: { success: supplied } })
 		expect(Object.isFrozen(supplied)).toBe(false)
 		expect(theme.statuses.success).not.toBe(supplied)
 		expect(Object.isFrozen(theme.statuses.success)).toBe(true)
-		expect(theme.statuses.success.style).toBe(supplied.style)
+		expect(theme.statuses.success.style).not.toBe(supplied.style)
+		expect(theme.statuses.success.style).toEqual(supplied.style)
+		expect(Object.isFrozen(theme.statuses.success.style)).toBe(true)
+		expect(Object.isFrozen(theme.statuses.success.style.attributes)).toBe(true)
 		supplied.icon = '-'
 		expect(supplied.icon).toBe('-')
 		expect(theme.statuses.success.icon).toBe('+')
 	})
 
+	it('snapshots a supplied level style before a live logger consumes it', () => {
+		const style: { foreground: Color; attributes: Attribute[] } = {
+			foreground: 'cyan',
+			attributes: [],
+		}
+		const theme = createTheme({ levels: { debug: style } })
+		const sink = createRecordingSink()
+		const logger = createLogger({ level: 'debug', sink, theme })
+		style.foreground = 'magenta'
+		logger.debug('kept')
+		expect(sink.calls[0]?.[0]).toContain(`${ESC}36mDEBUG${RESET}`)
+		expect(sink.calls[0]?.[0]).not.toContain(`${ESC}35mDEBUG${RESET}`)
+	})
+
+	it('snapshots a frozen status style record whose attributes remain mutable', () => {
+		const attributes: Attribute[] = []
+		const style = Object.freeze({ foreground: 'green' satisfies Color, attributes })
+		const theme = createTheme({ statuses: { success: { icon: '+', style } } })
+		const sink = createRecordingSink()
+		const reporter = createReporter({ sink, theme })
+		attributes.push('inverse')
+		reporter.status('success', 'kept')
+		expect(sink.calls).toEqual([[`${ESC}32m+${RESET} ${ESC}32mkept${RESET}`, undefined]])
+	})
+
+	it('snapshots a supplied accent style before a live spinner consumes it', () => {
+		const style: { foreground: Color; attributes: Attribute[] } = {
+			foreground: 'red',
+			attributes: [],
+		}
+		const theme = createTheme({ accent: style })
+		const sink = createRecordingSink()
+		const spinner = createSpinner({ frames: ['*'], message: 'kept', sink, theme })
+		style.foreground = 'magenta'
+		spinner.tick()
+		expect(sink.calls).toEqual([[`\r${ESC}31m*${RESET} kept`, undefined]])
+	})
+
+	it('captures a chrome foreground getter before a live reporter consumes it', () => {
+		let foreground: Color = 'blue'
+		const attributes: Attribute[] = []
+		const style = {
+			get foreground(): Color {
+				return foreground
+			},
+			attributes,
+		}
+		const theme = createTheme({ chrome: style })
+		const sink = createRecordingSink()
+		const reporter = createReporter({ sink, theme, width: 8 })
+		foreground = 'magenta'
+		reporter.section('S')
+		expect(sink.calls[0]?.[0]).toBe(`${ESC}34m──${RESET} ${ESC}34mS${RESET} ${ESC}34m───${RESET}`)
+	})
+
 	it('overrides accent and chrome independently of each other', () => {
 		const accent = createStyler().magenta.style
 		const theme = createTheme({ accent })
-		expect(theme.accent).toBe(accent)
+		expect(theme.accent).toEqual(accent)
+		expect(theme.accent).not.toBe(accent)
+		expect(Object.isFrozen(theme.accent)).toBe(true)
+		expect(Object.isFrozen(theme.accent.attributes)).toBe(true)
 		expect(theme.chrome).toEqual(DEFAULT_THEME.chrome)
 		const chrome = createStyler().brightBlack.style
-		expect(createTheme({ chrome }).chrome).toBe(chrome)
-		expect(createTheme({ chrome }).accent).toEqual(DEFAULT_THEME.accent)
+		const chromeTheme = createTheme({ chrome })
+		expect(chromeTheme.chrome).toEqual(chrome)
+		expect(chromeTheme.chrome).not.toBe(chrome)
+		expect(Object.isFrozen(chromeTheme.chrome)).toBe(true)
+		expect(Object.isFrozen(chromeTheme.chrome.attributes)).toBe(true)
+		expect(chromeTheme.accent).toEqual(DEFAULT_THEME.accent)
 	})
 
 	it('returns a frozen theme whose records and style leaves are frozen', () => {
@@ -148,9 +215,12 @@ describe('createTheme', () => {
 		for (const status of STATUS_LEVELS) {
 			expect(Object.isFrozen(theme.statuses[status])).toBe(true)
 			expect(Object.isFrozen(theme.statuses[status].style)).toBe(true)
+			expect(Object.isFrozen(theme.statuses[status].style.attributes)).toBe(true)
 		}
 		expect(Object.isFrozen(theme.accent)).toBe(true)
+		expect(Object.isFrozen(theme.accent.attributes)).toBe(true)
 		expect(Object.isFrozen(theme.chrome)).toBe(true)
+		expect(Object.isFrozen(theme.chrome.attributes)).toBe(true)
 	})
 
 	it('never writes back into DEFAULT_THEME', () => {

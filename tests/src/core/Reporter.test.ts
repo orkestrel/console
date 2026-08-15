@@ -128,6 +128,19 @@ describe('Reporter', () => {
 	})
 
 	describe('theme roles', () => {
+		it('pins the exact default-theme bytes for success, warn, and info statuses', () => {
+			const sink = createRecordingSink()
+			const reporter = new Reporter({ sink })
+			reporter.status('success', 'ok')
+			reporter.status('warn', 'careful')
+			reporter.status('info', 'fyi')
+			expect(sink.calls).toEqual([
+				['\x1b[32m✔\x1b[0m \x1b[32mok\x1b[0m', undefined],
+				['\x1b[33m⚠\x1b[0m \x1b[33mcareful\x1b[0m', undefined],
+				['\x1b[34mℹ\x1b[0m \x1b[34mfyi\x1b[0m', undefined],
+			])
+		})
+
 		it('pins the exact default-theme bytes for a chrome-framed section', () => {
 			const sink = createRecordingSink()
 			const reporter = new Reporter({ sink, width: 8 })

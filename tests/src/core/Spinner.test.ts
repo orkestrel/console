@@ -268,6 +268,12 @@ describe('Spinner', () => {
 			expect(strip(text).replace(/^\r/, '').replace(/\n$/, '')).toBe('✔ green')
 		})
 
+		it('pins the exact default-theme bytes for a success outcome line', () => {
+			const sink = createRecordingSink()
+			new Spinner({ sink }).success('done')
+			expect(sink.calls).toEqual([['\r\x1b[32m✔\x1b[0m \x1b[32mdone\x1b[0m\n', undefined]])
+		})
+
 		it('uses the theme status icon and style for outcome lines', () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({

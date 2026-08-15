@@ -1,4 +1,4 @@
-import type { LogLevel, LogRecord } from '@src/core'
+import type { Attribute, Color, LogLevel, LogRecord } from '@src/core'
 import {
 	align,
 	cellAt,
@@ -9,6 +9,7 @@ import {
 	formatDuration,
 	formatRecord,
 	formatTime,
+	freezeStyle,
 	meetsLevel,
 	renderBar,
 	renderBox,
@@ -97,6 +98,45 @@ describe('width', () => {
 	it('measures a mixed styled + plain run by its visible content', () => {
 		const styled = `${ESC}32mgreen${ESC}0m and ${ESC}34mblue${ESC}0m`
 		expect(width(styled)).toBe('green and blue'.length)
+	})
+})
+
+describe('freezeStyle', () => {
+	it('copies and deeply freezes a style while preserving its background', () => {
+		const source: {
+			foreground: Color
+			background: Color
+			attributes: Attribute[]
+		} = {
+			foreground: 'red',
+			background: 'blue',
+			attributes: ['bold'],
+		}
+		const frozen = freezeStyle(source)
+		expect(frozen).not.toBe(source)
+		expect(frozen.attributes).not.toBe(source.attributes)
+		expect(frozen).toEqual({ foreground: 'red', background: 'blue', attributes: ['bold'] })
+		expect(Object.isFrozen(frozen)).toBe(true)
+		expect(Object.isFrozen(frozen.attributes)).toBe(true)
+		source.foreground = 'magenta'
+		source.background = 'cyan'
+		source.attributes.push('inverse')
+		expect(frozen).toEqual({ foreground: 'red', background: 'blue', attributes: ['bold'] })
+	})
+
+	it('captures a getter value once in the snapshot', () => {
+		let foreground: Color = 'yellow'
+		const attributes: Attribute[] = []
+		const source = {
+			get foreground(): Color {
+				return foreground
+			},
+			attributes,
+		}
+		const frozen = freezeStyle(source)
+		foreground = 'green'
+		expect(frozen.foreground).toBe('yellow')
+		expect(source.foreground).toBe('green')
 	})
 })
 
@@ -191,6 +231,18 @@ describe('formatRecord', () => {
 		).toBe(
 			`${ESC}2m1970-01-01T00:00:00.000Z${ESC}0m ${ESC}33mWARN${ESC}0m ${ESC}2m[fs]${ESC}0m low disk`,
 		)
+	})
+
+	it('pins every other default level in fixed-time logger lines', () => {
+		expect(
+			formatRecord(record({ level: 'debug', message: 'd' }), createStyler(), DEFAULT_THEME),
+		).toBe(`${ESC}2m1970-01-01T00:00:00.000Z${ESC}0m ${ESC}36mDEBUG${ESC}0m d`)
+		expect(
+			formatRecord(record({ level: 'info', message: 'i' }), createStyler(), DEFAULT_THEME),
+		).toBe(`${ESC}2m1970-01-01T00:00:00.000Z${ESC}0m ${ESC}34mINFO${ESC}0m i`)
+		expect(
+			formatRecord(record({ level: 'error', message: 'e' }), createStyler(), DEFAULT_THEME),
+		).toBe(`${ESC}2m1970-01-01T00:00:00.000Z${ESC}0m ${ESC}31mERROR${ESC}0m e`)
 	})
 
 	it('renders the level role and every surround through the supplied theme', () => {
@@ -1035,7 +1087,10 @@ describe('renderBox / renderTable — F7 large-input hardening (no RangeError)',
 
 describe('renderTreeChildren', () => {
 	it('renders a flat list with corner (last) and branch (non-last) connectors', () => {
-		expect(renderTreeChildren([{ label: 'a' }, { label: 'b' }], '')).toEqual(['├─ a', '└─ b'])
+		expect(renderTreeChildren([{ label: 'a' }, { label: 'b' }], '', { border: 'single' })).toEqual([
+			'├─ a',
+			'└─ b',
+		])
 	})
 
 	it('carries the correct prefix under nested children (guide `│  ` vs blank `   `)', () => {
@@ -1045,23 +1100,27 @@ describe('renderTreeChildren', () => {
 				{ label: 'b', children: [{ label: 'b1' }] },
 			],
 			'',
+			{ border: 'single' },
 		)
 		expect(lines).toEqual(['├─ a', '│  ├─ a1', '│  └─ a2', '└─ b', '   └─ b1'])
 	})
 
 	it('returns an empty array for an empty node list', () => {
-		expect(renderTreeChildren([], '')).toEqual([])
+		expect(renderTreeChildren([], '', { border: 'single' })).toEqual([])
 	})
 
 	it('composes with renderTree — renderTree is root label + renderTreeChildren(root.children)', () => {
 		const nodes = [{ label: 'a' }, { label: 'b', children: [{ label: 'b1' }] }]
-		const direct = renderTreeChildren(nodes, '')
+		const direct = renderTreeChildren(nodes, '', { border: 'single' })
 		const viaTree = renderTree({ root: { label: 'root', children: nodes } })
 		expect(viaTree).toBe(['root', ...direct].join('\n'))
 	})
 
 	it('colors connectors through an optional styler chain, unchanged layout when stripped', () => {
-		const lines = renderTreeChildren([{ label: 'a' }], '', { styler: colorStyler.dim })
+		const lines = renderTreeChildren([{ label: 'a' }], '', {
+			border: 'single',
+			styler: colorStyler.dim,
+		})
 		expect(lines.join('')).toContain(ESC)
 		expect(lines.map((line) => strip(line))).toEqual(['└─ a'])
 	})
