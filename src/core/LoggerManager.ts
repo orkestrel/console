@@ -21,7 +21,7 @@ import { Logger } from './Logger.js'
  *   re-`register` of the same name OVERWRITES, last write wins), and returns it. `count` is
  *   the map size, `logger(name)` looks one up, `loggers()` lists them in insertion order.
  * - **Removal (§9.2).** `remove()` clears ALL, `remove(name)` drops ONE (`true` if present),
- *   `remove(names)` drops a batch (`true` if any was removed). `clear()` empties the registry.
+ *   `remove(names)` drops a batch (`true` if any was removed).
  *   (Removal does NOT `destroy` the returned loggers — a caller still holding one keeps using
  *   it; the manager simply stops tracking it.)
  * - **Fan-out.** `debug` / `info` / `warn` / `error(message, data?)` forward the one call to
@@ -125,9 +125,5 @@ export class LoggerManager implements LoggerManagerInterface {
 			return removed
 		}
 		return this.#loggers.delete(names)
-	}
-
-	clear(): void {
-		this.#loggers.clear()
 	}
 }

@@ -466,7 +466,7 @@ export interface LoggerManagerOptions {
  *   (a re-`register` of the same name OVERWRITES — last write wins), and returns it.
  *   `logger(name)` looks one up; `loggers()` lists them in insertion order; `count` is the size.
  * - **Removal (§9.2).** `remove()` clears ALL, `remove(name)` drops ONE, `remove(names)` drops
- *   a batch (`true` when any was removed). `clear()` empties the registry.
+ *   a batch (`true` when any was removed).
  * - **Fan-out.** `debug` / `info` / `warn` / `error(message, data?)` forward the call to every
  *   registered logger (each gates / emits / writes per its own `level` and `sink`).
  * - **Event-free.** No emitter, no events — each logger carries its own observability; the
@@ -488,7 +488,6 @@ export interface LoggerManagerInterface {
 	remove(): void
 	remove(name: string): boolean
 	remove(names: readonly string[]): boolean
-	clear(): void
 }
 
 // Narrative reporting — the pure LAYOUT renderers + a lean `Reporter` front-end. This is

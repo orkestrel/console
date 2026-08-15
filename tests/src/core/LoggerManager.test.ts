@@ -190,10 +190,10 @@ describe('LoggerManager', () => {
 			expect(manager.count).toBe(0)
 		})
 
-		it('clear() empties the registry', () => {
+		it('remove() with no argument empties the registry', () => {
 			const { manager } = createTestManager()
 			manager.register('a')
-			manager.clear()
+			manager.remove()
 			expect(manager.count).toBe(0)
 			expect(manager.loggers()).toHaveLength(0)
 		})

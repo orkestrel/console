@@ -70,7 +70,7 @@ Structured logging — the immutable `LogRecord` + the `entry` event ARE the tra
 | `LoggerOptions`          | interface | `createLogger` options — `on?` / `error?` / `level?` / `name?` / `sink?` / `styler?` / `theme?` / `format?` / `limit?` / `silent?`.  |
 | `LoggerInterface`        | interface | The leveled logger — `emitter` / `level` / `name` data + `debug` / `info` / `warn` / `error` / `entries` / `clear` / `destroy`.      |
 | `LoggerManagerOptions`   | interface | `createLoggerManager` options — the `level?` / `sink?` / `styler?` / `theme?` / `format?` / `limit?` / `silent?` logger defaults.    |
-| `LoggerManagerInterface` | interface | The logger registry — a `count` data member + `register` / `logger` / `loggers` / the `debug`…`error` fan-out / `remove` / `clear`.  |
+| `LoggerManagerInterface` | interface | The logger registry — a `count` data member + `register` / `logger` / `loggers` / the `debug`…`error` fan-out / `remove`.            |
 
 ### Reporting
 
@@ -328,7 +328,6 @@ The public methods of each behavioral interface — one table per type, keyed by
 | `warn`     | `void`                         | Fan out a `warn` log to every registered logger.                                               |
 | `error`    | `void`                         | Fan out an `error` log to every registered logger.                                             |
 | `remove`   | `void` / `boolean`             | Remove ALL (`remove()`) / one (`remove(name)`) / a batch (`remove(names)`).                    |
-| `clear`    | `void`                         | Empty the registry.                                                                            |
 
 #### `ReporterInterface`
 
@@ -452,8 +451,8 @@ import { createLoggerManager } from '@orkestrel/console'
 const manager = createLoggerManager({ level: 'info' })
 manager.register('http') // mints + stores a logger named 'http', the manager's defaults flow in
 manager.info('booted') // fan out an `info` log to every registered logger
-manager.remove('http') // remove one by name (also: remove() for all, remove(['a', 'b']) for a batch)
-manager.clear() // empty the registry
+manager.remove('http') // remove one by name (also: remove(['a', 'b']) for a batch)
+manager.remove() // no argument — empty the registry
 ```
 
 ### A reporter narration
