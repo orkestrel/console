@@ -1,5 +1,6 @@
 import {
 	ansiToConsole,
+	ATTRIBUTE_CSS,
 	BACKGROUND_CSS,
 	COLOR_HEX,
 	escapePercent,
@@ -348,6 +349,33 @@ describe('ansiToConsole — SGR → CSS derivation', () => {
 	it('a later background of the same channel replaces the earlier one', () => {
 		const { styles } = ansiToConsole(`${CSI}41m${CSI}44mx${RESET}`)
 		expect(styles).toEqual([`background:${COLOR_HEX.blue}`])
+	})
+
+	it('partially overrides named colors and attributes without changing other entries', () => {
+		const text =
+			`${CSI}${ATTRIBUTE_CODES.bold}m${CSI}${FOREGROUND_CODES.red}mred${RESET}` +
+			`${CSI}${ATTRIBUTE_CODES.underline}m${CSI}${BACKGROUND_CODES.red}mback${RESET}` +
+			`${CSI}${ATTRIBUTE_CODES.dim}m${CSI}${FOREGROUND_CODES.blue}mblue${RESET}`
+		const result = ansiToConsole(text, {
+			color: { red: 'rgb(12 34 56)' },
+			attribute: { bold: 'font-weight:900' },
+		})
+		expect(result.styles).toEqual([
+			'font-weight:900;color:rgb(12 34 56)',
+			`text-decoration:underline;background:rgb(12 34 56)`,
+			`${ATTRIBUTE_CSS[ATTRIBUTE_CODES.dim]};color:${COLOR_HEX.blue}`,
+		])
+		const directives = result.format.replace(/%%/g, '').split('%c').length - 1
+		expect(directives).toBe(result.styles.length)
+	})
+
+	it('keeps default output byte-identical when the palette is omitted or empty', () => {
+		const text = `${CSI}1m${CSI}31mred 50%${RESET}${CSI}44mblue${RESET}`
+		expect(ansiToConsole(text, {})).toEqual(ansiToConsole(text))
+		expect(ansiToConsole(text)).toEqual({
+			format: '%cred 50%%%cblue',
+			styles: ['font-weight:bold;color:#cd0000', 'background:#0000ee'],
+		})
 	})
 })
 

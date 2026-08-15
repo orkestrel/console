@@ -1,12 +1,13 @@
-import type { ConsoleOutput, StyleAccumulator } from './types.js'
-import { RESET_CODE } from '@src/core'
+import type { BrowserPalette, ConsoleOutput, StyleAccumulator } from './types.js'
 import {
-	ATTRIBUTE_CSS,
-	BACKGROUND_CSS,
-	DIRECTIVE,
-	FOREGROUND_CSS,
-	SGR_PATTERN,
-} from './constants.js'
+	ATTRIBUTE_CODES,
+	ATTRIBUTES,
+	BACKGROUND_CODES,
+	COLORS,
+	FOREGROUND_CODES,
+	RESET_CODE,
+} from '@src/core'
+import { ATTRIBUTE_CSS, COLOR_HEX, DIRECTIVE, SGR_PATTERN } from './constants.js'
 
 // The pure, browser-only translation behind the `%c` console sink (the C-f branch). The core
 // styler / Logger / Reporter emit ANSI-styled STRINGS; a DevTools console can't render ANSI but
@@ -35,10 +36,14 @@ import {
  *   count always equals `styles.length`, and `console.log(format, ...styles)` lines up exactly.
  * - **Plain text short-circuits.** A string with NO SGR sequence yields `{ format: <escaped text>,
  *   styles: [] }` — no `%c`, no styles (the text is still `%`-escaped).
+ * - **Partial palette.** A supplied palette overrides only its named colors and attributes. Every
+ *   omitted entry resolves through {@link COLOR_HEX} or {@link ATTRIBUTE_CSS}, so defaults and
+ *   unrelated entries stay byte-identical.
  * - **Pure + total.** Same input → same output; it never throws on any string (adversarial escapes,
  *   lone `ESC`, unterminated sequences all fall through as literal text).
  *
  * @param text - Any string, ANSI-styled or plain
+ * @param palette - Optional partial browser CSS overrides
  * @returns The `%c` format string + parallel CSS array ({@link ConsoleOutput})
  *
  * @example
@@ -48,7 +53,7 @@ import {
  * ansiToConsole('50%') // { format: '50%%', styles: [] }
  * ```
  */
-export function ansiToConsole(text: string): ConsoleOutput {
+export function ansiToConsole(text: string, palette?: BrowserPalette): ConsoleOutput {
 	const scanner = new RegExp(SGR_PATTERN.source, SGR_PATTERN.flags)
 	// The accumulated active style across a run — a separate foreground / background declaration
 	// (each channel REPLACEABLE) plus an ordered, de-duplicated list of attribute declarations. An
@@ -90,17 +95,21 @@ export function ansiToConsole(text: string): ConsoleOutput {
 				})
 				continue
 			}
-			const foreground = FOREGROUND_CSS[code]
+			const foreground = COLORS.find((color) => FOREGROUND_CODES[color] === code)
 			if (foreground !== undefined) {
-				active = Object.freeze({ ...active, foreground })
+				const color = palette?.color?.[foreground] ?? COLOR_HEX[foreground]
+				active = Object.freeze({ ...active, foreground: `color:${color}` })
 				continue
 			}
-			const background = BACKGROUND_CSS[code]
+			const background = COLORS.find((color) => BACKGROUND_CODES[color] === code)
 			if (background !== undefined) {
-				active = Object.freeze({ ...active, background })
+				const color = palette?.color?.[background] ?? COLOR_HEX[background]
+				active = Object.freeze({ ...active, background: `background:${color}` })
 				continue
 			}
-			const attribute = ATTRIBUTE_CSS[code]
+			const name = ATTRIBUTES.find((attribute) => ATTRIBUTE_CODES[attribute] === code)
+			const attribute =
+				name === undefined ? undefined : (palette?.attribute?.[name] ?? ATTRIBUTE_CSS[code])
 			if (attribute !== undefined && !active.attributes.includes(attribute)) {
 				active = Object.freeze({
 					...active,

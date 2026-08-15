@@ -1,4 +1,5 @@
 import type { LogLevel, SinkInterface } from '@src/core'
+import type { BrowserSinkOptions } from './types.js'
 import { ansiToConsole } from './helpers.js'
 
 // The browser `%c` console sink (the C-f branch) — the platform-bound backend that satisfies core's
@@ -16,12 +17,14 @@ import { ansiToConsole } from './helpers.js'
  * as a logger / reporter / spinner sink (`createLogger({ sink: createBrowserSink() })`) to retarget the
  * core output to the browser console with no change to the core.
  *
+ * @param options - See {@link BrowserSinkOptions}
  * @returns A browser `%c` {@link SinkInterface}
  *
  * @remarks
  * - **ANSI → `%c` at the sink.** The core produces ANSI strings; this sink parses the SGR runs and
  *   re-emits them as a `console.log`-ready `%c` format string + parallel CSS array ({@link ansiToConsole}
  *   — pure, total, and `%`-safe), so the styling survives the trip to a console that can't render ANSI.
+ *   `options.palette` supplies partial named color and attribute overrides to that translation.
  * - **Routes by level.** `error` → `console.error`, `warn` → `console.warn`, every other level (and an
  *   omitted level) → `console.log` — the SAME routing as core's `createConsoleSink`, so a logger's level
  *   reaches the matching DevTools stream.
@@ -43,7 +46,7 @@ import { ansiToConsole } from './helpers.js'
  * logger.error('boom') // → console.error('%c…', 'color:#cd0000;…') in DevTools
  * ```
  */
-export function createBrowserSink(): SinkInterface {
+export function createBrowserSink(options?: BrowserSinkOptions): SinkInterface {
 	// Snapshot the three console writers NOW — bound to their `console` receiver — so a later patch of
 	// `console.*` (by Capture) can never reach this sink's output (no capture loop), exactly as core's
 	// `createConsoleSink` does.
@@ -55,7 +58,7 @@ export function createBrowserSink(): SinkInterface {
 			// Degrade the animation redraw first: a leading `\r` can't overwrite a line in a browser
 			// console, so drop it and write a fresh, non-overwriting line (the locked decision).
 			const line = text.startsWith('\r') ? text.slice(1) : text
-			const { format, styles } = ansiToConsole(line)
+			const { format, styles } = ansiToConsole(line, options?.palette)
 			if (level === 'error') {
 				error(format, ...styles)
 				return

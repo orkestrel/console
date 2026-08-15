@@ -40,6 +40,15 @@ describe('createBrowserSink', () => {
 		expect(log.calls).toEqual([['%calert', `color:${COLOR_HEX.red}`]])
 	})
 
+	it('threads a partial palette into the ANSI translation', () => {
+		const sink = createBrowserSink({ palette: { color: { red: 'rebeccapurple' } } })
+		const styler = createStyler()
+		sink.write(`${styler.red('custom')} ${styler.blue('default')}`)
+		expect(log.calls).toEqual([
+			['%ccustom%c %cdefault', 'color:rebeccapurple', '', `color:${COLOR_HEX.blue}`],
+		])
+	})
+
 	it('writes a plain string with no %c and no extra args', () => {
 		const sink = createBrowserSink()
 		sink.write('plain line')

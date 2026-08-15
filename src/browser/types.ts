@@ -2,7 +2,33 @@
 // `src/core/console` owns the cross-environment contract — `SinkInterface` /
 // `LogLevel` / the style DATA model — and is IMPORTED from `@src/core`, never
 // redeclared here. The only browser-local type is the shape `ansiToConsole`
-// returns: a `console.log`-ready format string paired with its parallel CSS array.
+// returns and the browser sink's palette options.
+
+import type { Attribute, Color } from '@src/core'
+
+/**
+ * Partial browser CSS overrides for the core color and attribute axes. Omitted entries retain the
+ * built-in browser mappings, so one override changes only its named value.
+ *
+ * @remarks
+ * - `color` maps a named non-default {@link Color} to the CSS color value used for both foreground
+ *   and background SGR codes.
+ * - `attribute` maps an {@link Attribute} to the CSS declaration used for its SGR code.
+ */
+export interface BrowserPalette {
+	readonly color?: Readonly<Partial<Record<Exclude<Color, 'default'>, string>>>
+	readonly attribute?: Readonly<Partial<Record<Attribute, string>>>
+}
+
+/**
+ * Options for {@link import('./factories.js').createBrowserSink}.
+ *
+ * @remarks
+ * `palette` partially overrides the browser's default color and attribute CSS mappings.
+ */
+export interface BrowserSinkOptions {
+	readonly palette?: BrowserPalette
+}
 
 /**
  * The `console.log`-ready output {@link import('./helpers.js').ansiToConsole} produces from

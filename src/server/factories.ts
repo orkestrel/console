@@ -7,15 +7,14 @@ import type {
 } from './types.js'
 import { strip, stripControls } from '@src/core'
 import { ProcessCapture } from './ProcessCapture.js'
-import { columnsOf, isStreamTarget } from './helpers.js'
+import { columnsOf, inferStyled, isStreamTarget } from './helpers.js'
 
 /**
  * Create the server TTY {@link ServerSinkInterface} — the C-g server output backend, the
  * env-symmetric sibling of `createBrowserSink` / core's `createConsoleSink`. `write(text, level?)`
- * routes by level to the process streams and is isTTY-aware: it sends ANSI straight to a terminal
- * (which renders it, with a leading `\r` overwriting the line natively — that is how the C-e
- * animations become a LIVE redraw here, with no extra code) but {@link import('@src/core').strip}s
- * the ANSI to clean text when the stream is piped to a file or another process.
+ * routes by level to the process streams and uses construction-time styled facts: it sends ANSI
+ * straight to a styled target (with a leading `\r` overwriting a terminal line natively) but
+ * {@link import('@src/core').strip}s ANSI to clean text for a plain target.
  *
  * @param options - See {@link ServerSinkOptions}
  * @returns A {@link ServerSinkInterface} — a {@link import('@src/core').SinkInterface} that also
@@ -25,11 +24,10 @@ import { columnsOf, isStreamTarget } from './helpers.js'
  * - **Routes by level.** `error` / `warn` → the error stream (`process.stderr` by default), every
  *   other level (and an omitted level) → the out stream (`process.stdout`) — the SAME routing as
  *   core's `createConsoleSink`, so a logger's `error` reaches `stderr`.
- * - **isTTY-aware ANSI.** For each write, if the TARGET stream is a TTY the styled `text` is written
- *   VERBATIM (the terminal renders the ANSI, and a leading `\r` overwrites the current line — live
- *   animations for free); if it is NOT a TTY (a pipe / redirect to a log file), the ANSI is stripped
- *   so the file gets clean text. The decision is per-stream and per-write, re-read live, so it stays
- *   correct if a stream's TTY-ness ever differs between out and err.
+ * - **Per-target styled facts.** At construction, each target uses `options.color` when supplied;
+ *   otherwise {@link inferStyled} applies `FORCE_COLOR`, `NO_COLOR`, then that target's `isTTY`.
+ *   Writes use those stored facts, so `styled` and the out target's strip decision never disagree;
+ *   the err target keeps its own fact internally.
  * - **Width.** `columns` reflects the live `out.columns` (so it tracks a terminal resize), falling
  *   back to {@link import('./constants.js').DEFAULT_COLUMNS} when the out stream is not a TTY — or a
  *   fixed value when `options.columns` is supplied. Feed it to a `Reporter` / `Progress` `width`.
@@ -41,11 +39,12 @@ import { columnsOf, isStreamTarget } from './helpers.js'
  *
  * @example
  * ```ts
- * import { createLogger, createReporter } from '@src/core'
+ * import { createLogger, createReporter, createStyler } from '@src/core'
  * import { createServerSink } from '@src/server'
  *
  * const sink = createServerSink()
- * const logger = createLogger({ name: 'app', sink })
+ * const styler = createStyler({ enabled: sink.styled })
+ * const logger = createLogger({ name: 'app', sink, styler })
  * logger.error('boom') // → process.stderr, ANSI rendered on a TTY / stripped to a pipe
  * const reporter = createReporter({ sink, width: sink.columns })
  * ```
@@ -56,19 +55,23 @@ export function createServerSink(options?: ServerSinkOptions): ServerSinkInterfa
 	// default. `out` carries info/debug, `err` carries error/warn.
 	const out = isStreamTarget(options?.out) ? options.out : process.stdout
 	const err = isStreamTarget(options?.err) ? options.err : process.stderr
+	const color = options?.color
+	const outStyled = color ?? inferStyled(out, process.env)
+	const errStyled = color ?? inferStyled(err, process.env)
 	const fixed = options?.columns
 	return Object.freeze({
+		styled: outStyled,
 		write(text: string, level?: LogLevel): void {
-			const target = level === 'error' || level === 'warn' ? err : out
+			const error = level === 'error' || level === 'warn'
+			const target = error ? err : out
+			const styled = error ? errStyled : outStyled
 			// A leading `\r` marks an in-place redraw frame (Spinner/Progress), which carries its own
 			// line endings and is written verbatim; every other (line-oriented) write gets exactly one
 			// trailing `\n` appended here, matching `console.log`'s newline-terminated behavior.
 			const framed = text.startsWith('\r')
 			const line = framed ? text : `${text}\n`
-			// On a TTY, write the ANSI verbatim (rendered; a leading `\r` overwrites natively); off a
-			// TTY (a pipe / file), strip ANSI + C0 control codes so the sink delivers clean text.
-			// Re-read `isTTY` per write.
-			target.write(target.isTTY === true ? line : stripControls(strip(line)))
+			// A styled target receives the line verbatim; a plain target receives visible text only.
+			target.write(styled ? line : stripControls(strip(line)))
 		},
 		get columns(): number {
 			// A fixed override wins; otherwise the live out-stream width (tracks a resize), with the

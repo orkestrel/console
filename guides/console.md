@@ -218,14 +218,16 @@ The default intercepted-method set, the bounded-buffer cap, the level projection
 
 The browser `%c` console sink — translates the core's ANSI output into a `console.log('%c…', css)` call at the OUTPUT boundary ([`src/browser`](../src/browser), surfaced through `@src/browser`). The core owns the `SinkInterface` contract + the style DATA model; this module owns only the browser-side translation.
 
-| API                 | Kind      | Summary                                                                                                                                         |
-| ------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ConsoleOutput`     | interface | The `console.log`-ready output `ansiToConsole` produces — a `%c`-segmented `format` string + the parallel `styles` CSS array.                   |
-| `StyleAccumulator`  | interface | The immutable scan state `ansiToConsole` replaces while translating SGR codes to CSS — a `foreground` / `background` + readonly attribute list. |
-| `createBrowserSink` | function  | Create the browser `%c` `SinkInterface` — translates ANSI `text` to a `console[method](format, ...styles)` call; level-routing.                 |
-| `ansiToConsole`     | function  | Translate an ANSI-styled string into a browser `ConsoleOutput` (`%c` format + CSS array) — pure, total, and `%`-safe.                           |
-| `escapePercent`     | function  | Double every literal `%` in a text segment to `%%` — the `%`-escape that keeps the console from reading a stray `%` as a directive.             |
-| `parseParameters`   | function  | Parse an SGR parameter list (`'1;31'` → `[1, 31]`) into its numeric codes — a bare / empty field becomes a `0` reset.                           |
+| API                  | Kind      | Summary                                                                                                                                         |
+| -------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BrowserPalette`     | interface | Partial browser CSS overrides — named `color?` / `attribute?` entries replace only those entries; every omission keeps its default.             |
+| `BrowserSinkOptions` | interface | `createBrowserSink` options — an optional partial `palette?` for the browser's named color and attribute CSS mappings.                          |
+| `ConsoleOutput`      | interface | The `console.log`-ready output `ansiToConsole` produces — a `%c`-segmented `format` string + the parallel `styles` CSS array.                   |
+| `StyleAccumulator`   | interface | The immutable scan state `ansiToConsole` replaces while translating SGR codes to CSS — a `foreground` / `background` + readonly attribute list. |
+| `createBrowserSink`  | function  | Create the browser `%c` `SinkInterface` — level-routed ANSI translation with an optional partial `BrowserPalette`.                              |
+| `ansiToConsole`      | function  | Translate ANSI text into a `%c` `ConsoleOutput`; an optional partial `BrowserPalette` overrides CSS per named lookup.                           |
+| `escapePercent`      | function  | Double every literal `%` in a text segment to `%%` — the `%`-escape that keeps the console from reading a stray `%` as a directive.             |
+| `parseParameters`    | function  | Parse an SGR parameter list (`'1;31'` → `[1, 31]`) into its numeric codes — a bare / empty field becomes a `0` reset.                           |
 
 ### Browser sink constants
 
@@ -247,8 +249,8 @@ The server output backend — a TTY-aware `Sink` over the real `process` streams
 | API                       | Kind      | Summary                                                                                                                                            |
 | ------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `StreamTargetInterface`   | interface | The minimal writable-stream shape the server sink + capture address — `write(text)` + optional `isTTY` / `columns`.                                |
-| `ServerSinkOptions`       | interface | `createServerSink` options — `out?` / `err?` (the streams) + `columns?` (a fixed width override); all optional.                                    |
-| `ServerSinkInterface`     | interface | A `SinkInterface` that also exposes the terminal's `columns` width — feed it to a `Reporter` / `Progress` layout.                                  |
+| `ServerSinkOptions`       | interface | `createServerSink` options — `out?` / `err?`, `color?` (a styling override), and `columns?`; all optional.                                         |
+| `ServerSinkInterface`     | interface | A `SinkInterface` exposing the out target's construction-time `styled` fact and the terminal's live or fixed `columns` width.                      |
 | `StreamLevel`             | type      | Which process stream a `CapturedChunk` came from — `stdout` / `stderr` (the "level" axis of `ProcessCaptureInterface`).                            |
 | `StreamWriteFunction`     | type      | The patched `process.*.write` method shape — `NodeJS.WriteStream['write']` verbatim; the boundary type the capture snapshots + swaps.              |
 | `StreamWriteCallback`     | type      | The optional write-completion callback `process.*.write` accepts — `(error?) => void`; the wrapper forwards it to the mirror.                      |
@@ -257,10 +259,11 @@ The server output backend — a TTY-aware `Sink` over the real `process` streams
 | `ProcessCaptureOptions`   | interface | `createProcessCapture` options — `on?` / `error?` / `levels?` / `mirror?` / `sink?` / `limit?`.                                                    |
 | `ProcessCaptureInterface` | interface | The raw process-stream interceptor — `emitter` / `active` data + `start` / `stop` / `messages` (whole buffer or one stream) / `clear` / `destroy`. |
 | `ProcessCapture`          | class     | The observable interceptor of `process.stdout.write` / `process.stderr.write` — owns ALL server output; never throws, bounded.                     |
-| `createServerSink`        | function  | Create the server TTY `ServerSinkInterface` — routes by level to the process streams, ANSI verbatim on a TTY / stripped down a pipe.               |
+| `createServerSink`        | function  | Create a server `ServerSinkInterface` — per-target construction-time color inference, level routing, and plain-target stripping.                   |
 | `createProcessCapture`    | function  | Create an observable `ProcessCaptureInterface` — the server "own ALL output" capture over the raw `process.*.write`.                               |
 | `isStreamTarget`          | function  | Whether a value is a usable `StreamTargetInterface` (a record with a callable `write`) — the boundary guard (§14), total.                          |
 | `columnsOf`               | function  | The width of a stream target — its live `columns` when a TTY, else the `DEFAULT_COLUMNS` fallback; total, re-read per call.                        |
+| `inferStyled`             | function  | Infer one target's styled fact: `FORCE_COLOR`, then non-empty `NO_COLOR`, then `isTTY === true`; pure and global-free.                             |
 | `decodeChunk`             | function  | Decode one `process.*.write` chunk (`string` / `Uint8Array`) to text — TOTAL, never throws (so the capture wrapper can't crash).                   |
 | `isBufferEncoding`        | function  | Whether a value is a `BufferEncoding` accepted by `Buffer.toString` — backs `decodeChunk`'s encoding handling.                                     |
 
@@ -280,7 +283,7 @@ The default stream set, buffer cap, no-TTY column fallback, and the stream → l
 
 The public methods of each behavioral interface — one table per type, keyed by its backticked name, every call-signature member listed. Each type's `readonly` data members (e.g. `emitter` / `active` / `message` / `level` / `name` / `current` / `total` / `completed` / `columns`) stay in the Surface rows above and are not repeated here. Each implementing class implements its interface exactly, so this doubles as the per-instance method surface (AGENTS §22).
 
-**Data-only / callable surfaces (no `## Methods` subsection).** `ServerSinkInterface` adds only a `columns` data member to `SinkInterface` (its `write` is the inherited contract below). Every `*Options` / `*EventMap` / `LogRecord` / `Style` / `Theme` / `ThemeStatus` / `BorderChars` / `ColumnSpec` / `TreeNode` / `StepPosition` / `CapturedMessage` / `CapturedChunk` / `CaptureResult` / `ConsoleOutput` / `StyleAccumulator` / `StreamTargetInterface` row is a data / options shape with no behavioral methods.
+**Data-only / callable surfaces (no `## Methods` subsection).** `ServerSinkInterface` adds `styled` and `columns` data members to `SinkInterface` (its `write` is the inherited contract below). Every `*Options` / `*EventMap` / `LogRecord` / `Style` / `Theme` / `ThemeStatus` / `BorderChars` / `ColumnSpec` / `TreeNode` / `StepPosition` / `CapturedMessage` / `CapturedChunk` / `CaptureResult` / `BrowserPalette` / `ConsoleOutput` / `StyleAccumulator` / `StreamTargetInterface` row is a data / options shape with no behavioral methods.
 
 #### `RendererInterface`
 
@@ -528,11 +531,12 @@ logger.error('boom') // → console.error('%c…', 'color:#cd0000;…') in DevTo
 ### The server — a TTY sink and a process capture
 
 ```ts
-import { createLogger, createReporter } from '@orkestrel/console'
+import { createLogger, createReporter, createStyler } from '@orkestrel/console'
 import { createProcessCapture, createServerSink } from '@orkestrel/console/server'
 
-const sink = createServerSink() // process.stdout / process.stderr; ANSI verbatim on a TTY, stripped to a pipe
-const logger = createLogger({ name: 'server', sink })
+const sink = createServerSink() // color inferred per target at construction
+const styler = createStyler({ enabled: sink.styled }) // keep generated ANSI paired with out stripping
+const logger = createLogger({ name: 'server', sink, styler })
 logger.error('boom') // → process.stderr (the error stream)
 const reporter = createReporter({ sink, width: sink.columns }) // size the layout to the live terminal
 

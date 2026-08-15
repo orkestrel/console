@@ -5,6 +5,7 @@ import {
 	createConsoleSink,
 	createLogger,
 	createLoggerManager,
+	createSpinner,
 	createStyler,
 	createTheme,
 	DEFAULT_THEME,
@@ -216,6 +217,22 @@ describe('createConsoleSink', () => {
 		sink.write('after patch')
 		expect(real).toEqual(['after patch']) // reached the original stream
 		expect(captured).toEqual([]) // the patched console never saw the sink's own output
+	})
+
+	it('passes a Spinner redraw frame and a plain write to the snapshotted method verbatim', () => {
+		const seen: string[] = []
+		console.log = (text: string) => seen.push(text)
+		const sink = createConsoleSink()
+		const spinner = createSpinner({
+			frames: ['*'],
+			message: 'working',
+			sink,
+			styler: createStyler({ enabled: false }),
+		})
+		spinner.tick()
+		sink.write('plain')
+		expect(seen).toEqual(['\r* working', 'plain'])
+		spinner.destroy()
 	})
 })
 

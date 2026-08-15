@@ -1,5 +1,40 @@
 import { describe, expect, it } from 'vitest'
-import { columnsOf, decodeChunk, isBufferEncoding, isStreamTarget } from '@src/server'
+import { columnsOf, decodeChunk, inferStyled, isBufferEncoding, isStreamTarget } from '@src/server'
+
+describe('inferStyled', () => {
+	it('applies FORCE_COLOR, then non-empty NO_COLOR, then isTTY across the full matrix', () => {
+		for (const force of [undefined, '0', '1']) {
+			for (const noColor of [undefined, '', '1']) {
+				for (const tty of [true, false, undefined]) {
+					const environment: Record<string, string | undefined> = {}
+					if (force !== undefined) environment.FORCE_COLOR = force
+					if (noColor !== undefined) environment.NO_COLOR = noColor
+					const target = {
+						write: () => true,
+						...(tty === undefined ? {} : { isTTY: tty }),
+					}
+					const expected =
+						force !== undefined
+							? force !== '0'
+							: noColor !== undefined && noColor !== ''
+								? false
+								: tty === true
+					expect(inferStyled(target, environment)).toBe(expected)
+				}
+			}
+		}
+	})
+
+	it('treats an empty FORCE_COLOR as enabled and higher precedence than NO_COLOR', () => {
+		expect(
+			inferStyled({ write: () => true, isTTY: false }, { FORCE_COLOR: '', NO_COLOR: '1' }),
+		).toBe(true)
+	})
+
+	it('treats an explicitly present undefined FORCE_COLOR key as enabled', () => {
+		expect(inferStyled({ write: () => true, isTTY: false }, { FORCE_COLOR: undefined })).toBe(true)
+	})
+})
 
 describe('isStreamTarget', () => {
 	it('accepts the real process streams', () => {

@@ -2,7 +2,7 @@
 // unit-tested). Total utilities: the stream-target boundary guard (narrow `process.stdout` / any
 // injected target without `as`, §14), the TTY column probe, and the total chunk→text decoder (with
 // its encoding guard) the process-capture wrapper reuses so intercepting `process.*.write` can never
-// throw (§14).
+// throw (§14), plus pure color-environment inference for the server sink.
 
 import type { StreamTargetInterface } from './types.js'
 import { DEFAULT_COLUMNS } from './constants.js'
@@ -54,6 +54,36 @@ export function columnsOf(target: StreamTargetInterface): number {
 	const columns = target.columns
 	if (typeof columns === 'number' && Number.isFinite(columns) && columns > 0) return columns
 	return DEFAULT_COLUMNS
+}
+
+/**
+ * Infer whether one stream target should receive styled output. The result is a construction-time
+ * target fact for {@link import('./factories.js').createServerSink}; this helper is pure and never
+ * reads process globals itself.
+ *
+ * @remarks
+ * A present `FORCE_COLOR` key has first precedence: only the exact value `'0'` disables styling.
+ * Next, a non-empty `NO_COLOR` disables styling. Otherwise styling follows
+ * `target.isTTY === true`.
+ *
+ * @param target - The stream target whose terminal capability is the fallback
+ * @param environment - The environment record supplying `FORCE_COLOR` and `NO_COLOR`
+ * @returns Whether output for the target should retain styling and control sequences
+ *
+ * @example
+ * ```ts
+ * inferStyled({ write: () => true, isTTY: false }, { FORCE_COLOR: '1' }) // true
+ * inferStyled({ write: () => true, isTTY: true }, { NO_COLOR: '1' }) // false
+ * ```
+ */
+export function inferStyled(
+	target: StreamTargetInterface,
+	environment: Readonly<Record<string, string | undefined>>,
+): boolean {
+	if (Object.hasOwn(environment, 'FORCE_COLOR')) return environment.FORCE_COLOR !== '0'
+	const disabled = environment.NO_COLOR
+	if (disabled !== undefined && disabled !== '') return false
+	return target.isTTY === true
 }
 
 /**

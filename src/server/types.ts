@@ -21,9 +21,9 @@ import type { SinkInterface } from '@src/core'
  *   backpressure boolean (`false` when the kernel buffer is full). A `process` stream returns it;
  *   a fake may return `void` (read as truthy / no backpressure).
  * - `isTTY` — present and `true` on a real terminal, absent / `false` when the stream is piped to a
- *   file or another process. The sink reads it to decide whether to keep ANSI (a terminal renders
- *   it, and a leading `\r` overwrites natively) or {@link import('@src/core').strip} it to clean
- *   text (a log file should not carry escape codes).
+ *   file or another process. When no explicit color override exists, the sink reads it at
+ *   construction to decide whether to keep ANSI or {@link import('@src/core').strip} it to clean
+ *   text.
  * - `columns` — the terminal width in character cells when the stream is a TTY, `undefined`
  *   otherwise; the sink surfaces it as {@link ServerSinkInterface.columns} so a consumer can feed a
  *   `Reporter` / `Progress` its render width.
@@ -42,6 +42,8 @@ export interface StreamTargetInterface {
  * - `out` — the stream `info` / `debug` (and an omitted level) are written to; defaults to
  *   `process.stdout`. Any {@link StreamTargetInterface} is accepted, so a test injects a fake.
  * - `err` — the stream `error` / `warn` are written to; defaults to `process.stderr`.
+ * - `color` — an explicit styling decision for both targets. When omitted, each target infers its
+ *   own fact from `FORCE_COLOR`, `NO_COLOR`, and `isTTY` at construction.
  * - `columns` — an explicit width override for {@link ServerSinkInterface.columns}. When omitted,
  *   the sink reads the live `out.columns` (so it tracks a terminal resize), falling back to
  *   {@link import('./constants.js').DEFAULT_COLUMNS} when the out stream is not a TTY.
@@ -49,6 +51,7 @@ export interface StreamTargetInterface {
 export interface ServerSinkOptions {
 	readonly out?: StreamTargetInterface
 	readonly err?: StreamTargetInterface
+	readonly color?: boolean
 	readonly columns?: number
 }
 
@@ -56,13 +59,17 @@ export interface ServerSinkOptions {
  * A {@link SinkInterface} that also exposes the target terminal's {@link columns} width — the shape
  * {@link import('./factories.js').createServerSink} returns. It is a drop-in {@link SinkInterface}
  * (so a `Logger` / `Reporter` / `Spinner` / `Progress` takes it as `sink`) whose extra `columns`
- * getter lets a consumer size a `Reporter`'s layout to the live terminal.
+ * getter lets a consumer size a `Reporter`'s layout to the live terminal. Its `styled` fact lets
+ * the same consumer enable or disable its styler for the out target.
  *
  * @remarks
- * `columns` is a getter, re-read on every access — so it reflects the CURRENT terminal width (a
- * resize is observed) unless a fixed `options.columns` was supplied, in which case it is constant.
+ * - `styled` is the `out` target's construction-time fact. The sink handles `err` through its own
+ *   independently inferred fact because the two targets can differ.
+ * - `columns` is a getter, re-read on every access — so it reflects the CURRENT terminal width (a
+ *   resize is observed) unless a fixed `options.columns` was supplied, in which case it is constant.
  */
 export interface ServerSinkInterface extends SinkInterface {
+	readonly styled: boolean
 	readonly columns: number
 }
 
