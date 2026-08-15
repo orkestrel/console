@@ -125,6 +125,10 @@ export interface StylerOptions {
  *   styler is reusable and the chains never interfere.
  * - Calling the styler builds the {@link Style} under the hood and renders it through the
  *   injected renderer. When `enabled` is `false`, it returns the text verbatim.
+ * - `render` is the DATA door beside the accessor chain: it renders a {@link Style} value
+ *   (a {@link Theme} role, say) merged over the accumulated style, so a caller styles by
+ *   value where the chain styles by name. Both go through the same renderer and the same
+ *   `enabled` switch.
  * - `style` exposes the accumulated style DATA (the empty style on a base styler), and
  *   `enabled` reflects the switch — both inspectable and testable.
  * - A later color of the same channel wins (`styler.red.blue` is blue); a repeated
@@ -137,6 +141,26 @@ export interface StylerInterface {
 	readonly style: Style
 	/** Whether styling is applied; when `false`, calls return text unchanged. */
 	readonly enabled: boolean
+	/**
+	 * Render `text` in `style` merged OVER the accumulated style — the by-value counterpart
+	 * of the accessor chain, and the door a {@link Theme} role is applied through.
+	 *
+	 * @param style - The style to overlay; its colors win over the accumulated ones and its
+	 * attributes join them (de-duplicated, accumulated ones first)
+	 * @param text - The text to wrap
+	 * @returns The rendered text — verbatim when `enabled` is `false`, and (by the
+	 * {@link RendererInterface} contract) when the merged style or `text` is empty
+	 *
+	 * @example
+	 * ```ts
+	 * import { createStyler, DEFAULT_THEME } from '@src/core'
+	 *
+	 * const styler = createStyler()
+	 * styler.render(DEFAULT_THEME.levels.warn, 'WARN') // yellow
+	 * styler.bold.render(DEFAULT_THEME.chrome, '│') // dim, over the accumulated bold
+	 * ```
+	 */
+	render(style: Style, text: string): string
 	readonly black: StylerInterface
 	readonly red: StylerInterface
 	readonly green: StylerInterface
@@ -159,6 +183,69 @@ export interface StylerInterface {
 	readonly underline: StylerInterface
 	readonly inverse: StylerInterface
 	readonly strikethrough: StylerInterface
+}
+
+// Theming — the app-wide semantic style vocabulary. A `Theme` names WHAT a piece of output
+// IS (a level label, a status outcome, chrome, an accent) and binds each name to a `Style`;
+// an entity's own options stay the presentation of THAT instance. One theme flows through
+// the logger, the reporter, and the animations, so a consumer restyles every surface at
+// once — and every value in it is style DATA, rendered through the one `Styler`.
+
+/**
+ * One narrative outcome's presentation — the icon glyph a {@link StatusLevel} shows and the
+ * {@link Style} the line renders in.
+ *
+ * @remarks
+ * The themed counterpart of the {@link STATUS_ICONS} / {@link STATUS_COLORS} defaults: those
+ * two constants are the SOURCE of {@link DEFAULT_THEME}'s statuses, and a consumer overrides
+ * either half per status (a different glyph, a different color, or both) through
+ * {@link ThemeOptions}.
+ */
+export interface ThemeStatus {
+	readonly icon: string
+	readonly style: Style
+}
+
+/**
+ * The app-wide semantic style vocabulary — every role the console system styles, bound to a
+ * {@link Style} value. Pass one theme to a logger / reporter / spinner / progress and every
+ * surface speaks it.
+ *
+ * @remarks
+ * - `levels` — the label style per {@link LogLevel} (a log line's severity label).
+ * - `statuses` — the icon + style per {@link StatusLevel} (a reporter outcome, a spinner's
+ *   final line).
+ * - `accent` — the one highlight role: a spinner glyph, a progress bar's filled run, a
+ *   step prefix.
+ * - `chrome` — the frame role: separators, box / table / tree connectors, and a log line's
+ *   timestamp / name / data surround.
+ * - A theme is the vocabulary the WHOLE application shares; a per-entity option (a
+ *   `ProgressOptions.fill`, a `BoxOptions.border`) is the presentation of that one instance.
+ * - The value is frozen, and every {@link Style} it carries is a frozen style value, so one
+ *   theme is safely shared across every entity. Build one with {@link createTheme}.
+ */
+export interface Theme {
+	readonly levels: Readonly<Record<LogLevel, Style>>
+	readonly statuses: Readonly<Record<StatusLevel, ThemeStatus>>
+	readonly accent: Style
+	readonly chrome: Style
+}
+
+/**
+ * Options for {@link createTheme} — the roles to override on {@link DEFAULT_THEME}.
+ *
+ * @remarks
+ * Every key is optional and merges per ROLE, never per theme: an omitted role keeps its
+ * default, and `levels` / `statuses` merge per entry, so `{ levels: { warn: … } }` restyles
+ * the `warn` label and leaves the other three alone. Supply a frozen {@link Style} value —
+ * a styler chain's `style` (`createStyler().brightMagenta.bold.style`) is the ready-made
+ * source, and {@link EMPTY_STYLE} is the unstyled one.
+ */
+export interface ThemeOptions {
+	readonly levels?: Readonly<Partial<Record<LogLevel, Style>>>
+	readonly statuses?: Readonly<Partial<Record<StatusLevel, ThemeStatus>>>
+	readonly accent?: Style
+	readonly chrome?: Style
 }
 
 // Structured logging — the record + event ARE the transport seam. A `Logger` builds an
@@ -253,6 +340,24 @@ export type LoggerEventMap = {
 	/** A record was logged (passed the level gate) — the frozen {@link LogRecord}. */
 	readonly entry: readonly [record: LogRecord]
 }
+
+/**
+ * The line layout a logger writes — one {@link LogRecord} plus the styling substrate in,
+ * one finished line out. {@link import('./helpers.js').formatRecord} is the default.
+ *
+ * @param record - The frozen record to lay out
+ * @param styler - The logger's {@link StylerInterface} — color through it (and through
+ * {@link StylerInterface.render} for a {@link Theme} role) so a disabled styler yields a
+ * plain line with no second code path
+ * @param theme - The logger's {@link Theme} — the level label style, the chrome surround
+ * @returns The line to write, WITHOUT a trailing terminator (the sink's target supplies it)
+ *
+ * @remarks
+ * The formatter owns the LINE; the `entry` event owns the RECORD. A transport that wants
+ * structure rides the event rather than parsing a line back out of this. A formatter throw
+ * propagates to the caller of `logger.info` and prevents that line's write, so keep it total.
+ */
+export type LogFormatFunction = (record: LogRecord, styler: StylerInterface, theme: Theme) => string
 
 /**
  * Options for `createLogger` / the {@link LoggerInterface} constructor.

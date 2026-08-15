@@ -16,10 +16,12 @@ import type {
 	SpinnerOptions,
 	StylerInterface,
 	StylerOptions,
+	Theme,
+	ThemeOptions,
 } from './types.js'
 import { ANSIRenderer } from './ANSIRenderer.js'
 import { Capture } from './Capture.js'
-import { EMPTY_STYLE } from './constants.js'
+import { DEFAULT_THEME, EMPTY_STYLE } from './constants.js'
 import { Logger } from './Logger.js'
 import { LoggerManager } from './LoggerManager.js'
 import { Progress } from './Progress.js'
@@ -80,6 +82,44 @@ export function createStyler(options?: StylerOptions): StylerInterface {
 	const renderer = options?.renderer ?? new ANSIRenderer()
 	const enabled = options?.enabled ?? true
 	return new Styler(renderer, enabled, EMPTY_STYLE).surface
+}
+
+/**
+ * Create a {@link Theme} — the app-wide semantic style vocabulary, merged role by role over
+ * {@link DEFAULT_THEME}. Hand one theme to a logger / reporter / spinner / progress and every
+ * surface speaks it; omit `options` for the defaults.
+ *
+ * @param options - See {@link ThemeOptions}
+ * @returns A frozen {@link Theme}
+ *
+ * @remarks
+ * - **Merges per ROLE, not per theme.** An omitted role keeps its default, and `levels` /
+ *   `statuses` merge per ENTRY — `{ levels: { warn: … } }` restyles the `warn` label and
+ *   leaves `debug` / `info` / `error` untouched.
+ * - **Frozen and shareable.** The returned theme and its `levels` / `statuses` records are
+ *   frozen, and every {@link import('./types.js').Style} in it is a frozen style value — the
+ *   defaults by construction, an override by the `Style` contract — so one theme is safely
+ *   shared across every entity. Build an override with a styler chain's `style`.
+ *
+ * @example
+ * ```ts
+ * import { createStyler, createTheme } from '@src/core'
+ *
+ * const styler = createStyler()
+ * const theme = createTheme({
+ * 	levels: { warn: styler.brightYellow.bold.style }, // only the warn label changes
+ * 	accent: styler.magenta.style, // spinner glyph, progress fill, step prefix
+ * })
+ * theme.levels.error // still the default red
+ * ```
+ */
+export function createTheme(options?: ThemeOptions): Theme {
+	return Object.freeze({
+		levels: Object.freeze({ ...DEFAULT_THEME.levels, ...options?.levels }),
+		statuses: Object.freeze({ ...DEFAULT_THEME.statuses, ...options?.statuses }),
+		accent: options?.accent ?? DEFAULT_THEME.accent,
+		chrome: options?.chrome ?? DEFAULT_THEME.chrome,
+	})
 }
 
 /**

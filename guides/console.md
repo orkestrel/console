@@ -39,9 +39,13 @@ The style engine — text style as DATA, rendered by a swappable renderer (ANSI 
 | `RendererInterface`  | interface | The swappable style renderer — turns a `Style` + text into output for ONE target (ANSI default, browser `%c` at the same seam).             |
 | `StylerOptions`      | interface | `createStyler` options — `renderer?` (the target, default ANSI) + `enabled?` (the no-color switch, default `true`).                         |
 | `StylerInterface`    | interface | The fluent styling surface — a render FUNCTION carrying a chainable `Color` / `Attribute` accessor per token, immutable copy-on-write.      |
+| `ThemeStatus`        | interface | One narrative outcome's presentation — the `icon` glyph a `StatusLevel` shows and the `Style` its line renders in.                          |
+| `Theme`              | interface | The app-wide semantic style vocabulary — `levels` / `statuses` / `accent` / `chrome`, each role bound to a `Style`.                         |
+| `ThemeOptions`       | interface | `createTheme` options — the roles to override on `DEFAULT_THEME`; merges per role, and per entry within `levels` / `statuses`.              |
 | `ANSIRenderer`       | class     | The cross-environment default `RendererInterface` — renders a `Style` as SGR escape codes (stateless, event-free).                          |
 | `createANSIRenderer` | function  | Create the default ANSI `RendererInterface`.                                                                                                |
 | `createStyler`       | function  | Create the fluent `StylerInterface` (ANSI by default; pass a `renderer` to retarget, `enabled: false` to disable color).                    |
+| `createTheme`        | function  | Create a `Theme` — the role-by-role merge over `DEFAULT_THEME`; hand one theme to every entity and each speaks it.                          |
 | `strip`              | function  | Remove every ANSI escape sequence from a string, returning the plain visible text (total, re-entrant).                                      |
 | `stripControls`      | function  | Remove every C0 control byte (except `\t` / `\n` / `\r`) plus DEL from a string — a SEPARATE pass from `strip`, so `width` stays untouched. |
 | `width`              | function  | The VISIBLE width of a string — its length in code points after ANSI is stripped (the basis for terminal layout).                           |
@@ -61,6 +65,7 @@ Structured logging — the immutable `LogRecord` + the `entry` event ARE the tra
 | `LoggerManager`          | class     | An event-free §9 registry of named loggers plus a convenience fan-out.                                                               |
 | `createLoggerManager`    | function  | Create an event-free `LoggerManagerInterface` — a registry of named loggers + fan-out.                                               |
 | `LoggerEventMap`         | type      | A logger's observable events (§13) — `entry(record)` for every accepted record (the transport seam).                                 |
+| `LogFormatFunction`      | type      | The line layout a logger writes — `(record, styler, theme) => string`; `formatRecord` is the default (the event owns the record).    |
 | `LoggerOptions`          | interface | `createLogger` options — `on?` / `error?` / `level?` / `name?` / `sink?` / `styler?` / `limit?` / `silent?`.                         |
 | `LoggerInterface`        | interface | The leveled logger — `emitter` / `level` / `name` data + `debug` / `info` / `warn` / `error` / `entries` / `clear` / `destroy`.      |
 | `LoggerManagerOptions`   | interface | `createLoggerManager` options — the `level?` / `sink?` / `styler?` / `limit?` / `silent?` defaults flowed into every minted logger.  |
@@ -159,6 +164,7 @@ The SGR code data the ANSI renderer maps through, and the styler's color / attri
 | `BACKGROUND_CODES` | const | Each `Color`'s SGR BACKGROUND parameter (40–47 / 100–107); `default` is absent.                                                         |
 | `ATTRIBUTE_CODES`  | const | Each `Attribute`'s SGR "on" parameter (`bold` 1, `dim` 2, `italic` 3, `underline` 4, `inverse` 7, `strikethrough` 9).                   |
 | `EMPTY_STYLE`      | const | The EMPTY `Style` (no colors, no attributes) — the neutral base a styler builds from; deeply frozen.                                    |
+| `DEFAULT_THEME`    | const | The default `Theme` — every role bound to its default `Style`, assembled from `LEVEL_COLORS` / `STATUS_ICONS` / `STATUS_COLORS`.        |
 | `COLORS`           | const | Every named `Color` except `default` — the colors the styler exposes as chainable accessors.                                            |
 | `ATTRIBUTES`       | const | Every `Attribute` — the attributes the styler exposes as chainable accessors.                                                           |
 | `RESET_CODE`       | const | The SGR RESET parameter (`0`) — terminates a styled run.                                                                                |
@@ -275,13 +281,21 @@ The default stream set, buffer cap, no-TTY column fallback, and the stream → l
 
 The public methods of each behavioral interface — one table per type, keyed by its backticked name, every call-signature member listed. Each type's `readonly` data members (e.g. `emitter` / `active` / `message` / `level` / `name` / `current` / `total` / `completed` / `columns`) stay in the Surface rows above and are not repeated here. Each implementing class implements its interface exactly, so this doubles as the per-instance method surface (AGENTS §22).
 
-**Data-only / callable surfaces (no `## Methods` subsection).** `StylerInterface` is a CALLABLE — it has a single call signature `(text) => string` and chainable `Color` / `Attribute` accessors (data getters), but no NAMED methods, so it has no Methods table. `ServerSinkInterface` adds only a `columns` data member to `SinkInterface` (its `write` is the inherited contract below). Every `*Options` / `*EventMap` / `LogRecord` / `Style` / `BorderChars` / `ColumnSpec` / `TreeNode` / `StepPosition` / `CapturedMessage` / `CapturedChunk` / `CaptureResult` / `ConsoleOutput` / `StyleAccumulator` / `StreamTargetInterface` row is a data / options shape with no behavioral methods.
+**Data-only / callable surfaces (no `## Methods` subsection).** `ServerSinkInterface` adds only a `columns` data member to `SinkInterface` (its `write` is the inherited contract below). Every `*Options` / `*EventMap` / `LogRecord` / `Style` / `Theme` / `ThemeStatus` / `BorderChars` / `ColumnSpec` / `TreeNode` / `StepPosition` / `CapturedMessage` / `CapturedChunk` / `CaptureResult` / `ConsoleOutput` / `StyleAccumulator` / `StreamTargetInterface` row is a data / options shape with no behavioral methods.
 
 #### `RendererInterface`
 
 | Method   | Returns  | Behavior                                                                                               |
 | -------- | -------- | ------------------------------------------------------------------------------------------------------ |
 | `render` | `string` | Render `text` wrapped in the target codes for a `Style` — the empty style / empty string pass through. |
+
+#### `StylerInterface`
+
+`StylerInterface` is also a CALLABLE: its call signature `(text) => string` renders the accumulated style, and its chainable `Color` / `Attribute` accessors are data getters that stay in the Surface row above. `render` is its one named method — the same styling reached by VALUE instead of by accessor name.
+
+| Method   | Returns  | Behavior                                                                                                                  |
+| -------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `render` | `string` | Render `text` in a `Style` merged OVER the accumulated one — its colors win, its attributes join; verbatim when disabled. |
 
 #### `SinkInterface`
 
@@ -591,7 +605,7 @@ isBufferEncoding('nope') // false
 
 - [`tests/guides.test.ts`](../tests/guides.test.ts) — the `## Surface` ↔ source bijection across `src/core` and the `src/browser` + `src/server` backends (value + type exports), plus each interface ↔ implementing-class method bijection.
 - [`tests/src/core/ANSIRenderer.test.ts`](../tests/src/core/ANSIRenderer.test.ts) — the ANSI renderer: foreground / background / attribute SGR codes, multi-attribute composition, `default` / unset / empty-style / empty-string pass-through.
-- [`tests/src/core/Styler.test.ts`](../tests/src/core/Styler.test.ts) — the fluent styler: chainable `Color` / `Attribute` accessors, immutability + composition either way, last-color-wins / idempotent-attribute, the `enabled` verbatim switch, and a swapped renderer.
+- [`tests/src/core/Styler.test.ts`](../tests/src/core/Styler.test.ts) — the fluent styler: chainable `Color` / `Attribute` accessors, immutability + composition either way, last-color-wins / idempotent-attribute, the `enabled` verbatim switch, a swapped renderer, and `render` by value (the merge precedence, a themed role, the frozen merged style handed to the renderer).
 - [`tests/src/core/Logger.test.ts`](../tests/src/core/Logger.test.ts) — the logger: the level gate (drop below threshold), the frozen `LogRecord`, bounded `entries()` retention + `clear`, the `entry` transport event (fires even when `silent`), the styled line, and the emitter's listener-isolation (`error` handler) emit-safety.
 - [`tests/src/core/LoggerManager.test.ts`](../tests/src/core/LoggerManager.test.ts) — the registry: `register` (defaults flow in, re-register overwrites) / `logger` / `loggers` / `count`, the `debug`…`error` fan-out, and `remove` ALL / one / batch.
 - [`tests/src/core/Reporter.test.ts`](../tests/src/core/Reporter.test.ts) — the reporter verbs: `section` / `step` (with / without position) / `timing` / `status` (icon + color, `error` → error stream) / `table` / `tree` / `box` / `line` / `blank`.
@@ -599,7 +613,7 @@ isBufferEncoding('nope') // false
 - [`tests/src/core/Spinner.test.ts`](../tests/src/core/Spinner.test.ts) — the spinner: deterministic `tick()` frame advance + the `\r` write, idempotent `start`, the leak-free timer (armed / always cleared, fake timers), `update`, `success` / `failure` outcome lines, and the `frame` / `start` / `stop` events.
 - [`tests/src/core/Progress.test.ts`](../tests/src/core/Progress.test.ts) — the progress bar: `update` clamp + render + `\r` write, the `update` event, terminal `complete` (full bar + `complete` event) / `failure` (error stream, no complete), and the post-terminal ignore.
 - [`tests/src/core/helpers.test.ts`](../tests/src/core/helpers.test.ts) — the pure helpers: `strip` / `width` (ANSI-aware, code points), `meetsLevel` / `formatTime` / `formatRecord`, `align` / `paint` / `repeatTo` / `cellAt`, `renderSeparator` / `renderBox` / `renderTable` / `renderTree` / `renderBar`, `formatDuration`, and the total `stringifyValue` / `formatArgs` (Error / cycle / BigInt).
-- [`tests/src/core/factories.test.ts`](../tests/src/core/factories.test.ts) — each `create*` returns a working instance of its interface, `createConsoleSink`'s level routing + snapshot, and `withCapture` (sync + async, restore-on-throw).
+- [`tests/src/core/factories.test.ts`](../tests/src/core/factories.test.ts) — each `create*` returns a working instance of its interface, `createTheme`'s per-role / per-entry merge over the frozen `DEFAULT_THEME`, `createConsoleSink`'s level routing + snapshot, and `withCapture` (sync + async, restore-on-throw).
 - [`tests/src/browser/helpers.test.ts`](../tests/src/browser/helpers.test.ts) — `ansiToConsole` in real Chromium: SGR runs → `%c` segments + parallel CSS, the reset clear, last-color-wins, the plain-text short-circuit, and `%`-safety; plus `escapePercent` / `parseParameters`.
 - [`tests/src/browser/factories.test.ts`](../tests/src/browser/factories.test.ts) — `createBrowserSink` in real Chromium: the ANSI → `%c` `console[method](format, ...styles)` call, level routing, the leading-`\r` animation degrade, and the snapshot (no capture loop).
 - [`tests/src/server/helpers.test.ts`](../tests/src/server/helpers.test.ts) — the server helpers: `isStreamTarget` (the boundary guard), `columnsOf` (live TTY width / fallback), and the total `decodeChunk` (string / Buffer / Uint8Array / bad encoding) + `isBufferEncoding`.

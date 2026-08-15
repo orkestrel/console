@@ -8,6 +8,7 @@ import type {
 	LogLevel,
 	Style,
 	StatusLevel,
+	Theme,
 } from './types.js'
 
 // The SGR (Select Graphic Rendition) code data the ANSI renderer maps style DATA
@@ -501,3 +502,54 @@ export const BAR_EMPTY = '░'
  * track is one inline element, not a full-width rule.
  */
 export const DEFAULT_BAR_WIDTH = 30
+
+// The default theme — the semantic style vocabulary every entity speaks unless a consumer
+// supplies its own. ASSEMBLED from the constants above (LEVEL_COLORS / STATUS_ICONS /
+// STATUS_COLORS), never restating them: a level's color, a status's icon + color each keep
+// ONE source, and the theme is the shape that binds them to a role. UPPER_SNAKE, deeply
+// `Object.freeze`d DATA (AGENTS §5).
+
+/**
+ * The default {@link Theme} — every role bound to its default {@link Style}, deeply frozen.
+ * The base {@link import('./factories.js').createTheme} merges over, and the theme every
+ * entity uses when none is supplied.
+ *
+ * @remarks
+ * - `levels` — each {@link LogLevel} label in its {@link LEVEL_COLORS} color, no attributes.
+ * - `statuses` — each {@link StatusLevel}'s {@link STATUS_ICONS} glyph in its
+ *   {@link STATUS_COLORS} color.
+ * - `accent` — `cyan`: the spinner glyph, the progress fill, a step prefix.
+ * - `chrome` — `dim`: separators, box / table / tree frames, and a log line's timestamp /
+ *   name / data surround. A color-free attribute, so chrome recedes on any background.
+ */
+export const DEFAULT_THEME: Theme = Object.freeze({
+	levels: Object.freeze({
+		debug: Object.freeze({ foreground: LEVEL_COLORS.debug, attributes: EMPTY_STYLE.attributes }),
+		info: Object.freeze({ foreground: LEVEL_COLORS.info, attributes: EMPTY_STYLE.attributes }),
+		warn: Object.freeze({ foreground: LEVEL_COLORS.warn, attributes: EMPTY_STYLE.attributes }),
+		error: Object.freeze({ foreground: LEVEL_COLORS.error, attributes: EMPTY_STYLE.attributes }),
+	}),
+	statuses: Object.freeze({
+		success: Object.freeze({
+			icon: STATUS_ICONS.success,
+			style: Object.freeze({
+				foreground: STATUS_COLORS.success,
+				attributes: EMPTY_STYLE.attributes,
+			}),
+		}),
+		error: Object.freeze({
+			icon: STATUS_ICONS.error,
+			style: Object.freeze({ foreground: STATUS_COLORS.error, attributes: EMPTY_STYLE.attributes }),
+		}),
+		warn: Object.freeze({
+			icon: STATUS_ICONS.warn,
+			style: Object.freeze({ foreground: STATUS_COLORS.warn, attributes: EMPTY_STYLE.attributes }),
+		}),
+		info: Object.freeze({
+			icon: STATUS_ICONS.info,
+			style: Object.freeze({ foreground: STATUS_COLORS.info, attributes: EMPTY_STYLE.attributes }),
+		}),
+	}),
+	accent: Object.freeze({ foreground: 'cyan', attributes: EMPTY_STYLE.attributes }),
+	chrome: Object.freeze({ attributes: Object.freeze<readonly Attribute[]>(['dim']) }),
+})

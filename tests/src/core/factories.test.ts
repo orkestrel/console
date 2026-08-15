@@ -6,6 +6,14 @@ import {
 	createLogger,
 	createLoggerManager,
 	createStyler,
+	createTheme,
+	DEFAULT_THEME,
+	EMPTY_STYLE,
+	LEVEL_COLORS,
+	LEVELS,
+	STATUS_COLORS,
+	STATUS_ICONS,
+	STATUS_LEVELS,
 	withCapture,
 } from '@src/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -73,6 +81,91 @@ describe('createStyler', () => {
 		expect(b('x')).toBe('x')
 		// The base of `a` is still neutral after deriving a chain from it.
 		expect(a('x')).toBe('x')
+	})
+})
+
+describe('createTheme', () => {
+	it('with no options, yields the default vocabulary as a fresh value', () => {
+		const theme = createTheme()
+		expect(theme).toEqual(DEFAULT_THEME)
+		expect(theme).not.toBe(DEFAULT_THEME)
+	})
+
+	it('overrides one level and leaves the other three at their defaults', () => {
+		const warn = createStyler().brightYellow.bold.style
+		const theme = createTheme({ levels: { warn } })
+		expect(theme.levels.warn).toEqual({ foreground: 'brightYellow', attributes: ['bold'] })
+		expect(theme.levels.debug).toEqual(DEFAULT_THEME.levels.debug)
+		expect(theme.levels.info).toEqual(DEFAULT_THEME.levels.info)
+		expect(theme.levels.error).toEqual(DEFAULT_THEME.levels.error)
+	})
+
+	it('overrides one status entry — icon and style together — and leaves the rest', () => {
+		const theme = createTheme({
+			statuses: { success: { icon: '+', style: createStyler().green.bold.style } },
+		})
+		expect(theme.statuses.success).toEqual({
+			icon: '+',
+			style: { foreground: 'green', attributes: ['bold'] },
+		})
+		expect(theme.statuses.error).toEqual(DEFAULT_THEME.statuses.error)
+		expect(theme.statuses.warn).toEqual(DEFAULT_THEME.statuses.warn)
+		expect(theme.statuses.info).toEqual(DEFAULT_THEME.statuses.info)
+	})
+
+	it('overrides accent and chrome independently of each other', () => {
+		const accent = createStyler().magenta.style
+		const theme = createTheme({ accent })
+		expect(theme.accent).toBe(accent)
+		expect(theme.chrome).toEqual(DEFAULT_THEME.chrome)
+		const chrome = createStyler().brightBlack.style
+		expect(createTheme({ chrome }).chrome).toBe(chrome)
+		expect(createTheme({ chrome }).accent).toEqual(DEFAULT_THEME.accent)
+	})
+
+	it('returns a frozen theme whose records and style leaves are frozen', () => {
+		const theme = createTheme({ accent: createStyler().magenta.style })
+		expect(Object.isFrozen(theme)).toBe(true)
+		expect(Object.isFrozen(theme.levels)).toBe(true)
+		expect(Object.isFrozen(theme.statuses)).toBe(true)
+		for (const level of LEVELS) {
+			expect(Object.isFrozen(theme.levels[level])).toBe(true)
+			expect(Object.isFrozen(theme.levels[level].attributes)).toBe(true)
+		}
+		for (const status of STATUS_LEVELS) {
+			expect(Object.isFrozen(theme.statuses[status])).toBe(true)
+			expect(Object.isFrozen(theme.statuses[status].style)).toBe(true)
+		}
+		expect(Object.isFrozen(theme.accent)).toBe(true)
+		expect(Object.isFrozen(theme.chrome)).toBe(true)
+	})
+
+	it('never writes back into DEFAULT_THEME', () => {
+		const before = structuredClone(DEFAULT_THEME)
+		createTheme({
+			levels: { error: createStyler().white.style },
+			statuses: { info: { icon: '?', style: EMPTY_STYLE } },
+			accent: EMPTY_STYLE,
+			chrome: EMPTY_STYLE,
+		})
+		expect(DEFAULT_THEME).toEqual(before)
+	})
+
+	it('assembles its defaults from the level and status constants — one source per fact', () => {
+		for (const level of LEVELS) {
+			expect(DEFAULT_THEME.levels[level].foreground).toBe(LEVEL_COLORS[level])
+		}
+		for (const status of STATUS_LEVELS) {
+			expect(DEFAULT_THEME.statuses[status].icon).toBe(STATUS_ICONS[status])
+			expect(DEFAULT_THEME.statuses[status].style.foreground).toBe(STATUS_COLORS[status])
+		}
+	})
+
+	it('renders a themed line through the styler that consumes it', () => {
+		const styler = createStyler()
+		const theme = createTheme({ chrome: styler.dim.italic.style })
+		expect(styler.render(theme.levels.error, 'ERROR')).toBe(`${ESC}31mERROR${RESET}`)
+		expect(styler.render(theme.chrome, '--')).toBe(`${ESC}2;3m--${RESET}`)
 	})
 })
 

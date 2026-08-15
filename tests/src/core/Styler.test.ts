@@ -1,5 +1,5 @@
 import type { RendererInterface, Style } from '@src/core'
-import { ANSIRenderer, createStyler, EMPTY_STYLE, strip } from '@src/core'
+import { ANSIRenderer, createStyler, DEFAULT_THEME, EMPTY_STYLE, strip } from '@src/core'
 // `Styler` is internal: `createStyler` returns its `.surface`, so the class is not barrelled.
 import { Styler } from '../../../src/core/Styler.js'
 import { describe, expect, it } from 'vitest'
@@ -183,6 +183,81 @@ describe('Styler', () => {
 			const styler = new Styler(renderer, true, EMPTY_STYLE).surface
 			expect(styler.red.bold('x')).toBe('[bold+red]x')
 			expect(styler('plain')).toBe('plain')
+		})
+	})
+
+	describe('render — styling by value', () => {
+		it('renders a style with no accumulated style, exactly as the matching chain does', () => {
+			const styler = base().surface
+			expect(styler.render({ foreground: 'red', attributes: ['bold'] }, 'x')).toBe(
+				`${ESC}1;31mx${RESET}`,
+			)
+			expect(styler.render({ foreground: 'red', attributes: ['bold'] }, 'x')).toBe(
+				styler.red.bold('x'),
+			)
+		})
+
+		it('merges the style OVER the accumulated one — both contributions render', () => {
+			const styler = base().surface
+			expect(styler.bold.render({ foreground: 'red', attributes: [] }, 'x')).toBe(
+				`${ESC}1;31mx${RESET}`,
+			)
+		})
+
+		it('a color in the rendered style wins over the accumulated one (last write)', () => {
+			const styler = base().surface
+			expect(styler.red.render({ foreground: 'blue', attributes: [] }, 'x')).toBe(
+				`${ESC}34mx${RESET}`,
+			)
+		})
+
+		it('unions the attributes — accumulated first, and a repeat carried once', () => {
+			const styler = base().surface
+			expect(styler.bold.render({ attributes: ['bold', 'underline'] }, 'x')).toBe(
+				`${ESC}1;4mx${RESET}`,
+			)
+		})
+
+		it('renders a theme role — the level label in its themed color', () => {
+			const styler = base().surface
+			expect(styler.render(DEFAULT_THEME.levels.warn, 'WARN')).toBe(`${ESC}33mWARN${RESET}`)
+			expect(styler.bold.render(DEFAULT_THEME.chrome, '|')).toBe(`${ESC}1;2m|${RESET}`)
+		})
+
+		it('the empty merged style and the empty string pass through unchanged', () => {
+			const styler = base().surface
+			expect(styler.render(EMPTY_STYLE, 'plain')).toBe('plain')
+			expect(styler.render({ foreground: 'red', attributes: [] }, '')).toBe('')
+		})
+
+		it('when disabled, returns text verbatim whatever style is handed in', () => {
+			const styler = new Styler(new ANSIRenderer(), false, EMPTY_STYLE).surface
+			expect(styler.render({ foreground: 'red', attributes: ['bold'] }, 'x')).toBe('x')
+			expect(styler.bold.render(DEFAULT_THEME.accent, 'x')).toBe('x')
+		})
+
+		it('hands the MERGED style, frozen, to the injected renderer', () => {
+			const renderer = createRecordingRenderer()
+			const styler = new Styler(renderer, true, EMPTY_STYLE).surface
+			expect(styler.bold.render({ foreground: 'red', attributes: ['underline'] }, 'x')).toBe('x')
+			expect(renderer.calls).toEqual([{ foreground: 'red', attributes: ['bold', 'underline'] }])
+			const merged = renderer.calls[0]
+			expect(merged !== undefined && Object.isFrozen(merged)).toBe(true)
+			expect(merged !== undefined && Object.isFrozen(merged.attributes)).toBe(true)
+		})
+
+		it('leaves the accumulated style and the given style untouched', () => {
+			const bold = base().surface.bold
+			const overlay: Style = { foreground: 'red', attributes: ['underline'] }
+			bold.render(overlay, 'x')
+			expect(bold.style).toEqual({ attributes: ['bold'] })
+			expect(overlay).toEqual({ foreground: 'red', attributes: ['underline'] })
+		})
+
+		it('is reachable from the public factory surface', () => {
+			expect(createStyler().render({ foreground: 'green', attributes: [] }, 'ok')).toBe(
+				`${ESC}32mok${RESET}`,
+			)
 		})
 	})
 

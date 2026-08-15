@@ -20,6 +20,9 @@ import { ConsoleError } from './errors.js'
  * - **Immutable.** `#foreground` and `#attribute` return a fresh `Styler` (the style is
  *   rebuilt, never mutated). A later color of the same channel WINS (last write); a
  *   repeated attribute is idempotent (de-duplicated, order preserved).
+ * - **Styling by value.** `render(style, text)` merges a {@link Style} over the accumulated
+ *   one and renders that — the same precedence a chain applies, reached with DATA instead of
+ *   accessor names. It is how a {@link import('./types.js').Theme} role is drawn.
  * - **`enabled` switch.** When `false`, the render function returns text VERBATIM — no
  *   renderer call, no escape codes (for a non-TTY / `NO_COLOR` / piped output).
  * - **Event-free** — a pure styling primitive (AGENTS §13), like `Scheduler`.
@@ -59,10 +62,11 @@ export class Styler {
 	 * type assertion is used (AGENTS §1 / §14 — narrow, never assert).
 	 */
 	get surface(): StylerInterface {
-		const render = this.#render.bind(this)
+		const callable = this.#render.bind(this)
 		const descriptors: PropertyDescriptorMap = {
 			style: { value: this.#style, enumerable: true },
 			enabled: { value: this.#enabled, enumerable: true },
+			render: { value: this.render.bind(this), enumerable: true },
 		}
 		for (const color of COLORS) {
 			descriptors[color] = {
@@ -76,15 +80,54 @@ export class Styler {
 				enumerable: true,
 			}
 		}
-		const surface = Object.defineProperties(render, descriptors)
+		const surface = Object.defineProperties(callable, descriptors)
 		if (this.#isSurface(surface)) return surface
 		// Unreachable: the descriptors above install every accessor the guard checks for.
 		throw new ConsoleError('INVARIANT', 'console: styler surface construction is incomplete')
 	}
 
+	/**
+	 * Render `text` in `style` merged OVER the accumulated style — the by-value door beside
+	 * the accessor chain, and how a {@link import('./types.js').Theme} role is applied.
+	 *
+	 * @param style - The style to overlay; its colors win over the accumulated ones and its
+	 * attributes join them (de-duplicated, the accumulated ones first)
+	 * @param text - The text to wrap
+	 * @returns The rendered text — verbatim when `enabled` is `false`, and (by the
+	 * {@link RendererInterface} contract) when the merged style or `text` is empty
+	 *
+	 * @example
+	 * ```ts
+	 * import { createStyler, DEFAULT_THEME } from '@src/core'
+	 *
+	 * const styler = createStyler()
+	 * styler.render(DEFAULT_THEME.levels.warn, 'WARN') // yellow
+	 * styler.bold.render(DEFAULT_THEME.chrome, '│') // dim, over the accumulated bold
+	 * ```
+	 */
+	render(style: Style, text: string): string {
+		return this.#enabled ? this.#renderer.render(this.#merge(style), text) : text
+	}
+
 	// Render through the configured target, or pass text through when styling is disabled.
 	#render(text: string): string {
 		return this.#enabled ? this.#renderer.render(this.#style, text) : text
+	}
+
+	// Overlay `style` on the accumulated style: a set color of either channel WINS (last
+	// write, as in a chain), and the attribute sets union — accumulated order first, the
+	// overlay's new ones appended, each carried once. Frozen, like every style this engine
+	// builds; the caller's value is read, never touched.
+	#merge(style: Style): Style {
+		const attributes: Attribute[] = [...this.#style.attributes]
+		for (const attribute of style.attributes) {
+			if (!attributes.includes(attribute)) attributes.push(attribute)
+		}
+		return Object.freeze({
+			...this.#style,
+			...style,
+			attributes: Object.freeze(attributes),
+		})
 	}
 
 	// Resolve one lazy foreground accessor to the next immutable styler surface.
@@ -106,6 +149,7 @@ export class Styler {
 			typeof value === 'function' &&
 			'style' in value &&
 			'enabled' in value &&
+			'render' in value &&
 			'red' in value &&
 			'bold' in value
 		)
