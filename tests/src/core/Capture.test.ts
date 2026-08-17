@@ -1,7 +1,8 @@
 import type { CaptureLevel, CapturedMessage } from '@src/core'
 import { Capture, createCapture, createLogger, createStyler } from '@src/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../setup.js'
+import { createRecorder } from '@orkestrel/test'
+import { createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
 // Capture — the observable console interceptor. While active it snapshots the configured
 // console.* methods, replaces them with wrappers that buffer each call (total + by level,
@@ -196,7 +197,7 @@ describe('Capture', () => {
 		})
 
 		it('a throwing capture listener is isolated and routed to the error handler (never escapes the console call)', () => {
-			const errors = createErrorRecorder()
+			const errors = createRecorder<readonly [error: unknown, event: string]>()
 			const capture = new Capture({ levels: ['log'], error: errors.handler })
 			capture.start()
 			capture.emitter.on('capture', () => {

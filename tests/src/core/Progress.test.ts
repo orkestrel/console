@@ -7,7 +7,8 @@ import {
 	strip,
 } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../setup.js'
+import { createRecorder } from '@orkestrel/test'
+import { createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
 // Progress — the update-driven, observable progress bar. update(current) recomputes the bar via
 // renderBar, writes `\r` + bar to its sink, and emits { current, total } on `update`; complete/failure
@@ -267,7 +268,7 @@ describe('Progress', () => {
 		})
 
 		it('a throwing update listener is isolated and routed to the error handler', () => {
-			const errors = createErrorRecorder()
+			const errors = createRecorder<readonly [error: unknown, event: string]>()
 			const progress = new Progress({
 				total: 10,
 				sink: createRecordingSink(),

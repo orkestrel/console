@@ -1,7 +1,8 @@
 import type { LoggerInterface, LogLevel, LogRecord } from '@src/core'
 import { createLogger, createStyler, createTheme, Logger, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../setup.js'
+import { createRecorder } from '@orkestrel/test'
+import { createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
 // Logger — the observable, leveled entry point into structured logging. Each call builds a
 // frozen LogRecord, gates by severity, retains a bounded tail, ALWAYS emits `entry` (the
@@ -124,7 +125,7 @@ describe('Logger', () => {
 		})
 
 		it('a throwing listener is isolated and routed to the error handler (never escapes)', () => {
-			const errors = createErrorRecorder()
+			const errors = createRecorder<readonly [error: unknown, event: string]>()
 			const logger = new Logger({
 				styler: createStyler({ enabled: false }),
 				sink: createRecordingSink(),

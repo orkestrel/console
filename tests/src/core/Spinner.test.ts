@@ -8,7 +8,8 @@ import {
 	strip,
 } from '@src/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createErrorRecorder, createRecordingSink, recordEmitterEvents } from '../../setup.js'
+import { createRecorder } from '@orkestrel/test'
+import { createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
 // Spinner — the self-driving, observable activity spinner. start() arms a setInterval that advances
 // a glyph cycle, writing each `\r` + frame line to its sink and emitting it on `frame`; success/failure
@@ -367,7 +368,7 @@ describe('Spinner', () => {
 		})
 
 		it('a throwing frame listener is isolated and routed to the error handler', () => {
-			const errors = createErrorRecorder()
+			const errors = createRecorder<readonly [error: unknown, event: string]>()
 			const spinner = new Spinner({
 				frames: ['*'],
 				styler: PLAIN,
