@@ -1,3 +1,4 @@
+import type { RecordingSinkInterface } from '../../setup.js'
 import {
 	createSpinner,
 	createStyler,
@@ -7,27 +8,48 @@ import {
 	Spinner,
 	strip,
 } from '@src/core'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createRecorder } from '@orkestrel/test'
+import { describe, expect, it } from 'vitest'
+import { createRecorder, waitForDelay } from '@orkestrel/test'
 import { createRecordingSink, recordEmitterEvents } from '../../setup.js'
 
 // Spinner — the self-driving, observable activity spinner. start() arms a setInterval that advances
 // a glyph cycle, writing each `\r` + frame line to its sink and emitting it on `frame`; success/failure
 // commit a final ✔/✖ line. UNIVERSAL (setInterval + the one styler + the one sink — no node:*).
 //
-// DETERMINISM: frame-CONTENT is driven by calling tick() directly (no real clock). The internal
-// timer's arming / firing / clearing is proven with vitest FAKE timers, and EVERY test that arms the
-// timer asserts vi.getTimerCount() === 0 afterward — the leak guard (no interval ever escapes). A
+// DETERMINISM: frame-CONTENT is driven by calling tick() directly, so content assertions never wait.
+// The internal timer's arming / firing / clearing is proven on the REAL host clock at a short PERIOD:
+// every test that arms the timer closes with the leak guard — wait several periods and assert the
+// recording sink received nothing further, which is what a still-armed interval would contradict. A
 // disabled styler is used for content assertions so the glyph reads plainly; one case uses an enabled
 // styler and asserts via strip().
 
+const PLAIN = createStyler({ enabled: false })
+
+// The real spinner period every timer test configures — short enough to keep the suite fast (canon:
+// 10–50 ms), long enough that a wait of several periods is unambiguous.
+const PERIOD = 10
+
+// The leak-guard window, several periods wide. A still-armed interval paints a frame every PERIOD,
+// so an unchanged sink across this window is the observable proof that no timer survived.
+const SETTLE = PERIOD * 4
+
+// The longest any test waits for frames it expects to arrive. Reached only when the timer never
+// fired, which is the defect the wait exists to surface.
+const FRAME_DEADLINE = 2000
+
 // The texts a recording sink received, with the leading `\r` (and any trailing `\n`) stripped — the
 // VISIBLE frame content, which is what every content assertion is about.
-function frames(sink: ReturnType<typeof createRecordingSink>): readonly string[] {
+function frames(sink: RecordingSinkInterface): readonly string[] {
 	return sink.calls.map(([text]) => text.replace(/^\r/, '').replace(/\n$/, ''))
 }
 
-const PLAIN = createStyler({ enabled: false })
+// Wait until `sink` has recorded at least `count` writes, or until the deadline passes. The real
+// clock decides when each frame lands, so a test that needs a running timer waits for the frames it
+// needs rather than for a fixed span a loaded host can miss.
+async function waitForFrames(sink: RecordingSinkInterface, count: number): Promise<void> {
+	const deadline = performance.now() + FRAME_DEADLINE
+	while (sink.calls.length < count && performance.now() < deadline) await waitForDelay(PERIOD)
+}
 
 describe('Spinner', () => {
 	describe('tick — frame content + the leading \\r (redraw deferred to the sink)', () => {
@@ -112,20 +134,26 @@ describe('Spinner', () => {
 			expect(frames(sink)).toEqual(['* second'])
 		})
 
-		it('re-renders immediately (without advancing the frame) when active', () => {
-			vi.useFakeTimers()
-			try {
-				const sink = createRecordingSink()
-				const spinner = new Spinner({ message: 'a', frames: ['x', 'y'], sink, styler: PLAIN })
-				spinner.start() // paints frame 0 ('x a') immediately, index now at 'y'
-				spinner.update('b') // re-renders the CURRENT frame ('y'? no — update does not advance)
-				spinner.stop()
-				// start → 'x a' (index advanced to y), update re-renders current glyph (y) with new message.
-				expect(frames(sink)).toEqual(['x a', 'y b'])
-				expect(vi.getTimerCount()).toBe(0)
-			} finally {
-				vi.useRealTimers()
-			}
+		it('re-renders immediately (without advancing the frame) when active', async () => {
+			const sink = createRecordingSink()
+			const spinner = new Spinner({
+				message: 'a',
+				frames: ['x', 'y'],
+				interval: PERIOD,
+				sink,
+				styler: PLAIN,
+			})
+			// start / update / stop run in one synchronous block, so no interval fires between them.
+			spinner.start() // paints frame 0 ('x a') immediately, index now at 'y'
+			spinner.update('b') // re-renders the CURRENT frame ('y') — update does not advance
+			spinner.stop()
+
+			// start → 'x a' (index advanced to y), update re-renders current glyph (y) with new message.
+			expect(frames(sink)).toEqual(['x a', 'y b'])
+
+			// Leak guard — a surviving interval would paint several more frames across this window.
+			await waitForDelay(SETTLE)
+			expect(frames(sink)).toEqual(['x a', 'y b'])
 		})
 
 		it('does not write on update when inactive (no timer running)', () => {
@@ -137,29 +165,27 @@ describe('Spinner', () => {
 		})
 	})
 
-	describe('start / stop — the self-driving timer (fake timers + leak guard)', () => {
-		afterEach(() => {
-			vi.useRealTimers()
-		})
-
-		it('is inactive until start(), active between start and stop', () => {
-			vi.useFakeTimers()
-			const spinner = new Spinner({ sink: createRecordingSink() })
+	describe('start / stop — the self-driving timer (real clock + leak guard)', () => {
+		it('is inactive until start(), active between start and stop', async () => {
+			const sink = createRecordingSink()
+			const spinner = new Spinner({ interval: PERIOD, sink })
 			expect(spinner.active).toBe(false)
 			spinner.start()
 			expect(spinner.active).toBe(true)
 			spinner.stop()
 			expect(spinner.active).toBe(false)
-			expect(vi.getTimerCount()).toBe(0) // leak guard — no interval left armed
+
+			const stopped = sink.calls.length
+			await waitForDelay(SETTLE)
+			expect(sink.calls.length).toBe(stopped) // leak guard — no interval left armed
 		})
 
-		it('paints the first frame immediately on start, then one per interval', () => {
-			vi.useFakeTimers()
+		it('paints the first frame immediately on start, then one per interval', async () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({
 				message: 'm',
 				frames: ['a', 'b', 'c'],
-				interval: 80,
+				interval: PERIOD,
 				sink,
 				styler: PLAIN,
 			})
@@ -167,38 +193,50 @@ describe('Spinner', () => {
 			spinner.start() // immediate first frame: 'a m'
 			expect(frames(sink)).toEqual(['a m'])
 
-			vi.advanceTimersByTime(80) // → 'b m'
-			vi.advanceTimersByTime(80) // → 'c m'
-			expect(frames(sink)).toEqual(['a m', 'b m', 'c m'])
-
+			// The host clock decides how many further frames land before stop(), so the assertion pins
+			// the property that must hold at every length: each frame is the next glyph in the cycle.
+			await waitForFrames(sink, 3)
 			spinner.stop()
-			expect(vi.getTimerCount()).toBe(0)
+
+			const painted = frames(sink)
+			expect(painted.length).toBeGreaterThanOrEqual(3)
+			const cycle = ['a m', 'b m', 'c m']
+			expect(painted).toEqual(painted.map((_line, index) => cycle[index % cycle.length]))
+
+			const stopped = sink.calls.length
+			await waitForDelay(SETTLE)
+			expect(sink.calls.length).toBe(stopped)
 		})
 
-		it('stop() clears the timer and leaves the line — no further frames fire', () => {
-			vi.useFakeTimers()
+		it('stop() clears the timer and leaves the line — no further frames fire', async () => {
 			const sink = createRecordingSink()
-			const spinner = new Spinner({ frames: ['a', 'b'], interval: 50, sink, styler: PLAIN })
+			const spinner = new Spinner({ frames: ['a', 'b'], interval: PERIOD, sink, styler: PLAIN })
 
 			spinner.start()
+			await waitForFrames(sink, 2) // the interval is genuinely firing before it is stopped
 			spinner.stop()
 			const after = sink.calls.length
-			vi.advanceTimersByTime(50 * 5) // no timer armed → nothing more is written
+
+			await waitForDelay(SETTLE) // no timer armed → nothing more is written
 			expect(sink.calls.length).toBe(after)
-			expect(vi.getTimerCount()).toBe(0)
 		})
 
-		it('start() is idempotent — a second start does not arm a second timer', () => {
-			vi.useFakeTimers()
+		it('start() is idempotent — a second start does not arm a second timer', async () => {
 			const sink = createRecordingSink()
-			const spinner = new Spinner({ frames: ['a'], interval: 40, sink, styler: PLAIN })
+			const spinner = new Spinner({ frames: ['a'], interval: PERIOD, sink, styler: PLAIN })
 
 			spinner.start()
 			spinner.start() // no-op — must not arm a second interval
-			expect(vi.getTimerCount()).toBe(1) // exactly one timer, not two
+			expect(spinner.active).toBe(true)
 
+			await waitForFrames(sink, 2)
+			// One stop() clears one handle. A second armed interval would have orphaned the first and
+			// kept painting past this stop, so silence across the window proves only one was ever armed.
 			spinner.stop()
-			expect(vi.getTimerCount()).toBe(0)
+			const after = sink.calls.length
+
+			await waitForDelay(SETTLE)
+			expect(sink.calls.length).toBe(after)
 		})
 
 		it('stop() while inactive is a safe no-op', () => {
@@ -209,38 +247,45 @@ describe('Spinner', () => {
 	})
 
 	describe('success / failure — the final outcome line, timer always cleared', () => {
-		afterEach(() => {
-			vi.useRealTimers()
-		})
-
-		it('success() stops the timer and writes ✔ + message + newline', () => {
-			vi.useFakeTimers()
+		it('success() stops the timer and writes ✔ + message + newline', async () => {
 			const sink = createRecordingSink()
-			const spinner = new Spinner({ message: 'work', frames: ['*'], sink, styler: PLAIN })
+			const spinner = new Spinner({
+				message: 'work',
+				frames: ['*'],
+				interval: PERIOD,
+				sink,
+				styler: PLAIN,
+			})
 
 			spinner.start()
 			spinner.success('done')
 
 			expect(spinner.active).toBe(false)
-			expect(vi.getTimerCount()).toBe(0) // leak guard
 			// Final write: \r + ✔ + message + newline, on the default stream.
-			const last = sink.calls.at(-1)
-			expect(last).toEqual(['\r✔ done\n', undefined])
+			expect(sink.calls.at(-1)).toEqual(['\r✔ done\n', undefined])
 			expect(spinner.message).toBe('done')
+
+			// Leak guard — a surviving interval would paint over the committed outcome line.
+			const after = sink.calls.length
+			await waitForDelay(SETTLE)
+			expect(sink.calls.length).toBe(after)
+			expect(sink.calls.at(-1)).toEqual(['\r✔ done\n', undefined])
 		})
 
-		it('failure() stops the timer and writes ✖ + message + newline to the error stream', () => {
-			vi.useFakeTimers()
+		it('failure() stops the timer and writes ✖ + message + newline to the error stream', async () => {
 			const sink = createRecordingSink()
-			const spinner = new Spinner({ frames: ['*'], sink, styler: PLAIN })
+			const spinner = new Spinner({ frames: ['*'], interval: PERIOD, sink, styler: PLAIN })
 
 			spinner.start()
 			spinner.failure('broke')
 
 			expect(spinner.active).toBe(false)
-			expect(vi.getTimerCount()).toBe(0)
-			const last = sink.calls.at(-1)
-			expect(last).toEqual(['\r✖ broke\n', 'error']) // error routes to the error stream
+			expect(sink.calls.at(-1)).toEqual(['\r✖ broke\n', 'error']) // error routes to the error stream
+
+			const after = sink.calls.length
+			await waitForDelay(SETTLE)
+			expect(sink.calls.length).toBe(after)
+			expect(sink.calls.at(-1)).toEqual(['\r✖ broke\n', 'error'])
 		})
 
 		it('success() with no argument reuses the current message', () => {
@@ -250,13 +295,15 @@ describe('Spinner', () => {
 			expect(sink.calls.at(-1)).toEqual(['\r✔ kept\n', undefined])
 		})
 
-		it('success() on a never-started spinner still writes the final line (and arms no timer)', () => {
-			vi.useFakeTimers()
+		it('success() on a never-started spinner still writes the final line (and arms no timer)', async () => {
 			const sink = createRecordingSink()
-			const spinner = new Spinner({ message: 'x', sink, styler: PLAIN })
+			const spinner = new Spinner({ message: 'x', interval: PERIOD, sink, styler: PLAIN })
 			spinner.success('ok')
 			expect(frames(sink)).toEqual(['✔ ok'])
-			expect(vi.getTimerCount()).toBe(0)
+
+			// Nothing armed a timer, so the window adds no frame.
+			await waitForDelay(SETTLE)
+			expect(frames(sink)).toEqual(['✔ ok'])
 		})
 
 		it('colors the icon + message through the styler (asserted via strip)', () => {
@@ -309,10 +356,6 @@ describe('Spinner', () => {
 	})
 
 	describe('the frame / start / stop events — the observation seam (§13)', () => {
-		afterEach(() => {
-			vi.useRealTimers()
-		})
-
 		it('emits a frame per tick and a final frame on success', () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ message: 'm', frames: ['a', 'b'], sink, styler: PLAIN })
@@ -325,10 +368,10 @@ describe('Spinner', () => {
 			expect(events.frame.calls.map(([line]) => line)).toEqual(['a m', 'b m', '✔ ok'])
 		})
 
-		it('emits start / stop around the timer lifecycle (once each, idempotent)', () => {
-			vi.useFakeTimers()
-			const spinner = new Spinner({ frames: ['a'], sink: createRecordingSink(), styler: PLAIN })
-			const events = recordEmitterEvents(spinner.emitter, ['start', 'stop'])
+		it('emits start / stop around the timer lifecycle (once each, idempotent)', async () => {
+			const sink = createRecordingSink()
+			const spinner = new Spinner({ frames: ['a'], interval: PERIOD, sink, styler: PLAIN })
+			const events = recordEmitterEvents(spinner.emitter, ['start', 'stop', 'frame'])
 
 			spinner.start()
 			spinner.start() // idempotent — no second start
@@ -337,13 +380,15 @@ describe('Spinner', () => {
 
 			expect(events.start.count).toBe(1)
 			expect(events.stop.count).toBe(1)
-			expect(vi.getTimerCount()).toBe(0)
+
+			const painted = events.frame.count
+			await waitForDelay(SETTLE)
+			expect(events.frame.count).toBe(painted) // leak guard — nothing is still painting
 		})
 
-		it('success emits stop exactly once (the timer transition), then the final frame', () => {
-			vi.useFakeTimers()
+		it('success emits stop exactly once (the timer transition), then the final frame', async () => {
 			const sink = createRecordingSink()
-			const spinner = new Spinner({ frames: ['a'], sink, styler: PLAIN })
+			const spinner = new Spinner({ frames: ['a'], interval: PERIOD, sink, styler: PLAIN })
 			const events = recordEmitterEvents(spinner.emitter, ['start', 'stop', 'frame'])
 
 			spinner.start()
@@ -352,7 +397,9 @@ describe('Spinner', () => {
 			expect(events.start.count).toBe(1)
 			expect(events.stop.count).toBe(1)
 			expect(events.frame.calls.map(([line]) => line)).toEqual(['a', '✔ ok'])
-			expect(vi.getTimerCount()).toBe(0)
+
+			await waitForDelay(SETTLE)
+			expect(events.frame.calls.map(([line]) => line)).toEqual(['a', '✔ ok']) // leak guard
 		})
 
 		it('initial on-hooks subscribe at construction', () => {
@@ -386,21 +433,21 @@ describe('Spinner', () => {
 	})
 
 	describe('operations after stop are safe — no timer, no surprise re-arm', () => {
-		afterEach(() => {
-			vi.useRealTimers()
-		})
-
-		it('tick() after stop() still renders a frame but arms NO timer (manual advance only)', () => {
-			vi.useFakeTimers()
+		it('tick() after stop() still renders a frame but arms NO timer (manual advance only)', async () => {
 			const sink = createRecordingSink()
-			const spinner = new Spinner({ frames: ['a', 'b'], sink, styler: PLAIN })
+			const spinner = new Spinner({ frames: ['a', 'b'], interval: PERIOD, sink, styler: PLAIN })
 			spinner.start()
 			spinner.stop()
-			expect(vi.getTimerCount()).toBe(0)
-			const before = sink.calls.length
+
+			const stopped = sink.calls.length
+			await waitForDelay(SETTLE)
+			expect(sink.calls.length).toBe(stopped) // stop() cleared the interval
+
 			spinner.tick() // a manual tick renders, but does not re-arm the interval
-			expect(sink.calls.length).toBe(before + 1)
-			expect(vi.getTimerCount()).toBe(0) // still no timer
+			expect(sink.calls.length).toBe(stopped + 1)
+
+			await waitForDelay(SETTLE)
+			expect(sink.calls.length).toBe(stopped + 1) // still no timer
 		})
 
 		it('update() after stop() changes the message but writes nothing (inactive ⇒ no paint)', () => {
@@ -414,56 +461,63 @@ describe('Spinner', () => {
 			expect(sink.calls.length).toBe(before) // no write while inactive
 		})
 
-		it('a second success() after stop writes another final line and arms no timer', () => {
+		it('a second success() after stop writes another final line and arms no timer', async () => {
 			// success()/failure() are NOT idempotent: each commits a fresh final line (stop() inside is the
 			// no-op part). Documents that calling success twice writes two lines (the timer stays cleared).
-			vi.useFakeTimers()
 			const sink = createRecordingSink()
-			const spinner = new Spinner({ frames: ['*'], sink, styler: PLAIN })
+			const spinner = new Spinner({ frames: ['*'], interval: PERIOD, sink, styler: PLAIN })
 			spinner.start()
 			spinner.success('one')
 			const afterFirst = sink.calls.length
 			spinner.success('two')
 			expect(sink.calls.length).toBe(afterFirst + 1)
 			expect(sink.calls.at(-1)).toEqual(['\r✔ two\n', undefined])
-			expect(vi.getTimerCount()).toBe(0)
+
+			await waitForDelay(SETTLE)
+			expect(sink.calls.length).toBe(afterFirst + 1) // leak guard
 		})
 
-		it('failure() after success() commits a failureure line to the error stream (no timer leak)', () => {
-			vi.useFakeTimers()
+		it('failure() after success() commits a failureure line to the error stream (no timer leak)', async () => {
 			const sink = createRecordingSink()
-			const spinner = new Spinner({ frames: ['*'], sink, styler: PLAIN })
+			const spinner = new Spinner({ frames: ['*'], interval: PERIOD, sink, styler: PLAIN })
 			spinner.start()
 			spinner.success('ok')
 			spinner.failure('then broke')
 			expect(sink.calls.at(-1)).toEqual(['\r✖ then broke\n', 'error'])
-			expect(vi.getTimerCount()).toBe(0)
+
+			const after = sink.calls.length
+			await waitForDelay(SETTLE)
+			expect(sink.calls.length).toBe(after)
 		})
 	})
 
 	describe('destroy', () => {
-		afterEach(() => {
-			vi.useRealTimers()
-		})
-
-		it('stops the timer (clearing it) and destroys the emitter', () => {
-			vi.useFakeTimers()
-			const spinner = new Spinner({ frames: ['a'], sink: createRecordingSink(), styler: PLAIN })
+		it('stops the timer (clearing it) and destroys the emitter', async () => {
+			const sink = createRecordingSink()
+			const spinner = new Spinner({ frames: ['a'], interval: PERIOD, sink, styler: PLAIN })
 			spinner.start()
 			spinner.destroy()
 			expect(spinner.active).toBe(false)
 			expect(spinner.emitter.destroyed).toBe(true)
-			expect(vi.getTimerCount()).toBe(0) // leak guard — destroy never leaves a timer armed
+
+			// A destroyed emitter emits nothing, but a surviving interval still writes to the sink on
+			// every tick — so the sink is where a leak past destroy() shows.
+			const after = sink.calls.length
+			await waitForDelay(SETTLE)
+			expect(sink.calls.length).toBe(after)
 		})
 
-		it('is idempotent — a second destroy() does not throw and leaves no timer', () => {
-			vi.useFakeTimers()
-			const spinner = new Spinner({ frames: ['a'], sink: createRecordingSink(), styler: PLAIN })
+		it('is idempotent — a second destroy() does not throw and leaves no timer', async () => {
+			const sink = createRecordingSink()
+			const spinner = new Spinner({ frames: ['a'], interval: PERIOD, sink, styler: PLAIN })
 			spinner.start()
 			spinner.destroy()
 			expect(() => spinner.destroy()).not.toThrow()
 			expect(spinner.active).toBe(false)
-			expect(vi.getTimerCount()).toBe(0)
+
+			const after = sink.calls.length
+			await waitForDelay(SETTLE)
+			expect(sink.calls.length).toBe(after)
 		})
 
 		it('destroy() on a never-started spinner is a safe no-op', () => {

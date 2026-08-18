@@ -23,8 +23,8 @@ import { createConsoleSink, createStyler } from './factories.js'
  * - **Self-driving but deterministically testable.** `start()` arms a `setInterval` that calls
  *   {@link tick} each `interval`; each {@link tick} builds the styled `glyph + message` line for the
  *   current frame, emits it on `frame`, writes `'\r' + line` to the sink, then advances the frame
- *   index (wrapping). A test drives frames by calling {@link tick} directly (NO real clock) and proves
- *   the timer arms / clears with fake timers.
+ *   index (wrapping). A test drives frames by calling {@link tick} directly, or arms a real short
+ *   `interval` and proves the timer arms / clears through the sink it writes to.
  * - **Leak-free timer.** The interval is ALWAYS cleared on {@link success} / {@link failure} /
  *   {@link stop} / {@link destroy} — `#handle` is the single source of `active`, set on arm and unset
  *   on clear, so a spinner never leaks a running interval.
