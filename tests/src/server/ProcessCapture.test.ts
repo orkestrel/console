@@ -198,6 +198,117 @@ describe('ProcessCapture — interception', () => {
 	})
 })
 
+describe('ProcessCapture — streaming UTF-8 decode across split byte chunks', () => {
+	// A child-process pipe, a library, or OS buffering can split one multibyte UTF-8 codepoint across
+	// two `write` byte chunks. A stateless per-write decode turns each half into U+FFFD; the capture's
+	// persistent per-level decoder must carry the partial bytes across writes so the whole codepoint
+	// survives. The contract holds at the CONCATENATION of every CapturedChunk.text (a split codepoint
+	// legitimately straddles two records — the first empty until the completing bytes arrive).
+
+	it('reassembles a 2-byte codepoint split across two writes (no U+FFFD)', () => {
+		process.stdout.write = createWriteProbe().write
+		const capture = createProcessCapture({ levels: ['stdout'], mirror: false })
+		capture.start()
+		const bytes = Buffer.from('é', 'utf8') // [0xc3, 0xa9]
+		process.stdout.write(bytes.subarray(0, 1)) // lead byte only
+		process.stdout.write(bytes.subarray(1)) // continuation byte
+		capture.stop()
+
+		const text = capture
+			.messages('stdout')
+			.map((message) => message.text)
+			.join('')
+		expect(text).toBe('é')
+		expect(text).not.toContain('�')
+		capture.destroy()
+	})
+
+	it('reassembles an astral (4-byte) codepoint split across two writes', () => {
+		process.stdout.write = createWriteProbe().write
+		const capture = createProcessCapture({ levels: ['stdout'], mirror: false })
+		capture.start()
+		const bytes = Buffer.from('😀', 'utf8') // [0xf0, 0x9f, 0x98, 0x80]
+		process.stdout.write(bytes.subarray(0, 2)) // half of the 4-byte sequence
+		process.stdout.write(bytes.subarray(2)) // the remaining two bytes
+		capture.stop()
+
+		const text = capture
+			.messages('stdout')
+			.map((message) => message.text)
+			.join('')
+		expect(text).toBe('😀')
+		expect(text).not.toContain('�')
+		capture.destroy()
+	})
+
+	it('reassembles a codepoint delivered one byte per write (as plain Uint8Array chunks)', () => {
+		process.stdout.write = createWriteProbe().write
+		const capture = createProcessCapture({ levels: ['stdout'], mirror: false })
+		capture.start()
+		// One byte per write, each a plain Uint8Array (not a Buffer) — exercises the non-Buffer path.
+		for (const byte of Buffer.from('😀', 'utf8')) process.stdout.write(Uint8Array.from([byte]))
+		capture.stop()
+
+		const text = capture
+			.messages('stdout')
+			.map((message) => message.text)
+			.join('')
+		expect(text).toBe('😀')
+		expect(text).not.toContain('�')
+		capture.destroy()
+	})
+
+	it('reassembles a multi-codepoint string split at a byte boundary inside a codepoint', () => {
+		process.stdout.write = createWriteProbe().write
+		const capture = createProcessCapture({ levels: ['stdout'], mirror: false })
+		capture.start()
+		const message = 'café — 日本語 😀\n'
+		const bytes = Buffer.from(message, 'utf8')
+		// Byte index 4 lands between the two bytes of 'é' (c=0, a=1, f=2, é=3..4).
+		process.stdout.write(bytes.subarray(0, 4))
+		process.stdout.write(bytes.subarray(4))
+		capture.stop()
+
+		const text = capture
+			.messages('stdout')
+			.map((chunk) => chunk.text)
+			.join('')
+		expect(text).toBe(message) // reconstructed verbatim, no trimming or stripping
+		expect(text).not.toContain('�')
+		capture.destroy()
+	})
+
+	it('flushes a trailing partial codepoint on stop (surfaced once, not dropped)', () => {
+		process.stdout.write = createWriteProbe().write
+		const capture = createProcessCapture({ levels: ['stdout'], mirror: false })
+		capture.start()
+		const bytes = Buffer.from('é', 'utf8')
+		process.stdout.write(bytes.subarray(0, 1)) // only the lead byte — the codepoint never completes
+		capture.stop() // the flush emits the pending byte's replacement once
+
+		const text = capture
+			.messages('stdout')
+			.map((message) => message.text)
+			.join('')
+		expect(text).toBe('�') // a truncated sequence surfaces as one U+FFFD, not silently lost
+		capture.destroy()
+	})
+
+	it('an explicit non-utf-8 encoding stays one-shot (latin1 byte decodes without the streamer)', () => {
+		process.stdout.write = createWriteProbe().write
+		const capture = createProcessCapture({ levels: ['stdout'], mirror: false })
+		capture.start()
+		// 0xe9 is a lead byte in utf-8 but a complete 'é' in latin1 — an explicit latin1 write is
+		// self-contained per chunk and must NOT be buffered by the utf-8 streamer.
+		process.stdout.write(Buffer.from([0xe9]), 'latin1')
+		process.stdout.write(Buffer.from([0xe9]), 'latin1')
+		capture.stop()
+
+		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['é', 'é'])
+		capture.destroy()
+	})
+})
+
 describe('ProcessCapture — mirror + backpressure', () => {
 	it('capture-only swallows output (no replay) and returns true', () => {
 		const probe = createWriteProbe()

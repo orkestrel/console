@@ -9,9 +9,10 @@ import type {
 	StreamWriteFunction,
 } from './types.js'
 import type { SinkInterface } from '@src/core'
+import { StringDecoder } from 'node:string_decoder'
 import { Emitter } from '@orkestrel/emitter'
 import { DEFAULT_CAPTURE_LEVELS, DEFAULT_CAPTURE_LIMIT, STREAM_LEVEL_MAP } from './constants.js'
-import { decodeChunk } from './helpers.js'
+import { decodeChunk, isBufferEncoding } from './helpers.js'
 
 /**
  * An observable interceptor of the RAW process output streams (AGENTS §13) — it takes control of
@@ -36,9 +37,18 @@ import { decodeChunk } from './helpers.js'
  *   may be active at a time — two concurrently would interleave buffers and clobber each other's
  *   restore.
  * - **The wrapper NEVER throws and passes backpressure through.** A throw inside
- *   `process.stdout.write` would crash the host, so the wrapper decodes the chunk through the total
- *   {@link decodeChunk}, and returns the snapshot-original's `boolean` when mirroring (so a caller's
+ *   `process.stdout.write` would crash the host, so the wrapper decodes each chunk totally (a byte
+ *   chunk through the per-level streaming decoder below, everything else through the total
+ *   {@link decodeChunk}), and returns the snapshot-original's `boolean` when mirroring (so a caller's
  *   `write` backpressure handling still works) or `true` when capture-only (the buffer never fills).
+ * - **Streaming UTF-8 decode (no split-codepoint corruption).** `start()` gives each configured
+ *   {@link StreamLevel} a fresh persistent `StringDecoder`. A byte chunk with utf-8 or an omitted
+ *   encoding decodes through it, so a multibyte codepoint split across two `write` byte chunks — a
+ *   child-process pipe, a library, or OS buffering all produce this — carries its partial bytes to
+ *   the next write instead of decoding each half to `U+FFFD`. `stop()` flushes each decoder once, so
+ *   a codepoint left half-written at stop is still surfaced. A `string` chunk is already text and
+ *   passes through; an explicit NON-utf-8 buffer encoding (`latin1` / `hex` / `base64` / …) names a
+ *   self-contained per-write decode and is honored one-shot through {@link decodeChunk}.
  * - **Bounded buffers.** The total buffer and each per-stream bucket are each capped at `limit`
  *   (oldest dropped first), never unbounded — the same retention precedent as the core `Capture`.
  * - **Lifecycle (§10).** `start` / `stop` toggle interception (emitting `start` / `stop`);
@@ -69,6 +79,10 @@ export class ProcessCapture implements ProcessCaptureInterface {
 	// The snapshot-original `write` references, captured at start() and restored at stop(); empty
 	// while inactive. The presence of an entry is what `active` reads.
 	readonly #originals = new Map<StreamLevel, StreamWriteFunction>()
+	// One PERSISTENT streaming utf-8 decoder per configured level, created fresh in start() and
+	// flushed + cleared in stop(). It carries a multibyte codepoint split across successive byte
+	// writes so each half is not decoded to U+FFFD; empty while inactive.
+	readonly #decoders = new Map<StreamLevel, StringDecoder>()
 	#active = false
 
 	constructor(options?: ProcessCaptureOptions) {
@@ -112,6 +126,9 @@ export class ProcessCapture implements ProcessCaptureInterface {
 			// the stream's `write` slot AND its args forward cleanly to `mirror` (no `as`, no untyped
 			// spread).
 			stream.write = this.#captureWrite.bind(this, level, mirror)
+			// A fresh streaming decoder per cycle — a stop → start pair starts clean, never carrying a
+			// stale partial byte from a prior capture into the new one.
+			this.#decoders.set(level, new StringDecoder('utf8'))
 		}
 		this.#emitter.emit('start')
 	}
@@ -122,6 +139,9 @@ export class ProcessCapture implements ProcessCaptureInterface {
 		this.#active = false
 		for (const [level, original] of this.#originals) this.#stream(level).write = original
 		this.#originals.clear()
+		// Drain any trailing partial codepoint from each streaming decoder BEFORE the `stop` signal, so
+		// a codepoint left half-written at stop is captured once rather than dropped.
+		this.#flush()
 		this.#emitter.emit('stop')
 	}
 
@@ -160,15 +180,16 @@ export class ProcessCapture implements ProcessCaptureInterface {
 		return this.#intercept(level, chunk, encoding, callback, mirror)
 	}
 
-	// The wrapper body behind every patched stream write: build the frozen chunk record, buffer it
-	// (total + per-stream, bounded), emit `capture`, then — per options — forward to the sink and
-	// mirror to the real stream. NEVER throws (decodeChunk is total; the emitter isolates listeners);
-	// the program's own write is replayed through `mirror` (the bound snapshot original) only when the
-	// `mirror` option is set, and the original's backpressure boolean is returned. Capture-only
-	// returns `true` (output is swallowed into the buffer, so the kernel buffer never fills). The
-	// chunk is decoded using `encoding` only (a callback in that slot is ignored for decode); the
-	// `encoding` / `callback` tail is then forwarded to the mirror BRANCHED on whether the 2nd arg
-	// is the callback or an encoding (the two Node overloads), so a caller's completion callback fires.
+	// The wrapper body behind every patched stream write: decode the chunk to text (#decode — total,
+	// streaming for byte chunks), record it (buffer bounded, emit `capture`, forward to the sink),
+	// then — per options — mirror to the real stream. NEVER throws (#decode is total; the emitter
+	// isolates listeners); the program's own write is replayed through `mirror` (the bound snapshot
+	// original) only when the `mirror` option is set, and the original's backpressure boolean is
+	// returned. Capture-only returns `true` (output is swallowed into the buffer, so the kernel buffer
+	// never fills). The RAW chunk (not the decoded text) is what mirrors, so the terminal still
+	// receives the exact bytes; the `encoding` / `callback` tail is forwarded to the mirror BRANCHED
+	// on whether the 2nd arg is the callback or an encoding (the two Node overloads), so a caller's
+	// completion callback fires.
 	#intercept(
 		level: StreamLevel,
 		chunk: string | Uint8Array,
@@ -176,17 +197,7 @@ export class ProcessCapture implements ProcessCaptureInterface {
 		callback: StreamWriteCallback | undefined,
 		mirror: StreamWriteFunction,
 	): boolean {
-		const message = this.#capture(level, chunk, encoding)
-		this.#retain(message)
-		this.#emitter.emit('capture', message)
-		if (this.#sink !== undefined) {
-			try {
-				this.#sink.write(message.text, STREAM_LEVEL_MAP[level])
-			} catch {
-				// The sink is a best-effort tee; the wrapper NEVER throws into the patched global stream —
-				// a broken/throwing sink must not crash the host's process.stdout / process.stderr write.
-			}
-		}
+		this.#record(level, this.#decode(level, chunk, encoding))
 		if (!this.#mirror) {
 			// Capture-only: the write never reaches the real stream, so fire the caller's completion
 			// callback asynchronously (matching Node's own async completion semantics) rather than
@@ -202,16 +213,62 @@ export class ProcessCapture implements ProcessCaptureInterface {
 		return mirror(chunk, encoding, callback)
 	}
 
-	// Build the immutable, serializable captured chunk — the chunk decoded to text (total, never
-	// throws — see decodeChunk; a callback in the encoding slot is ignored, falling back to utf-8),
-	// stamped with the capture instant. Frozen so a consumer (or the `capture` listener) can never
-	// mutate it after the fact.
-	#capture(
+	// Decode one write chunk to text — TOTAL, never throws (a throw here would escape into the patched
+	// process.*.write and crash the host). A `string` chunk is already text and passes through. A byte
+	// chunk with utf-8 / an omitted encoding / a callback in the encoding slot streams through the
+	// level's persistent decoder, carrying a codepoint split across writes; an explicit NON-utf-8
+	// buffer encoding is self-contained per write and decoded one-shot through decodeChunk.
+	#decode(
 		level: StreamLevel,
 		chunk: string | Uint8Array,
 		encoding: BufferEncoding | StreamWriteCallback | undefined,
-	): CapturedChunk {
-		return Object.freeze({ level, text: decodeChunk(chunk, encoding), time: Date.now() })
+	): string {
+		if (typeof chunk === 'string') return chunk
+		const decoder = this.#decoders.get(level)
+		if (decoder !== undefined && this.#streams(encoding)) {
+			return decoder.write(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+		}
+		return decodeChunk(chunk, encoding)
+	}
+
+	// Whether a byte chunk with this encoding routes through the persistent streaming decoder rather
+	// than the one-shot decodeChunk. TRUE for an omitted encoding, a callback in the slot, an
+	// unrecognized string (all utf-8 by decodeChunk's own fallback), or an explicit utf-8; FALSE only
+	// for a recognized NON-utf-8 buffer encoding, whose per-write bytes are self-contained.
+	#streams(encoding: BufferEncoding | StreamWriteCallback | undefined): boolean {
+		if (!isBufferEncoding(encoding)) return true
+		const normalized = encoding.toLowerCase()
+		return normalized === 'utf8' || normalized === 'utf-8'
+	}
+
+	// Build the immutable, serializable captured chunk from already-decoded text, stamp it with the
+	// capture instant, buffer it (total + per-stream, bounded), emit `capture`, then forward it to the
+	// sink. Frozen so a consumer (or the `capture` listener) can never mutate it. NEVER throws into the
+	// patched stream — the sink is a best-effort tee and the emitter isolates a listener throw.
+	#record(level: StreamLevel, text: string): void {
+		const message: CapturedChunk = Object.freeze({ level, text, time: Date.now() })
+		this.#retain(message)
+		this.#emitter.emit('capture', message)
+		if (this.#sink !== undefined) {
+			try {
+				this.#sink.write(message.text, STREAM_LEVEL_MAP[level])
+			} catch {
+				// The sink is a best-effort tee; the wrapper NEVER throws into the patched global stream —
+				// a broken/throwing sink must not crash the host's process.stdout / process.stderr write.
+			}
+		}
+	}
+
+	// Drain each streaming decoder's trailing partial codepoint ONCE — `decoder.end()` emits the
+	// pending bytes' final text (U+FFFD for a genuinely truncated sequence) — so a codepoint left
+	// half-written at stop is recorded, not silently dropped. An empty flush adds no record. Clears
+	// the decoders so the next start() begins clean.
+	#flush(): void {
+		for (const [level, decoder] of this.#decoders) {
+			const text = decoder.end()
+			if (text !== '') this.#record(level, text)
+		}
+		this.#decoders.clear()
 	}
 
 	// Push onto the total buffer and the stream's bucket, evicting the oldest of each when at
