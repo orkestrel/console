@@ -1,8 +1,8 @@
-import type { CaptureLevel, CapturedMessage } from '@src/core'
+import type { CaptureEventMap, CaptureLevel, CapturedMessage } from '@src/core'
 import { Capture, createCapture, createLogger, createStyler } from '@src/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createRecorder } from '@orkestrel/test'
-import { createRecordingSink, recordEmitterEvents } from '../../setup.js'
+import { createRecorder, createRecorders } from '@orkestrel/test'
+import { createRecordingSink } from '../../setup.js'
 
 // Capture — the observable console interceptor. While active it snapshots the configured
 // console.* methods, replaces them with wrappers that buffer each call (total + by level,
@@ -164,7 +164,7 @@ describe('Capture', () => {
 	describe('the capture event — the observation seam (§13)', () => {
 		it('emits the frozen message for every intercepted call', () => {
 			const capture = new Capture()
-			const events = recordEmitterEvents(capture.emitter, ['capture'])
+			const events = createRecorders<CaptureEventMap, 'capture'>(capture.emitter, ['capture'])
 			capture.start()
 			console.log('one')
 			console.error('two')
@@ -178,7 +178,10 @@ describe('Capture', () => {
 
 		it('emits start and stop around the global patch lifecycle (once each, idempotent)', () => {
 			const capture = new Capture()
-			const events = recordEmitterEvents(capture.emitter, ['start', 'stop'])
+			const events = createRecorders<CaptureEventMap, 'start' | 'stop'>(capture.emitter, [
+				'start',
+				'stop',
+			])
 			capture.start()
 			capture.start() // idempotent — no second start
 			capture.stop()
@@ -219,7 +222,7 @@ describe('Capture', () => {
 				},
 			}
 			const capture = new Capture({ levels: ['log'], sink: throwingSink })
-			const events = recordEmitterEvents(capture.emitter, ['capture'])
+			const events = createRecorders<CaptureEventMap, 'capture'>(capture.emitter, ['capture'])
 			capture.start()
 			expect(() => console.log('resilient')).not.toThrow()
 			capture.stop()

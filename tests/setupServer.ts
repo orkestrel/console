@@ -8,10 +8,11 @@ import type { RecorderInterface } from '@orkestrel/test'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createRecorder } from '@orkestrel/test'
+import { createRecorder, resolveRoot } from '@orkestrel/test'
 
-// Absolute path to the repository root, resolved from this file's URL.
-export const WORKSPACE_ROOT = fileURLToPath(new URL('../', import.meta.url))
+// Absolute path to the repository root. `resolveRoot` resolves this file's own URL to the
+// directory one above `tests/`; the readers below take a path string, so it is converted once here.
+export const WORKSPACE_ROOT = fileURLToPath(resolveRoot(import.meta))
 
 // Read one repo-relative text file, anchored to the workspace root.
 export function readText(relativePath: string): string {

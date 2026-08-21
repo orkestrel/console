@@ -1,3 +1,4 @@
+import type { ProgressEventMap } from '@src/core'
 import {
 	createProgress,
 	createStyler,
@@ -7,8 +8,8 @@ import {
 	strip,
 } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createRecorder } from '@orkestrel/test'
-import { createRecordingSink, recordEmitterEvents } from '../../setup.js'
+import { createRecorder, createRecorders } from '@orkestrel/test'
+import { createRecordingSink } from '../../setup.js'
 
 // Progress — the update-driven, observable progress bar. update(current) recomputes the bar via
 // renderBar, writes `\r` + bar to its sink, and emits { current, total } on `update`; complete/failure
@@ -28,7 +29,7 @@ describe('Progress', () => {
 		it('writes `\\r` + the rendered bar and emits the { current, total }', () => {
 			const sink = createRecordingSink()
 			const progress = new Progress({ total: 10, width: 10, sink, styler: PLAIN })
-			const events = recordEmitterEvents(progress.emitter, ['update'])
+			const events = createRecorders<ProgressEventMap, 'update'>(progress.emitter, ['update'])
 
 			progress.update(5)
 
@@ -88,7 +89,7 @@ describe('Progress', () => {
 
 		it('the emitted progress carries the CLAMPED current', () => {
 			const progress = new Progress({ total: 10, sink: createRecordingSink(), styler: PLAIN })
-			const events = recordEmitterEvents(progress.emitter, ['update'])
+			const events = createRecorders<ProgressEventMap, 'update'>(progress.emitter, ['update'])
 			progress.update(999)
 			expect(events.update.calls).toEqual([[{ current: 10, total: 10 }]])
 		})
@@ -110,7 +111,10 @@ describe('Progress', () => {
 		it('renders a full bar + newline, emits a final update then complete, marks completed', () => {
 			const sink = createRecordingSink()
 			const progress = new Progress({ total: 10, width: 10, sink, styler: PLAIN })
-			const events = recordEmitterEvents(progress.emitter, ['update', 'complete'])
+			const events = createRecorders<ProgressEventMap, 'update' | 'complete'>(progress.emitter, [
+				'update',
+				'complete',
+			])
 
 			progress.update(3)
 			progress.complete('done')
@@ -140,7 +144,10 @@ describe('Progress', () => {
 		it('renders the bar at its current fill + newline to the error stream, no complete event', () => {
 			const sink = createRecordingSink()
 			const progress = new Progress({ total: 10, width: 10, sink, styler: PLAIN })
-			const events = recordEmitterEvents(progress.emitter, ['update', 'complete'])
+			const events = createRecorders<ProgressEventMap, 'update' | 'complete'>(progress.emitter, [
+				'update',
+				'complete',
+			])
 
 			progress.update(4)
 			progress.failure('broke')
@@ -156,7 +163,10 @@ describe('Progress', () => {
 		it('emits exactly one terminal `update` at the current fill (no `complete`)', () => {
 			const sink = createRecordingSink()
 			const progress = new Progress({ total: 10, width: 10, sink, styler: PLAIN })
-			const events = recordEmitterEvents(progress.emitter, ['update', 'complete'])
+			const events = createRecorders<ProgressEventMap, 'update' | 'complete'>(progress.emitter, [
+				'update',
+				'complete',
+			])
 			progress.update(3) // one update event
 			progress.failure('stopped') // one MORE terminal update event, still no complete
 			expect(events.update.count).toBe(2)
@@ -313,7 +323,7 @@ describe('Progress', () => {
 		it('a second complete() after complete() is ignored — no extra write, no extra event', () => {
 			const sink = createRecordingSink()
 			const progress = new Progress({ total: 10, width: 10, sink, styler: PLAIN })
-			const events = recordEmitterEvents(progress.emitter, ['complete'])
+			const events = createRecorders<ProgressEventMap, 'complete'>(progress.emitter, ['complete'])
 			progress.complete('done')
 			const after = sink.calls.length
 			progress.complete('again') // ignored — already terminal
@@ -324,7 +334,7 @@ describe('Progress', () => {
 		it('complete() after failure() is ignored (failure already made it terminal)', () => {
 			const sink = createRecordingSink()
 			const progress = new Progress({ total: 10, width: 10, sink, styler: PLAIN })
-			const events = recordEmitterEvents(progress.emitter, ['complete'])
+			const events = createRecorders<ProgressEventMap, 'complete'>(progress.emitter, ['complete'])
 			progress.failure('broke')
 			const after = sink.calls.length
 			progress.complete('late')

@@ -1,8 +1,8 @@
 import type { SinkInterface } from '@src/core'
+import type { ProcessCaptureEventMap } from '@src/server'
 import { createProcessCapture } from '@src/server'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createRecorder } from '@orkestrel/test'
-import { recordEmitterEvents } from '../../setup.js'
+import { createRecorder, createRecorders } from '@orkestrel/test'
 import { createWriteProbe } from '../../setupServer.js'
 
 // The completion-callback shape a Node `process.*.write` accepts as its last argument.
@@ -184,7 +184,10 @@ describe('ProcessCapture — interception', () => {
 	it('emits start, capture, and stop on the emitter', () => {
 		process.stdout.write = createWriteProbe().write
 		const capture = createProcessCapture({ levels: ['stdout'] })
-		const events = recordEmitterEvents(capture.emitter, ['start', 'capture', 'stop'])
+		const events = createRecorders<ProcessCaptureEventMap, 'start' | 'capture' | 'stop'>(
+			capture.emitter,
+			['start', 'capture', 'stop'],
+		)
 
 		capture.start()
 		process.stdout.write('x')
@@ -821,7 +824,10 @@ describe('ProcessCapture — emitter hooks at construction', () => {
 	it('start/stop are emitted once each despite idempotent repeat calls', () => {
 		process.stdout.write = createWriteProbe().write
 		const capture = createProcessCapture({ levels: ['stdout'] })
-		const events = recordEmitterEvents(capture.emitter, ['start', 'stop'])
+		const events = createRecorders<ProcessCaptureEventMap, 'start' | 'stop'>(capture.emitter, [
+			'start',
+			'stop',
+		])
 		capture.start()
 		capture.start() // idempotent — no second start event
 		capture.stop()

@@ -1,3 +1,4 @@
+import type { SpinnerEventMap } from '@src/core'
 import type { RecordingSinkInterface } from '../../setup.js'
 import {
 	createSpinner,
@@ -9,8 +10,8 @@ import {
 	strip,
 } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createRecorder, waitForDelay } from '@orkestrel/test'
-import { createRecordingSink, recordEmitterEvents } from '../../setup.js'
+import { createRecorder, createRecorders, waitForDelay } from '@orkestrel/test'
+import { createRecordingSink } from '../../setup.js'
 
 // Spinner — the self-driving, observable activity spinner. start() arms a setInterval that advances
 // a glyph cycle, writing each `\r` + frame line to its sink and emitting it on `frame`; success/failure
@@ -56,7 +57,7 @@ describe('Spinner', () => {
 		it('writes `\\r` + the current glyph and message, and emits the bare line', () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ message: 'building', sink, styler: PLAIN })
-			const events = recordEmitterEvents(spinner.emitter, ['frame'])
+			const events = createRecorders<SpinnerEventMap, 'frame'>(spinner.emitter, ['frame'])
 
 			spinner.tick()
 
@@ -359,7 +360,7 @@ describe('Spinner', () => {
 		it('emits a frame per tick and a final frame on success', () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ message: 'm', frames: ['a', 'b'], sink, styler: PLAIN })
-			const events = recordEmitterEvents(spinner.emitter, ['frame'])
+			const events = createRecorders<SpinnerEventMap, 'frame'>(spinner.emitter, ['frame'])
 
 			spinner.tick()
 			spinner.tick()
@@ -371,7 +372,11 @@ describe('Spinner', () => {
 		it('emits start / stop around the timer lifecycle (once each, idempotent)', async () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ frames: ['a'], interval: PERIOD, sink, styler: PLAIN })
-			const events = recordEmitterEvents(spinner.emitter, ['start', 'stop', 'frame'])
+			const events = createRecorders<SpinnerEventMap, 'start' | 'stop' | 'frame'>(spinner.emitter, [
+				'start',
+				'stop',
+				'frame',
+			])
 
 			spinner.start()
 			spinner.start() // idempotent — no second start
@@ -389,7 +394,11 @@ describe('Spinner', () => {
 		it('success emits stop exactly once (the timer transition), then the final frame', async () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ frames: ['a'], interval: PERIOD, sink, styler: PLAIN })
-			const events = recordEmitterEvents(spinner.emitter, ['start', 'stop', 'frame'])
+			const events = createRecorders<SpinnerEventMap, 'start' | 'stop' | 'frame'>(spinner.emitter, [
+				'start',
+				'stop',
+				'frame',
+			])
 
 			spinner.start()
 			spinner.success('ok')

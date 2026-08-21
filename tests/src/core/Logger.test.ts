@@ -1,8 +1,8 @@
-import type { LoggerInterface, LogLevel, LogRecord } from '@src/core'
+import type { LoggerEventMap, LoggerInterface, LogLevel, LogRecord } from '@src/core'
 import { createLogger, createStyler, createTheme, Logger, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createRecorder } from '@orkestrel/test'
-import { createRecordingSink, recordEmitterEvents } from '../../setup.js'
+import { createRecorder, createRecorders } from '@orkestrel/test'
+import { createRecordingSink } from '../../setup.js'
 
 // Logger — the observable, leveled entry point into structured logging. Each call builds a
 // frozen LogRecord, gates by severity, retains a bounded tail, ALWAYS emits `entry` (the
@@ -70,7 +70,7 @@ describe('Logger', () => {
 		it('drops records below the threshold entirely — no record, no event, no write', () => {
 			const sink = createRecordingSink()
 			const logger = new Logger({ level: 'warn', styler: createStyler({ enabled: false }), sink })
-			const events = recordEmitterEvents(logger.emitter, ['entry'])
+			const events = createRecorders<LoggerEventMap, 'entry'>(logger.emitter, ['entry'])
 			logger.debug('d')
 			logger.info('i')
 			logger.warn('w')
@@ -101,7 +101,7 @@ describe('Logger', () => {
 	describe('the entry event — the transport seam', () => {
 		it('emits the frozen record for every accepted log', () => {
 			const { logger } = createTestLogger()
-			const events = recordEmitterEvents(logger.emitter, ['entry'])
+			const events = createRecorders<LoggerEventMap, 'entry'>(logger.emitter, ['entry'])
 			logger.info('a', { x: 1 })
 			logger.error('b')
 			expect(events.entry.count).toBe(2)
@@ -144,7 +144,7 @@ describe('Logger', () => {
 	describe('silent — suppresses the write, never the event', () => {
 		it('emits entry and retains the record but writes nothing to the sink', () => {
 			const { logger, sink } = createTestLogger({ silent: true })
-			const events = recordEmitterEvents(logger.emitter, ['entry'])
+			const events = createRecorders<LoggerEventMap, 'entry'>(logger.emitter, ['entry'])
 			logger.info('quiet')
 			logger.error('still quiet')
 			expect(events.entry.count).toBe(2)
@@ -223,7 +223,7 @@ describe('Logger', () => {
 					throw error
 				},
 			})
-			const events = recordEmitterEvents(logger.emitter, ['entry'])
+			const events = createRecorders<LoggerEventMap, 'entry'>(logger.emitter, ['entry'])
 			expect(() => logger.error('kept')).toThrow(error)
 			expect(logger.entries().map((record) => record.message)).toEqual(['kept'])
 			expect(events.entry.calls[0]?.[0]).toBe(logger.entries()[0])
