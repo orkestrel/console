@@ -360,7 +360,10 @@ export function renderSeparator(options: SeparatorOptions): string {
  * styled content stays aligned inside the frame. Pure: same {@link BoxOptions} → same string.
  *
  * @remarks
- * - **Lines.** `content` is split on `\n`; each line is padded (left-aligned) to the inner
+ * - **Lines.** `content` is split on `\n` OR `\r\n`, so caller text written on Windows frames
+ *   exactly as the same text written on POSIX; a LONE `\r` is kept inside its line (it is a
+ *   cursor control — the animation frame prefix — not a line separator). Each line is padded
+ *   (left-aligned) to the inner
  *   width by {@link align} — measured on VISIBLE width, so a styled line never breaks the
  *   right edge. The inner width is the widest line's visible width (or `width − borders −
  *   2·padding` when an explicit `width` is given and is wider), plus `padding` blank cells
@@ -380,7 +383,11 @@ export function renderBox(options: BoxOptions): string {
 	const chars = BORDER_CHARS[options.border ?? DEFAULT_BORDER]
 	const padding = Math.max(0, Math.trunc(options.padding ?? DEFAULT_PADDING))
 	const styler = options.styler
-	const lines = options.content.split('\n')
+	// Split on a line feed OR a CRLF pair, so caller text written on Windows frames exactly as the
+	// same text written on POSIX. A LONE carriage return is deliberately NOT a separator: the
+	// animation frame prefix is a bare `\r` cursor control, so splitting on it would cut a frame in
+	// half. The literal is local because this is the one caller-text split in the module.
+	const lines = options.content.split(/\r\n|\n/)
 	// The inner content width: the widest line, the title (when present), and any explicit
 	// `width` budget (minus the two edges and the two padding gutters) all compete — the
 	// widest wins, so nothing is ever clipped and an explicit width only ever pads outward.

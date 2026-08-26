@@ -382,6 +382,20 @@ describe('renderBox', () => {
 		)
 	})
 
+	it('renders CRLF content exactly as it renders the same LF content', () => {
+		// A CRLF line break is a line break: the CR belongs to the separator, never to the row.
+		expect(renderBox({ content: 'a\r\nbbb' })).toBe(
+			['┌─────┐', '│ a   │', '│ bbb │', '└─────┘'].join('\n'),
+		)
+		expect(renderBox({ content: 'a\r\nbbb' })).not.toContain('\r')
+	})
+
+	it('leaves a lone carriage return inside its line instead of splitting on it', () => {
+		// A bare CR is a cursor control (the animation frame prefix), not a line separator, so it
+		// stays in the row and counts as one visible cell.
+		expect(renderBox({ content: 'a\rb' })).toBe(['┌─────┐', '│ a\rb │', '└─────┘'].join('\n'))
+	})
+
 	it('embeds a title in the top border, keeping the box rectangular', () => {
 		// The title widens the box so ` T ` fits after one lead fill — every row equal width.
 		const box = renderBox({ content: 'x', title: 'T' })
