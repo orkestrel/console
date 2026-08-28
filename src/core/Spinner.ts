@@ -12,11 +12,11 @@ import { DEFAULT_SPINNER_INTERVAL, DEFAULT_THEME, SPINNER_FRAMES } from './const
 import { createConsoleSink, createStyler } from './factories.js'
 
 /**
- * A self-driving, observable activity spinner (AGENTS §13) — a glyph cycle that advances on a
+ * A self-driving, observable activity spinner — a glyph cycle that advances on a
  * periodic timer, writing each `\r` + frame line to its {@link SinkInterface} and emitting it on
- * `frame`. The leading `\r` is what an overwrite-capable sink (the C-g TTY sink) redraws on; a plain
- * sink (C-f) degrades to a fresh, non-overwriting line — the line-OVERWRITE is the SINK's job, never
- * the spinner's. UNIVERSAL — `setInterval` + the one {@link StylerInterface} + the one
+ * `frame`. The leading `\r` is what an overwrite-capable sink (the TTY sink) redraws on; a plain
+ * sink degrades to a fresh, non-overwriting line — the line-overwrite is the sink's job, never
+ * the spinner's. Universal — `setInterval` + the one {@link StylerInterface} + the one
  * {@link SinkInterface}, no `node:*`, no `process.stdout`.
  *
  * @remarks
@@ -25,16 +25,16 @@ import { createConsoleSink, createStyler } from './factories.js'
  *   current frame, emits it on `frame`, writes `'\r' + line` to the sink, then advances the frame
  *   index (wrapping). A test drives frames by calling {@link tick} directly, or arms a real short
  *   `interval` and proves the timer arms / clears through the sink it writes to.
- * - **Leak-free timer.** The interval is ALWAYS cleared on {@link success} / {@link failure} /
+ * - **Leak-free timer.** The interval is always cleared on {@link success} / {@link failure} /
  *   {@link stop} / {@link destroy} — `#handle` is the single source of `active`, set on arm and unset
  *   on clear, so a spinner never leaks a running interval.
  * - **Idempotent `start`.** A {@link start} while already `active` is a no-op (it never arms a second
  *   timer).
- * - **Outcome lines.** {@link success} / {@link failure} clear the timer then write + emit a FINAL line —
+ * - **Outcome lines.** {@link success} / {@link failure} clear the timer then write + emit a final line —
  *   the supplied theme status icon + style (`✔` / `✖` by default) + the message — terminated
  *   by a newline (the activity is over; the line is committed, not overwritten). {@link failure} routes to
  *   the sink's error stream.
- * - **Lifecycle (§10).** {@link stop} clears the timer and LEAVES the current line; {@link destroy}
+ * - **Lifecycle.** {@link stop} clears the timer and leaves the current line; {@link destroy}
  *   stops then destroys the emitter. {@link update} swaps the message and re-renders immediately when
  *   `active`.
  *
@@ -47,7 +47,7 @@ import { createConsoleSink, createStyler } from './factories.js'
  * ```
  */
 export class Spinner implements SpinnerInterface {
-	// The PUSH observation surface (§13) — owned, never inherited. The emitter isolates a listener
+	// The push observation surface — owned, never inherited. The emitter isolates a listener
 	// throw (routing it to the `error` handler), so a buggy `frame` listener can never escape the tick.
 	readonly #emitter: Emitter<SpinnerEventMap>
 	readonly #frames: readonly string[]
@@ -56,7 +56,7 @@ export class Spinner implements SpinnerInterface {
 	readonly #styler: StylerInterface
 	readonly #theme: Theme
 	#message: string
-	// The running interval handle — undefined while inactive. Its presence IS `active`; the timer is
+	// The running interval handle — undefined while inactive. Its presence is `active`; the timer is
 	// armed in start() and cleared everywhere the spinner stops, so it is never leaked.
 	#handle: ReturnType<typeof setInterval> | undefined
 	// The current frame index into #frames — advanced (wrapping) after each rendered tick.
@@ -67,8 +67,8 @@ export class Spinner implements SpinnerInterface {
 			...(options?.on !== undefined ? { on: options.on } : {}),
 			...(options?.error !== undefined ? { error: options.error } : {}),
 		})
-		// An explicitly-EMPTY `frames` array falls back to the default cycle too — an empty cycle
-		// would divide by zero on every wrap in tick() (AGENTS §16 hardening).
+		// An explicitly-empty `frames` array falls back to the default cycle too — an empty cycle
+		// would divide by zero on every wrap in tick().
 		const frames = options?.frames ?? SPINNER_FRAMES
 		this.#frames = frames.length === 0 ? SPINNER_FRAMES : frames
 		this.#interval = options?.interval ?? DEFAULT_SPINNER_INTERVAL
@@ -100,14 +100,14 @@ export class Spinner implements SpinnerInterface {
 	}
 
 	tick(): void {
-		// Render the CURRENT frame, then advance — so the first tick() shows frame 0.
+		// Render the current frame, then advance — so the first tick() shows frame 0.
 		this.#paint(this.#line())
 		this.#index = (this.#index + 1) % this.#frames.length
 	}
 
 	update(message: string): void {
 		this.#message = message
-		// Re-render the CURRENT frame (no advance) so the new message shows without waiting for a tick.
+		// Re-render the current frame (no advance) so the new message shows without waiting for a tick.
 		if (this.#handle !== undefined) this.#paint(this.#line())
 	}
 
@@ -132,10 +132,10 @@ export class Spinner implements SpinnerInterface {
 		this.#emitter.destroy()
 	}
 
-	// Stop the timer (emitting `stop` when it was running) and write + emit the FINAL outcome line —
+	// Stop the timer (emitting `stop` when it was running) and write + emit the final outcome line —
 	// the status icon + message, colored through the styler, terminated by a newline (the activity is
 	// over, so the line is committed, not overwritten). `error` routes to the sink's error stream. The
-	// shared body of success()/failure() (AGENTS §5 — single home for the outcome path).
+	// shared body of success()/failure() — the single home for the outcome path.
 	#finish(level: 'success' | 'error', message?: string): void {
 		this.stop()
 		const text = message ?? this.#message
@@ -147,15 +147,15 @@ export class Spinner implements SpinnerInterface {
 		this.#sink.write(`\r${line}\n`, level === 'error' ? 'error' : undefined)
 	}
 
-	// Build the styled frame line for the CURRENT index — the colored spinner glyph, then the message
-	// when present (a bare glyph otherwise). Kept off the public surface (a render fragment, AGENTS §5).
+	// Build the styled frame line for the current index — the colored spinner glyph, then the message
+	// when present (a bare glyph otherwise). Kept off the public surface (a render fragment).
 	#line(): string {
 		const glyph = this.#styler.render(this.#theme.accent, this.#frames[this.#index] ?? '')
 		return this.#message === '' ? glyph : `${glyph} ${this.#message}`
 	}
 
 	// Emit the frame line and write it to the sink with the leading `\r` an overwrite-capable sink
-	// redraws on — the SAME line both places, the `\r` added only on the write (the event carries the
+	// redraws on — the same line both places, the `\r` added only on the write (the event carries the
 	// bare line). The single per-tick render path shared by tick() and update().
 	#paint(line: string): void {
 		this.#emitter.emit('frame', line)

@@ -11,15 +11,15 @@ import type {
 	Theme,
 } from './types.js'
 
-// The SGR (Select Graphic Rendition) code data the ANSI renderer maps style DATA
+// The SGR (Select Graphic Rendition) code data the ANSI renderer maps style data
 // through, plus the reset terminator and the ANSI-strip pattern. UPPER_SNAKE,
-// `Object.freeze`d, every member exported (AGENTS §5). These are the standard SGR
-// numbers (ECMA-48) — a fixed external spec, so the literals ARE the source of truth.
+// `Object.freeze`d, every member exported. These are the standard SGR
+// numbers (ECMA-48) — a fixed external spec, so the literals are the source of truth.
 // `default` carries no code (it leaves the target's own ink) and so is absent from the
 // color maps — the renderer emits a code only for a present, non-`default` color.
 
 /**
- * Each {@link Color}'s SGR FOREGROUND parameter — the 8 base colors at 30–37 and their
+ * Each {@link Color}'s SGR foreground parameter — the 8 base colors at 30–37 and their
  * bright variants at 90–97. `default` is intentionally absent (it emits no code).
  */
 export const FOREGROUND_CODES: Readonly<Record<Exclude<Color, 'default'>, number>> = Object.freeze({
@@ -42,7 +42,7 @@ export const FOREGROUND_CODES: Readonly<Record<Exclude<Color, 'default'>, number
 })
 
 /**
- * Each {@link Color}'s SGR BACKGROUND parameter — the 8 base colors at 40–47 and their
+ * Each {@link Color}'s SGR background parameter — the 8 base colors at 40–47 and their
  * bright variants at 100–107. `default` is intentionally absent (it emits no code).
  */
 export const BACKGROUND_CODES: Readonly<Record<Exclude<Color, 'default'>, number>> = Object.freeze({
@@ -79,7 +79,7 @@ export const ATTRIBUTE_CODES: Readonly<Record<Attribute, number>> = Object.freez
 })
 
 /**
- * The EMPTY {@link Style} — no foreground, no background, no attributes — frozen. The
+ * The empty {@link Style} — no foreground, no background, no attributes — frozen. The
  * neutral starting point a base styler builds from, and what a renderer passes through
  * unchanged (it carries no codes). Deeply frozen, so it is safe to share as the base.
  */
@@ -148,9 +148,9 @@ export const RESET = `${CSI}${RESET_CODE}m`
  * `strip` removes every occurrence.
  *
  * @remarks
- * A global `RegExp` carries a mutable `lastIndex`; a scan must build a FRESH `RegExp`
+ * A global `RegExp` carries a mutable `lastIndex`; a scan must build a fresh `RegExp`
  * from this one's `source` + `flags` rather than reuse this instance's `lastIndex`. This
- * is the canonical definition, not a shared scanner. The alternation is ORDERED so the
+ * is the canonical definition, not a shared scanner. The alternation is ordered so the
  * CSI / string-family arms (which can start with a byte a later single-byte arm would
  * also match) win first; every arm uses disjoint, non-nested character classes, so the
  * match is linear in input length — no catastrophic backtracking (ReDoS-safe) even on an
@@ -171,16 +171,16 @@ export const ANSI_PATTERN = new RegExp(
 )
 
 /**
- * Matches every C0 control character EXCEPT `\t` / `\n` / `\r` (which are meaningful
+ * Matches every C0 control character except `\t` / `\n` / `\r` (which are meaningful
  * whitespace), plus DEL (`0x7F`) — the non-printing bytes {@link
  * import('./helpers.js').stripControls} removes. Global, ASCII-only source (no raw
  * control-character literal), so a scan builds a fresh `RegExp` the same way as
  * {@link ANSI_PATTERN} to avoid a mutated `lastIndex`.
  *
  * @remarks
- * Deliberately SEPARATE from {@link ANSI_PATTERN}: `strip()` must stay pure ANSI-escape
+ * Deliberately separate from {@link ANSI_PATTERN}: `strip()` must stay pure ANSI-escape
  * removal (width / alignment computations depend on it leaving raw C0 bytes alone), while
- * C0-stripping is an ADDITIONAL, orthogonal pass a non-TTY output sink applies on top.
+ * C0-stripping is an additional, orthogonal pass a non-TTY output sink applies on top.
  */
 export const CONTROL_PATTERN = new RegExp(
 	`[${String.fromCharCode(0)}-${String.fromCharCode(8)}${String.fromCharCode(11)}${String.fromCharCode(12)}${String.fromCharCode(14)}-${String.fromCharCode(31)}${String.fromCharCode(127)}]`,
@@ -188,12 +188,12 @@ export const CONTROL_PATTERN = new RegExp(
 )
 
 // Structured-logging constants — the severity order the level gate compares through, the
-// default colors a level renders in (styling is ORTHOGONAL to level — a level → color map,
+// default colors a level renders in (styling is orthogonal to level — a level → color map,
 // not a level), and the default bounded-retention cap. UPPER_SNAKE, `Object.freeze`d, every
-// member exported (AGENTS §5).
+// member exported.
 
 /**
- * Each {@link LogLevel}'s numeric SEVERITY — the ascending order the level gate compares
+ * Each {@link LogLevel}'s numeric severity — the ascending order the level gate compares
  * through (`debug` 0 < `info` 1 < `warn` 2 < `error` 3). A record is kept when its level's
  * severity is at or above the logger's threshold. The source of truth for level ordering.
  */
@@ -205,8 +205,8 @@ export const LEVEL_SEVERITY: Readonly<Record<LogLevel, number>> = Object.freeze(
 })
 
 /**
- * Each {@link LogLevel}'s default label {@link Color} — the level's VISUAL treatment, which
- * is a styling choice ORTHOGONAL to the level itself (never a separate pseudo-level). The
+ * Each {@link LogLevel}'s default label {@link Color} — the level's visual treatment, which
+ * is a styling choice orthogonal to the level itself (never a separate pseudo-level). The
  * logger colors the level label through its styler with these; swapping a color never
  * changes leveling. `debug` is cyan, `info` blue, `warn` yellow, `error` red.
  *
@@ -223,8 +223,8 @@ export const LEVEL_COLORS: Readonly<Record<LogLevel, Exclude<Color, 'default'>>>
 
 /**
  * The default bounded-retention cap for a {@link import('./types.js').LoggerInterface} — at
- * most this many recent records are kept (oldest dropped first). Retention is ALWAYS bounded
- * (never the unbounded buffer scsr leaked); a consumer overrides it via `options.limit`.
+ * most this many recent records are kept (oldest dropped first). Retention is always bounded — the
+ * oldest record is dropped once the cap is reached; a consumer overrides it via `options.limit`.
  */
 export const DEFAULT_LOG_LIMIT = 1000
 
@@ -240,9 +240,9 @@ export const LEVELS: readonly LogLevel[] = Object.freeze(['debug', 'info', 'warn
 
 // Narrative-rendering constants — the box-drawing junction sets the renderers frame with, the
 // status icons + colors a `Reporter.status` outcome shows, the tree connectors, and the default
-// widths / paddings / glyphs. UPPER_SNAKE, deeply `Object.freeze`d DATA, every member exported
-// (AGENTS §5). The box-drawing glyphs are the standard Unicode set (U+2500 block) — a fixed
-// external spec, so the literals ARE the source of truth.
+// widths / paddings / glyphs. UPPER_SNAKE, deeply `Object.freeze`d data, every member exported.
+// The box-drawing glyphs are the standard Unicode set (U+2500 block) — a fixed
+// external spec, so the literals are the source of truth.
 
 /**
  * The complete {@link BorderChars} junction set for each {@link BorderStyle} — the standard
@@ -322,7 +322,7 @@ export const STATUS_ICONS: Readonly<Record<StatusLevel, string>> = Object.freeze
 
 /**
  * Each {@link StatusLevel}'s {@link Color} — the icon + message color a `status` line renders
- * in (`success` green, `error` red, `warn` yellow, `info` blue). The VISUAL treatment of a
+ * in (`success` green, `error` red, `warn` yellow, `info` blue). The visual treatment of a
  * narrative outcome, colored through the reporter's styler; orthogonal to leveling, like
  * {@link LEVEL_COLORS}. Excludes `default` so each value indexes a real styler accessor.
  */
@@ -381,8 +381,8 @@ export const SECOND_MS = 1000
 
 // Console-interception constants — the default set of `console.*` methods a Capture patches, the
 // default bounded-buffer cap, and the CaptureLevel → LogLevel projection the optional sink forward
-// routes through. UPPER_SNAKE, `Object.freeze`d, every member exported (AGENTS §5). The five level
-// names ARE the universal `console.*` method names — a fixed external surface, so the literals are
+// routes through. UPPER_SNAKE, `Object.freeze`d, every member exported. The five level
+// names are the universal `console.*` method names — a fixed external surface, so the literals are
 // the source of truth.
 
 /**
@@ -408,8 +408,8 @@ export const DEFAULT_CAPTURE_LEVELS: readonly CaptureLevel[] = CAPTURE_LEVELS
 
 /**
  * The default bounded-buffer cap for a {@link import('./types.js').CaptureInterface} — at most this
- * many recent {@link CapturedMessage}s are retained per buffer (the total buffer AND each by-level
- * bucket; oldest dropped first). Capture retention is ALWAYS bounded so a long-running capture can
+ * many recent {@link CapturedMessage}s are retained per buffer (the total buffer and each by-level
+ * bucket; oldest dropped first). Capture retention is always bounded so a long-running capture can
  * never grow without bound (the same retention precedent as {@link DEFAULT_LOG_LIMIT}); a consumer
  * overrides it via `options.limit`.
  */
@@ -433,10 +433,10 @@ export const CAPTURE_LEVEL_MAP: Readonly<Record<CaptureLevel, LogLevel>> = Objec
 
 // Live-animation constants — the spinner's glyph frame set + default timer period, and the
 // determinate bar's fill / empty glyphs + default track width. UPPER_SNAKE, `Object.freeze`d, every
-// member exported (AGENTS §5). The braille spinner frames + the block bar glyphs are the standard
+// member exported. The braille spinner frames + the block bar glyphs are the standard
 // Unicode sets (the braille-patterns block U+2800 / the block-elements `█` U+2588 / `░` U+2591) — a
-// fixed external glyph spec, so the literals ARE the source of truth. scsr shipped THREE spinners +
-// THREE bars; this is the ONE of each.
+// fixed external glyph spec, so the literals are the source of truth. There is one frame set and
+// one bar glyph pair; a caller overrides either through options rather than declaring a second.
 
 /**
  * The default spinner frame cycle a {@link import('./types.js').SpinnerInterface} advances through —
@@ -469,21 +469,21 @@ export const SPINNER_FRAMES: readonly string[] = Object.freeze([
 export const DEFAULT_SPINNER_INTERVAL = 80
 
 /**
- * The default FILLED-cell glyph {@link import('./helpers.js').renderBar} draws the completed run of a
+ * The default filled-cell glyph {@link import('./helpers.js').renderBar} draws the completed run of a
  * progress bar with — the full block `█` (U+2588). A single visible cell; a consumer overrides it via
  * {@link import('./types.js').ProgressBarOptions}`.fill`.
  */
 export const BAR_FILL = '█'
 
 /**
- * The default EMPTY-cell glyph {@link import('./helpers.js').renderBar} draws the remaining run of a
+ * The default empty-cell glyph {@link import('./helpers.js').renderBar} draws the remaining run of a
  * progress bar with — the light-shade block `░` (U+2591). A single visible cell; a consumer overrides
  * it via {@link import('./types.js').ProgressBarOptions}`.empty`.
  */
 export const BAR_EMPTY = '░'
 
 /**
- * The default visible cell count of a progress-bar TRACK — the glyph run {@link
+ * The default visible cell count of a progress-bar track — the glyph run {@link
  * import('./helpers.js').renderBar} fills (and a {@link import('./types.js').ProgressInterface} sizes
  * its bar to). Thirty cells is a compact, terminal-friendly default; a consumer overrides it via
  * `options.width`. Distinct from {@link DEFAULT_WIDTH} (the renderers' 80-column line width) — a bar
@@ -492,10 +492,10 @@ export const BAR_EMPTY = '░'
 export const DEFAULT_BAR_WIDTH = 30
 
 // The default theme — the semantic style vocabulary every entity speaks unless a consumer
-// supplies its own. ASSEMBLED from the constants above (LEVEL_COLORS / STATUS_ICONS /
+// supplies its own. Assembled from the constants above (LEVEL_COLORS / STATUS_ICONS /
 // STATUS_COLORS), never restating them: a level's color, a status's icon + color each keep
-// ONE source, and the theme is the shape that binds them to a role. UPPER_SNAKE, deeply
-// `Object.freeze`d DATA (AGENTS §5).
+// one source, and the theme is the shape that binds them to a role. UPPER_SNAKE, deeply
+// `Object.freeze`d data.
 
 /**
  * The default {@link Theme} — every role bound to its default {@link Style}, deeply frozen.

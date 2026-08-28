@@ -15,24 +15,24 @@ import { createConsoleSink, createStyler } from './factories.js'
 import { formatDuration, renderBox, renderSeparator, renderTable, renderTree } from './helpers.js'
 
 /**
- * A lean, event-free narrative reporter (AGENTS §13) — the composable verb set for human /
- * build-run output. Each verb FORMATS its line through the shared {@link StylerInterface} and
+ * A lean, event-free narrative reporter — the composable verb set for human /
+ * build-run output. Each verb formats its line through the shared {@link StylerInterface} and
  * the pure layout renderers ({@link renderSeparator} / {@link renderBox} / {@link renderTable}
- * / {@link renderTree}) and WRITES it to a {@link SinkInterface} — the SAME styler + sink
+ * / {@link renderTree}) and writes it to a {@link SinkInterface} — the same styler + sink
  * substrate the logger uses, never a second colorizer.
  *
  * @remarks
- * - **A SMALL set, not a grab-bag.** `section` / `step` / `timing` / `status` / `table` /
+ * - **A small set, not a grab-bag.** `section` / `step` / `timing` / `status` / `table` /
  *   `tree` / `box` / `line` / `blank`. No spinner / bar (the animation chunk), no buffering /
  *   capture (the capture chunk), no level retention (the logger). Just format + write.
- * - **`status` is a narrative OUTCOME, not a log level.** Its {@link StatusLevel} (`success` /
+ * - **`status` is a narrative outcome, not a log level.** Its {@link StatusLevel} (`success` /
  *   `error` / `warn` / `info`) is distinct from {@link import('./types.js').LogLevel}: an icon
  *   supplied theme status icon + style, with `error` routed to the sink's
  *   error stream (the `level` hint forwarded to {@link SinkInterface.write}) — there is no
  *   gating and no severity ordering.
  * - **Width-aware.** `section` (and a `box` with no explicit `width`) lay out to the reporter's
- *   `#width`; the renderers measure on VISIBLE width (ANSI-aware), so styled content aligns.
- * - **Event-free (§13).** No `#emitter` — a pure formatting front-end with no observable
+ *   `#width`; the renderers measure on visible width (ANSI-aware), so styled content aligns.
+ * - **Event-free.** No `#emitter` — a pure formatting front-end with no observable
  *   lifecycle (like the renderers and `Scheduler`). It is reusable and holds no per-call state.
  *
  * @example

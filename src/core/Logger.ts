@@ -16,25 +16,25 @@ import { createConsoleSink, createStyler } from './factories.js'
 import { formatRecord, meetsLevel } from './helpers.js'
 
 /**
- * An observable, leveled logger (AGENTS §13) — the entry point into the structured-logging
+ * An observable, leveled logger — the entry point into the structured-logging
  * pipeline. Each `debug` / `info` / `warn` / `error` call builds a frozen {@link LogRecord},
- * gates it by severity, retains a bounded tail of accepted records, ALWAYS emits it on
+ * gates it by severity, retains a bounded tail of accepted records, always emits it on
  * `entry` (the transport seam), and — unless `silent` — formats it into a styled line and
  * writes it to its {@link SinkInterface}.
  *
  * @remarks
- * - **Record + event = transport (§13).** An accepted record is frozen and emitted on
- *   `entry` BEFORE anything else observable — every file / JSON / remote transport rides
+ * - **Record + event = transport.** An accepted record is frozen and emitted on
+ *   `entry` before anything else observable — every file / JSON / remote transport rides
  *   `emitter.on('entry')`. The event fires even when `silent`: silence suppresses only the
- *   SINK WRITE, never the record or the event, so transports keep flowing.
+ *   sink write, never the record or the event, so transports keep flowing.
  * - **Leveled gate.** A record whose {@link LogLevel} is below the logger's `level` threshold
- *   is dropped ENTIRELY — no record built past the level check, no event, no retention, no
+ *   is dropped entirely — no record built past the level check, no event, no retention, no
  *   write (see {@link meetsLevel}).
  * - **Bounded retention.** Accepted records accrue in a ring capped at `limit` (default
  *   {@link DEFAULT_LOG_LIMIT}); the oldest is dropped when full. `entries()` returns a copy,
- *   oldest first; `clear()` empties it. NEVER unbounded (scsr's leak).
+ *   oldest first; `clear()` empties it. Never unbounded — retention is capped at `limit`.
  * - **Styled write, orthogonal to level.** The line ({@link formatRecord}) is colored through
- *   the injected `styler` (the ANSI default, or a browser `%c` styler at C-f) — a level only
+ *   the injected `styler` (the ANSI default, or a browser `%c` styler) — a level only
  *   chooses a label color; styling is not a level. A disabled styler yields a plain line.
  * - **Snapshotted sink.** The default {@link createConsoleSink} writes to the `console`
  *   methods captured at creation, so a later `Capture` patching `console` can't loop the
@@ -50,7 +50,7 @@ import { formatRecord, meetsLevel } from './helpers.js'
  * ```
  */
 export class Logger implements LoggerInterface {
-	// The PUSH observation surface (§13) — owned, never inherited. The emitter isolates a
+	// The push observation surface — owned, never inherited. The emitter isolates a
 	// listener throw (routing it to the `error` handler), so a buggy transport can never
 	// escape into a log call.
 	readonly #emitter: Emitter<LoggerEventMap>
@@ -118,7 +118,7 @@ export class Logger implements LoggerInterface {
 	}
 
 	// The single log path behind every level method: gate by severity, then for an accepted
-	// record build it frozen, retain it (bounded), emit `entry` ALWAYS, and write the styled
+	// record build it frozen, retain it (bounded), emit `entry` always, and write the styled
 	// line unless silent. A dropped (below-threshold) record does nothing observable.
 	#log(level: LogLevel, message: string, data: Record<string, unknown> | undefined): void {
 		if (!meetsLevel(this.#level, level)) return
@@ -127,7 +127,7 @@ export class Logger implements LoggerInterface {
 		// The transport seam — fires even when silent (silence suppresses only the write).
 		this.#emitter.emit('entry', record)
 		if (this.#silent) return
-		// Pass the level so a stream-aware sink (the default console sink, the C-g TTY sink)
+		// Pass the level so a stream-aware sink (the default console sink, the TTY sink)
 		// can route error/warn to the right stream; a plain sink ignores it.
 		this.#sink.write(this.#format(record, this.#styler, this.#theme), level)
 	}

@@ -1,5 +1,5 @@
-// Server-console constants (the C-g branch) — UPPER_SNAKE, `Object.freeze`d data. The kind-pure home
-// for every module-scope constant the sink + process capture use (AGENTS §5): the default stream
+// Server-console constants (the server branch) — UPPER_SNAKE, `Object.freeze`d data. The kind-pure home
+// for every module-scope constant the sink + process capture use: the default stream
 // set, the buffer cap, the no-TTY column fallback, and the stream→log-level projection.
 
 import type { LogLevel } from '@src/core'
@@ -13,7 +13,7 @@ export const STREAM_LEVELS: readonly StreamLevel[] = Object.freeze(['stdout', 's
 
 /**
  * The default set of {@link StreamLevel}s a process capture patches when `options.levels` is omitted
- * — BOTH streams ({@link STREAM_LEVELS}). A consumer narrows it (e.g. just `['stderr']`) via
+ * — both streams ({@link STREAM_LEVELS}). A consumer narrows it (e.g. just `['stderr']`) via
  * `options.levels`.
  */
 export const DEFAULT_CAPTURE_LEVELS: readonly StreamLevel[] = STREAM_LEVELS
@@ -21,14 +21,14 @@ export const DEFAULT_CAPTURE_LEVELS: readonly StreamLevel[] = STREAM_LEVELS
 /**
  * The default bounded-buffer cap for a {@link import('./types.js').ProcessCaptureInterface} — at
  * most this many recent {@link import('./types.js').CapturedChunk}s are retained per buffer (the
- * total buffer AND each per-stream bucket; oldest dropped first). Mirrors the core `Capture`'s
+ * total buffer and each per-stream bucket; oldest dropped first). Mirrors the core `Capture`'s
  * `DEFAULT_CAPTURE_LIMIT`; a consumer overrides it via `options.limit`.
  */
 export const DEFAULT_CAPTURE_LIMIT = 1000
 
 /**
  * The terminal width {@link import('./factories.js').createServerSink} reports through
- * {@link import('./types.js').ServerSinkInterface.columns} when the out stream is NOT a TTY (so
+ * {@link import('./types.js').ServerSinkInterface.columns} when the out stream is not a TTY (so
  * `.columns` is `undefined`) and no explicit `options.columns` was supplied — the conventional
  * 80-column default a non-interactive context (a pipe, a CI log) assumes.
  */

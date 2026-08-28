@@ -1,5 +1,6 @@
 export * from './types.js'
 export * from './constants.js'
+export * from './validators.js'
 export * from './helpers.js'
 export * from './ProcessCapture.js'
 export * from './factories.js'

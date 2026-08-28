@@ -18,6 +18,7 @@ import {
 	renderTree,
 	renderTreeChildren,
 	repeatTo,
+	selectWriter,
 	stringifyValue,
 	strip,
 	stripControls,
@@ -1154,5 +1155,51 @@ describe('renderBox — M5 padding hardening (negative / fractional padding)', (
 
 	it('padding 0 renders content flush against the border', () => {
 		expect(renderBox({ content: 'x', padding: 0 })).toBe(['┌─┐', '│x│', '└─┘'].join('\n'))
+	})
+})
+
+// ── selectWriter — the one level-to-target decision every sink backend shares ──
+
+describe('selectWriter', () => {
+	const writers = { log: 'out', warn: 'warn', error: 'err' }
+
+	it('routes error to the error member and warn to the warn member', () => {
+		expect(selectWriter('error', writers)).toBe('err')
+		expect(selectWriter('warn', writers)).toBe('warn')
+	})
+
+	it('routes every other level to the log member', () => {
+		expect(selectWriter('info', writers)).toBe('out')
+		expect(selectWriter('debug', writers)).toBe('out')
+	})
+
+	it('routes an omitted level to the log member', () => {
+		expect(selectWriter(undefined, writers)).toBe('out')
+	})
+
+	it('covers every LogLevel with no gaps', () => {
+		const routed: Record<LogLevel, string> = {
+			debug: selectWriter('debug', writers),
+			info: selectWriter('info', writers),
+			warn: selectWriter('warn', writers),
+			error: selectWriter('error', writers),
+		}
+		expect(routed).toEqual({ debug: 'out', info: 'out', warn: 'warn', error: 'err' })
+	})
+
+	it('returns the same member twice when a backend folds two levels onto one target', () => {
+		// The server sink supplies its error stream for both warn and error.
+		const folded = { log: 'out', warn: 'err', error: 'err' }
+		expect(selectWriter('warn', folded)).toBe('err')
+		expect(selectWriter('error', folded)).toBe('err')
+		expect(selectWriter('info', folded)).toBe('out')
+	})
+
+	it('carries any member type, returning the identical reference', () => {
+		const log = (): string => 'log'
+		const warn = (): string => 'warn'
+		const error = (): string => 'error'
+		expect(selectWriter('warn', { log, warn, error })).toBe(warn)
+		expect(selectWriter(undefined, { log, warn, error })).toBe(log)
 	})
 })

@@ -2,14 +2,14 @@ import type { RendererInterface, Style } from './types.js'
 import { ATTRIBUTE_CODES, BACKGROUND_CODES, CSI, FOREGROUND_CODES, RESET } from './constants.js'
 
 /**
- * The cross-environment default {@link RendererInterface} — renders style DATA as ANSI
+ * The cross-environment default {@link RendererInterface} — renders style data as ANSI
  * SGR escape codes, exactly as `Scheduler` is the `setTimeout` default for its seam. It
  * is the single styling output the whole console / terminal system uses in a terminal;
- * the browser `%c` / CSS renderer (the C-f branch) implements the SAME contract over
- * the SAME {@link Style}, so retargeting changes the renderer, never the style model.
+ * the browser `%c` / CSS renderer implements the same contract over
+ * the same {@link Style}, so retargeting changes the renderer, never the style model.
  *
  * @remarks
- * - **Style is DATA in, SGR string out.** It reads the style's `foreground` /
+ * - **Style is data in, SGR string out.** It reads the style's `foreground` /
  *   `background` / `attributes` and emits one `ESC[…m` sequence whose parameters are the
  *   mapped SGR numbers (foreground 30–37 / 90–97, background 40–47 / 100–107, attributes
  *   1 / 2 / 3 / 4 / 7 / 9), followed by `text`, terminated by the reset `ESC[0m`.
@@ -18,7 +18,7 @@ import { ATTRIBUTE_CODES, BACKGROUND_CODES, CSI, FOREGROUND_CODES, RESET } from 
  * - **`default` and unset colors emit no code** — a `default` (or absent) `foreground` /
  *   `background` leaves the terminal's own ink.
  * - **The empty style and the empty string pass through** — when there is nothing to
- *   apply (no colors, no attributes) or `text` is `''`, `text` is returned VERBATIM with
+ *   apply (no colors, no attributes) or `text` is `''`, `text` is returned verbatim with
  *   no escape codes, so an unstyled render never injects a stray reset.
  * - **Stateless and event-free** — no fields, no events; safe to share one instance.
  */

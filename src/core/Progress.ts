@@ -3,6 +3,7 @@ import type {
 	ProgressEventMap,
 	ProgressInterface,
 	ProgressOptions,
+	ProgressReport,
 	SinkInterface,
 	StylerInterface,
 	Theme,
@@ -13,24 +14,24 @@ import { createConsoleSink, createStyler } from './factories.js'
 import { renderBar } from './helpers.js'
 
 /**
- * An update-driven, observable progress bar (AGENTS §13) — {@link update} recomputes the bar via
+ * An update-driven, observable progress bar — {@link update} recomputes the bar via
  * {@link renderBar}, writes `\r` + bar to its {@link SinkInterface}, and emits the `{ current, total }`
- * on `update`. The leading `\r` is what an overwrite-capable sink (the C-g TTY sink) redraws on; a
- * plain sink (C-f) degrades to a fresh, non-overwriting line — the line-OVERWRITE is the SINK's job.
- * UNIVERSAL — the one {@link StylerInterface} + the one {@link SinkInterface}, no `node:*`, no
- * `process.stdout`. NO self-timer (unlike {@link import('./Spinner.js').Spinner}) — the caller drives it.
+ * on `update`. The leading `\r` is what an overwrite-capable sink (the TTY sink) redraws on; a
+ * plain sink degrades to a fresh, non-overwriting line — the line-overwrite is the sink's job.
+ * Universal — the one {@link StylerInterface} + the one {@link SinkInterface}, no `node:*`, no
+ * `process.stdout`. No self-timer (unlike {@link import('./Spinner.js').Spinner}) — the caller drives it.
  *
  * @remarks
  * - **Update-driven.** Each {@link update} clamps `current` to `[0, total]`, renders the bar (filled
  *   to `current / total`, with the trailing `percent (current/total)` + message) via {@link renderBar},
  *   emits `update`, and writes `'\r' + bar`. Progress advances only when the caller reports it.
- * - **Outcome lines.** {@link complete} renders a FULL bar (`current = total`) + message, terminated by
+ * - **Outcome lines.** {@link complete} renders a full bar (`current = total`) + message, terminated by
  *   a newline, emits a final `update` then `complete`, and marks `completed`. {@link failure} renders the
- *   bar at its CURRENT fill + message + newline and routes to the sink's error stream (no `complete` —
+ *   bar at its current fill + message + newline and routes to the sink's error stream (no `complete` —
  *   the work did not finish). Both are terminal: a later {@link update} is ignored once `active` is false.
  * - **Bounded.** `current` is always clamped to `[0, total]`; {@link completed} reports whether
  *   {@link complete} has run; {@link active} is `true` until a {@link complete} / {@link failure}.
- * - **Lifecycle (§10).** {@link destroy} destroys the emitter (there is no timer to clear).
+ * - **Lifecycle.** {@link destroy} destroys the emitter (there is no timer to clear).
  *
  * @example
  * ```ts
@@ -41,7 +42,7 @@ import { renderBar } from './helpers.js'
  * ```
  */
 export class Progress implements ProgressInterface {
-	// The PUSH observation surface (§13) — owned, never inherited. The emitter isolates a listener
+	// The push observation surface — owned, never inherited. The emitter isolates a listener
 	// throw (routing it to the `error` handler), so a buggy `update` listener can never escape a report.
 	readonly #emitter: Emitter<ProgressEventMap>
 	readonly #total: number
@@ -100,7 +101,7 @@ export class Progress implements ProgressInterface {
 
 	complete(message?: string): void {
 		if (!this.#active) return
-		// Finish FULL — drive to `total`, commit the line, then signal completion.
+		// Finish full — drive to `total`, commit the line, then signal completion.
 		this.#advance(this.#total, message)
 		this.#active = false
 		this.#completed = true
@@ -110,7 +111,7 @@ export class Progress implements ProgressInterface {
 
 	failure(message?: string): void {
 		if (!this.#active) return
-		// Finish at the CURRENT fill (the work stopped short) — commit to the error stream, NO complete.
+		// Finish at the current fill (the work stopped short) — commit to the error stream, no complete.
 		// #advance emits a final `update` at the current fill (identical current/total), same as complete().
 		this.#advance(this.#current, message)
 		this.#active = false
@@ -122,12 +123,13 @@ export class Progress implements ProgressInterface {
 	}
 
 	// Clamp `current` into [0, total], adopt the optional message, and emit the `update` progress —
-	// the shared state-advance behind update()/complete() (AGENTS §5). The clamp keeps `current`
+	// the shared state-advance behind update()/complete(). The clamp keeps `current`
 	// bounded regardless of the value the caller reports (an overrun saturates, a negative floors).
 	#advance(current: number, message?: string): void {
 		this.#current = Math.max(0, Math.min(this.#total, current))
 		if (message !== undefined) this.#message = message
-		this.#emitter.emit('update', { current: this.#current, total: this.#total })
+		const report: ProgressReport = { current: this.#current, total: this.#total }
+		this.#emitter.emit('update', report)
 	}
 
 	// Render the bar at the current state and write `\r` + bar to the sink — the leading `\r` an

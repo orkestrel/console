@@ -5,60 +5,62 @@ import type {
 	CaptureLevel,
 	CaptureOptions,
 	CapturedMessage,
+	RetentionInterface,
 	SinkInterface,
 	ConsoleMethod,
 } from './types.js'
 import { Emitter } from '@orkestrel/emitter'
 import { CAPTURE_LEVEL_MAP, DEFAULT_CAPTURE_LEVELS, DEFAULT_CAPTURE_LIMIT } from './constants.js'
 import { formatArgs } from './helpers.js'
+import { Retention } from './Retention.js'
 
 /**
- * An observable console interceptor (AGENTS §13) — it takes control of the global `console.*` on
- * the READ side. While `active`, every configured `console.x` call is captured as a frozen
+ * An observable console interceptor — it takes control of the global `console.*` on
+ * the read side. While `active`, every configured `console.x` call is captured as a frozen
  * {@link CapturedMessage}, buffered (total + by level, bounded), emitted on `capture`, and — per
  * options — mirrored to the real console and/or forwarded to a {@link SinkInterface}.
  *
  * @remarks
- * - **Snapshot-at-start (the no-capture-loop principle).** `start()` snapshots the CURRENT
+ * - **Snapshot-at-start (the no-capture-loop principle).** `start()` snapshots the current
  *   `console[level]` for each configured {@link CaptureLevel}, then installs the wrappers. The
- *   mirror writes through that snapshot — so our OWN console sink output (the Logger / Reporter,
+ *   mirror writes through that snapshot — so our own console sink output (the Logger / Reporter,
  *   which snapshot the real `console` at creation) is never recaptured: `Capture` catches
- *   THIRD-PARTY `console.*`, not our writes. Create your loggers BEFORE installing a capture.
- * - **Idempotent + PROCESS-GLOBAL + NON-REENTRANT.** `start()` while already `active` is a no-op
- *   (never double-patches); `stop()` while inactive is a no-op. It patches the ONE global
- *   `console`, so at most ONE capture may be active at a time — running two concurrently
+ *   third-party `console.*`, not our writes. Create your loggers before installing a capture.
+ * - **Idempotent + process-global + non-reentrant.** `start()` while already `active` is a no-op
+ *   (never double-patches); `stop()` while inactive is a no-op. It patches the one global
+ *   `console`, so at most one capture may be active at a time — running two concurrently
  *   interleaves their buffers and clobbers each other's restore.
  * - **Bounded buffers.** `messages()` / `messages(level)` — the total buffer and each by-level
  *   bucket are each capped at `limit`
  *   (oldest dropped first), never unbounded — the same retention precedent as {@link Logger}.
- * - **Lifecycle (§10).** `start` / `stop` toggle interception (emitting `start` / `stop`);
+ * - **Lifecycle.** `start` / `stop` toggle interception (emitting `start` / `stop`);
  *   `destroy()` stops (restoring `console`) then destroys the emitter.
  *
  * @example
  * ```ts
  * const capture = new Capture({ levels: ['warn', 'error'], mirror: true })
  * capture.start()
- * console.warn('third-party noise') // captured AND mirrored to the real console
+ * console.warn('third-party noise') // captured and mirrored to the real console
  * capture.messages('warn') // [{ level: 'warn', text: 'third-party noise', time: … }]
  * capture.stop() // console.warn restored
  * ```
  */
 export class Capture implements CaptureInterface {
-	// The PUSH observation surface (§13) — owned, never inherited. The emitter isolates a listener
+	// The push observation surface — owned, never inherited. The emitter isolates a listener
 	// throw (routing it to the `error` handler), so a buggy `capture` listener can never escape into
 	// the underlying program's `console.*` call.
 	readonly #emitter: Emitter<CaptureEventMap>
 	readonly #levels: readonly CaptureLevel[]
 	readonly #mirror: boolean
 	readonly #sink: SinkInterface | undefined
-	readonly #limit: number
-	// The bounded total buffer — every captured message, oldest first, capped at #limit.
-	readonly #messages: CapturedMessage[] = []
-	// The bounded per-level buckets — one capped buffer per configured CaptureLevel.
-	readonly #buckets = new Map<CaptureLevel, CapturedMessage[]>()
+	// The bounded buffers — the total one and one per configured CaptureLevel — owned by the shared
+	// retention engine the server's ProcessCapture composes too.
+	readonly #retention: RetentionInterface<CapturedMessage>
 	// The snapshot-original console methods, captured at start() and restored at stop(); empty
-	// while inactive. The presence of an entry is what `active` reads.
+	// while inactive.
 	readonly #originals = new Map<CaptureLevel, ConsoleMethod>()
+	// Stored rather than derived from #originals: an empty `levels` list patches no console method,
+	// so a started capture configured with no level leaves #originals empty while still being active.
 	#active = false
 
 	constructor(options?: CaptureOptions) {
@@ -69,8 +71,10 @@ export class Capture implements CaptureInterface {
 		this.#levels = options?.levels ?? DEFAULT_CAPTURE_LEVELS
 		this.#mirror = options?.mirror ?? false
 		this.#sink = options?.sink
-		this.#limit = options?.limit ?? DEFAULT_CAPTURE_LIMIT
-		for (const level of this.#levels) this.#buckets.set(level, [])
+		this.#retention = new Retention<CapturedMessage>(
+			this.#levels,
+			options?.limit ?? DEFAULT_CAPTURE_LIMIT,
+		)
 	}
 
 	get emitter(): EmitterInterface<CaptureEventMap> {
@@ -88,11 +92,11 @@ export class Capture implements CaptureInterface {
 		this.#active = true
 		const target: Record<CaptureLevel, ConsoleMethod> = console
 		for (const level of this.#levels) {
-			// Snapshot the CURRENT method reference BEFORE replacing it — stop() restores EXACTLY this
+			// Snapshot the current method reference before replacing it — stop() restores exactly this
 			// reference, leaving `console` pristine (the wrapper is never snapshotted as the original).
 			const original = target[level]
 			this.#originals.set(level, original)
-			// The mirror target is the snapshot original BOUND to `console`, computed once here — so a
+			// The mirror target is the snapshot original bound to `console`, computed once here — so a
 			// mirrored call reaches the real method with its proper receiver, through the snapshot and
 			// never the live (patched) `console` (no capture loop). The restore reference stays the
 			// pristine unbound `original` above; only the mirror uses the bound form.
@@ -115,13 +119,12 @@ export class Capture implements CaptureInterface {
 	messages(): readonly CapturedMessage[]
 	messages(level: CaptureLevel): readonly CapturedMessage[]
 	messages(level?: CaptureLevel): readonly CapturedMessage[] {
-		if (level === undefined) return [...this.#messages]
-		return [...(this.#buckets.get(level) ?? [])]
+		if (level === undefined) return this.#retention.records()
+		return this.#retention.records(level)
 	}
 
 	clear(): void {
-		this.#messages.length = 0
-		for (const bucket of this.#buckets.values()) bucket.length = 0
+		this.#retention.clear()
 	}
 
 	destroy(): void {
@@ -142,10 +145,10 @@ export class Capture implements CaptureInterface {
 	// the `mirror` option is set.
 	#intercept(level: CaptureLevel, args: unknown[], mirror: ConsoleMethod): void {
 		const message = this.#capture(level, args)
-		this.#retain(message)
+		this.#retention.add(message)
 		this.#emitter.emit('capture', message)
 		if (this.#mirror) mirror(...args)
-		// The wrapper NEVER throws into the patched global — a misbehaving sink is best-effort
+		// The wrapper never throws into the patched global — a misbehaving sink is best-effort
 		// and swallowed, never allowed to break the underlying program's own console.* call.
 		if (this.#sink !== undefined) {
 			try {
@@ -161,19 +164,5 @@ export class Capture implements CaptureInterface {
 	// the `capture` listener) can never mutate it after the fact.
 	#capture(level: CaptureLevel, args: readonly unknown[]): CapturedMessage {
 		return Object.freeze({ level, text: formatArgs(args), time: Date.now() })
-	}
-
-	// Push onto the total buffer and the level's bucket, evicting the oldest of each when at
-	// capacity — both stay capped at #limit, never growing without bound.
-	#retain(message: CapturedMessage): void {
-		this.#push(this.#messages, message)
-		const bucket = this.#buckets.get(message.level)
-		if (bucket !== undefined) this.#push(bucket, message)
-	}
-
-	// Bounded push — append, then drop the oldest while over the cap.
-	#push(buffer: CapturedMessage[], message: CapturedMessage): void {
-		buffer.push(message)
-		if (buffer.length > this.#limit) buffer.shift()
 	}
 }

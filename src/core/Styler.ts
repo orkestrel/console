@@ -4,28 +4,28 @@ import { ConsoleError } from './errors.js'
 
 /**
  * The fluent, composable styler — the consumer-facing API over the style engine. It
- * builds a {@link Style} (style as DATA) and renders it through an injected
- * {@link RendererInterface} (the ANSI default, or a browser `%c` renderer at C-f). Each
- * color / attribute accessor is immutable copy-on-write: it returns a NEW styler's
+ * builds a {@link Style} (style as data) and renders it through an injected
+ * {@link RendererInterface} (the ANSI default, or a browser `%c` renderer). Each
+ * color / attribute accessor is immutable copy-on-write: it returns a new styler's
  * surface with the token added, so `styler.red.bold('hi')` composes without mutating,
  * and a base styler is freely reusable.
  *
  * @remarks
  * - **Callable surface.** A `Styler` is not itself callable; its {@link surface} getter
- *   returns the {@link StylerInterface} — a render FUNCTION carrying the chainable
- *   accessors. The accessors are installed as LAZY getters (`Object.defineProperties`),
+ *   returns the {@link StylerInterface} — a render function carrying the chainable
+ *   accessors. The accessors are installed as lazy getters (`Object.defineProperties`),
  *   so a chain materializes only the stylers it actually walks — never the full tree —
  *   and the recursion terminates. The factory returns that surface; this class is the
  *   engine behind it.
  * - **Immutable.** `#foreground` and `#attribute` return a fresh `Styler` (the style is
- *   rebuilt, never mutated). A later color of the same channel WINS (last write); a
+ *   rebuilt, never mutated). A later color of the same channel wins (last write); a
  *   repeated attribute is idempotent (de-duplicated, order preserved).
  * - **Styling by value.** `render(style, text)` merges a {@link Style} over the accumulated
- *   one and renders that — the same precedence a chain applies, reached with DATA instead of
+ *   one and renders that — the same precedence a chain applies, reached with data instead of
  *   accessor names. It is how a {@link import('./types.js').Theme} role is drawn.
- * - **`enabled` switch.** When `false`, the render function returns text VERBATIM — no
+ * - **`enabled` switch.** When `false`, the render function returns text verbatim — no
  *   renderer call, no escape codes (for a non-TTY / `NO_COLOR` / piped output).
- * - **Event-free** — a pure styling primitive (AGENTS §13), like `Scheduler`.
+ * - **Event-free** — a pure styling primitive, like `Scheduler`.
  */
 export class Styler {
 	readonly #renderer: RendererInterface
@@ -38,7 +38,7 @@ export class Styler {
 		this.#style = style
 	}
 
-	/** The accumulated style DATA — the empty style on a base styler. */
+	/** The accumulated style data — the empty style on a base styler. */
 	get style(): Style {
 		return this.#style
 	}
@@ -50,7 +50,7 @@ export class Styler {
 
 	/**
 	 * The fluent {@link StylerInterface} value — a render function (`text => string`) with
-	 * `style`, `enabled`, and every {@link Color} / {@link Attribute} as a LAZY accessor
+	 * `style`, `enabled`, and every {@link Color} / {@link Attribute} as a lazy accessor
 	 * (each computes the next styler's surface only when read). This is what consumers
 	 * hold and call.
 	 *
@@ -59,7 +59,7 @@ export class Styler {
 	 * builds exactly one child styler — the tree is never fully materialized and the
 	 * construction terminates. The assembled function is then narrowed to
 	 * {@link StylerInterface} through {@link #isSurface} (a real structural check), so no
-	 * type assertion is used (AGENTS §1 / §14 — narrow, never assert).
+	 * type assertion is used — narrow, never assert.
 	 */
 	get surface(): StylerInterface {
 		const callable = this.#render.bind(this)
@@ -87,7 +87,7 @@ export class Styler {
 	}
 
 	/**
-	 * Render `text` in `style` merged OVER the accumulated style — the by-value door beside
+	 * Render `text` in `style` merged over the accumulated style — the by-value door beside
 	 * the accessor chain, and how a {@link import('./types.js').Theme} role is applied.
 	 *
 	 * @param style - The style to overlay; its colors win over the accumulated ones and its
@@ -114,7 +114,7 @@ export class Styler {
 		return this.#enabled ? this.#renderer.render(this.#style, text) : text
 	}
 
-	// Overlay `style` on the accumulated style: a set color of either channel WINS (last
+	// Overlay `style` on the accumulated style: a set color of either channel wins (last
 	// write, as in a chain), and the attribute sets union — accumulated order first, the
 	// overlay's new ones appended, each carried once. Frozen, like every style this engine
 	// builds; the caller's value is read, never touched.
@@ -142,7 +142,7 @@ export class Styler {
 
 	// Structurally confirm an assembled value is a usable styler surface — callable, with
 	// the data members and a representative color/attribute accessor present. A genuine
-	// runtime narrowing (AGENTS §14), not a cast: it lets `surface` return `StylerInterface`
+	// runtime narrowing, not a cast: it lets `surface` return `StylerInterface`
 	// without `as`/`!`.
 	#isSurface(value: ((text: string) => string) & object): value is StylerInterface {
 		return (

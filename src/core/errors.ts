@@ -1,6 +1,6 @@
 import type { ConsoleErrorCode } from './types.js'
 
-// AGENTS §12: an internal invariant / unreachable-guard violation `throw`s, always a
+// An internal invariant / unreachable-guard violation `throw`s, always a
 // `ConsoleError` carrying a machine-readable `code` so a `catch` branches on
 // `error.code` instead of parsing the message.
 

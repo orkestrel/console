@@ -5,12 +5,13 @@ import type {
 	ServerSinkInterface,
 	ServerSinkOptions,
 } from './types.js'
-import { strip, stripControls } from '@src/core'
+import { selectWriter, strip, stripControls } from '@src/core'
 import { ProcessCapture } from './ProcessCapture.js'
-import { columnsOf, inferStyled, isStreamTarget } from './helpers.js'
+import { columnsOf, inferStyled } from './helpers.js'
+import { isStreamTarget } from './validators.js'
 
 /**
- * Create the server TTY {@link ServerSinkInterface} — the C-g server output backend, the
+ * Create the server TTY {@link ServerSinkInterface} — the server output backend, the
  * env-symmetric sibling of `createBrowserSink` / core's `createConsoleSink`. `write(text, level?)`
  * routes by level to the process streams and uses construction-time styled facts: it sends ANSI
  * straight to a styled target (with a leading `\r` overwriting a terminal line natively) but
@@ -22,8 +23,9 @@ import { columnsOf, inferStyled, isStreamTarget } from './helpers.js'
  *
  * @remarks
  * - **Routes by level.** `error` / `warn` → the error stream (`process.stderr` by default), every
- *   other level (and an omitted level) → the out stream (`process.stdout`) — the SAME routing as
- *   core's `createConsoleSink`, so a logger's `error` reaches `stderr`.
+ *   other level (and an omitted level) → the out stream (`process.stdout`) — the same routing as
+ *   core's `createConsoleSink`, so a logger's `error` reaches `stderr`. Both call the one
+ *   {@link import('@src/core').selectWriter} leaf, which is what keeps them identical.
  * - **Per-target styled facts.** At construction, each target uses `options.styled` when supplied;
  *   otherwise {@link inferStyled} applies the injected `environment` (default `process.env`) and
  *   then that target's `isTTY`.
@@ -33,8 +35,8 @@ import { columnsOf, inferStyled, isStreamTarget } from './helpers.js'
  *   back to {@link import('./constants.js').DEFAULT_COLUMNS} when the out stream is not a TTY — or a
  *   fixed value when `options.columns` is supplied. Feed it to a `Reporter` / `Progress` `width`.
  * - **Injectable + guard-narrowed.** `options.out` / `options.err` default to `process.stdout` /
- *   `process.stderr` but accept ANY {@link import('./types.js').StreamTargetInterface}, resolved
- *   through {@link isStreamTarget} (AGENTS §14 — narrow the boundary, never `as`), so a test drives
+ *   `process.stderr` but accept any {@link import('./types.js').StreamTargetInterface}, resolved
+ *   through {@link isStreamTarget} (narrow the boundary, never `as`), so a test drives
  *   the sink (and the isTTY-strip path) with a fake stream that never touches the real process
  *   streams.
  *
@@ -51,7 +53,7 @@ import { columnsOf, inferStyled, isStreamTarget } from './helpers.js'
  * ```
  */
 export function createServerSink(options?: ServerSinkOptions): ServerSinkInterface {
-	// Resolve each target through the guard (§14): a present, well-shaped injected stream is used as
+	// Resolve each target through the guard: a present, well-shaped injected stream is used as
 	// is; otherwise the real process stream — no `as`, and an `undefined` option falls through to the
 	// default. `out` carries info/debug, `err` carries error/warn.
 	const out = isStreamTarget(options?.out) ? options.out : process.stdout
@@ -64,9 +66,10 @@ export function createServerSink(options?: ServerSinkOptions): ServerSinkInterfa
 	return Object.freeze({
 		styled: outStyled,
 		write(text: string, level?: LogLevel): void {
-			const error = level === 'error' || level === 'warn'
-			const target = error ? err : out
-			const keep = error ? errStyled : outStyled
+			// The one shared routing leaf picks the target and its styled fact together; `warn` shares
+			// the error stream here, matching `console.warn` writing to stderr in core.
+			const target = selectWriter(level, { log: out, warn: err, error: err })
+			const keep = selectWriter(level, { log: outStyled, warn: errStyled, error: errStyled })
 			// A leading `\r` marks an in-place redraw frame (Spinner/Progress), which carries its own
 			// line endings and is written verbatim; every other (line-oriented) write gets exactly one
 			// trailing `\n` appended here, matching `console.log`'s newline-terminated behavior.
@@ -84,8 +87,8 @@ export function createServerSink(options?: ServerSinkOptions): ServerSinkInterfa
 }
 
 /**
- * Create an observable {@link ProcessCaptureInterface} — the server "own ALL output" capture. It
- * intercepts the RAW `process.stdout.write` / `process.stderr.write` (not just `console.*`, which is
+ * Create an observable {@link ProcessCaptureInterface} — the server "own all output" capture. It
+ * intercepts the raw `process.stdout.write` / `process.stderr.write` (not just `console.*`, which is
  * the core `Capture`), so it catches direct `process` writes, library output, and child-process
  * pipes. Each intercepted write becomes a frozen {@link import('./types.js').CapturedChunk},
  * buffered (bounded, per-stream) and emitted on `capture`; per options it is mirrored back to the
@@ -98,8 +101,8 @@ export function createServerSink(options?: ServerSinkOptions): ServerSinkInterfa
  * - **The wrapper never throws and passes backpressure through** — a throw in `process.stdout.write`
  *   would crash the host, so chunks are decoded totally and the original's `boolean` is returned.
  * - **Snapshot-at-start + non-reentrant + process-global** — `start()` snapshots and swaps the
- *   pristine `write`; `stop()` restores the EXACT original. At most ONE may be active at a time.
- *   Create any server sink BEFORE installing a capture so the mirror's replay is not re-captured.
+ *   pristine `write`; `stop()` restores the exact original. At most one may be active at a time.
+ *   Create any server sink before installing a capture so the mirror's replay is not re-captured.
  *
  * @example
  * ```ts
@@ -107,7 +110,7 @@ export function createServerSink(options?: ServerSinkOptions): ServerSinkInterfa
  *
  * const capture = createProcessCapture({ levels: ['stderr'], mirror: true })
  * capture.start()
- * process.stderr.write('a library diagnostic\n') // captured AND still shown
+ * process.stderr.write('a library diagnostic\n') // captured and still shown
  * capture.stop()
  * ```
  */

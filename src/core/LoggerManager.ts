@@ -8,21 +8,21 @@ import { isArray } from '@orkestrel/contract'
 import { Logger } from './Logger.js'
 
 /**
- * An event-free registry of named {@link Logger}s plus a convenience fan-out — the §9
+ * An event-free registry of named {@link Logger}s plus a convenience fan-out — the
  * manager over the logging layer (a registry, never observable itself; each {@link Logger}
  * owns its own `emitter`).
  *
  * @remarks
- * - **Registry (§9).** Loggers live in an insertion-ordered `Map` keyed by `name`.
+ * - **Registry.** Loggers live in an insertion-ordered `Map` keyed by `name`.
  *   `register(name, options?)` mints a {@link Logger} named `name` — the manager's default
  *   `level` / `sink` / `styler` / `theme` / `format` / `limit` / `silent` flow in unless
- *   `options` OVERRIDES them
+ *   `options` overrides them
  *   (`name` is always the registry key, so any `options.name` is ignored) — stores it (a
- *   re-`register` of the same name OVERWRITES, last write wins), and returns it. `count` is
+ *   re-`register` of the same name overwrites, last write wins), and returns it. `count` is
  *   the map size, `logger(name)` looks one up, `loggers()` lists them in insertion order.
- * - **Removal (§9.2).** `remove()` clears ALL, `remove(name)` drops ONE (`true` if present),
+ * - **Removal.** `remove()` clears all, `remove(name)` drops one (`true` if present),
  *   `remove(names)` drops a batch (`true` if any was removed).
- *   (Removal does NOT `destroy` the returned loggers — a caller still holding one keeps using
+ *   (Removal does not `destroy` the returned loggers — a caller still holding one keeps using
  *   it; the manager simply stops tracking it.)
  * - **Fan-out.** `debug` / `info` / `warn` / `error(message, data?)` forward the one call to
  *   every registered logger in insertion order; each gates / emits / writes per its own `level`
@@ -107,7 +107,7 @@ export class LoggerManager implements LoggerManagerInterface {
 		for (const logger of this.#loggers.values()) logger.error(message, data)
 	}
 
-	// §9.2: ALL / one / batch under one verb — the array overload declared FIRST by the project
+	// all / one / batch under one verb — the array overload declared first by the project
 	// convention (a `name` is a string, never an array, so the two never overlap).
 	remove(names: readonly string[]): boolean
 	remove(name: string): boolean

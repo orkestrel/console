@@ -13,6 +13,7 @@ import type {
 	TreeNode,
 	TreeOptions,
 	Theme,
+	WriterSet,
 } from './types.js'
 import {
 	ANSI_PATTERN,
@@ -35,18 +36,18 @@ import { Capture } from './Capture.js'
 // Pure, universal string helpers for the console / terminal system. `strip` removes
 // ANSI escapes; `width` is the visible length (strip then count). Both are needed later
 // by the box / table / progress layout — kept here, environment-agnostic, so every
-// surface shares one implementation (AGENTS §5). Every function exported (AGENTS §5).
+// surface shares one implementation. Every function exported.
 // The logging helpers (`meetsLevel`, `formatTime`, `formatRecord`) are likewise pure and
 // shared — the level gate's comparison and the styled-line layout, kept off the impl class.
-// `withCapture` sits here too: it RUNS a function under a scoped `Capture` and returns that
+// `withCapture` sits here too: it runs a function under a scoped `Capture` and returns that
 // function's value, so it produces no entity and is reusable infrastructure, not a factory.
 
 /**
  * Remove every ANSI escape sequence from `text`, returning the plain visible string.
  *
  * @remarks
- * Strips SGR color/style codes AND other CSI controls (cursor, erase) plus OSC
- * sequences (titles, hyperlinks) — see {@link ANSI_PATTERN}. A FRESH `RegExp` is built
+ * Strips SGR color/style codes and other CSI controls (cursor, erase) plus OSC
+ * sequences (titles, hyperlinks) — see {@link ANSI_PATTERN}. A fresh `RegExp` is built
  * per call from the canonical pattern's `source` + `flags`, so the shared global
  * pattern's `lastIndex` is never mutated across calls (re-entrant and deterministic).
  *
@@ -63,14 +64,14 @@ export function strip(text: string): string {
 }
 
 /**
- * Remove every non-printing C0 control character from `text` EXCEPT `\t` / `\n` / `\r`
+ * Remove every non-printing C0 control character from `text` except `\t` / `\n` / `\r`
  * (meaningful whitespace), plus DEL — returning the sanitized string.
  *
  * @remarks
- * Deliberately SEPARATE from {@link strip} (ANSI-escape removal only, so `width` /
+ * Deliberately separate from {@link strip} (ANSI-escape removal only, so `width` /
  * `align` stay untouched) — this is the additional pass a non-TTY output sink applies
  * on top of `strip`, so a captured `\x07` bell or stray `\x00` never reaches a log file
- * / non-terminal target. A FRESH `RegExp` is built per call from {@link CONTROL_PATTERN}'s
+ * / non-terminal target. A fresh `RegExp` is built per call from {@link CONTROL_PATTERN}'s
  * `source` + `flags`, the same re-entrant idiom as `strip`.
  *
  * @param text - Any string, possibly carrying raw control bytes
@@ -92,7 +93,7 @@ export function stripControls(text: string): string {
  *
  * @remarks
  * The basis for terminal layout (box / table / progress alignment): the column count a
- * styled string occupies, independent of its escape codes. It does NOT account for
+ * styled string occupies, independent of its escape codes. It does not account for
  * wide (CJK / fullwidth) glyphs occupying two cells — a deliberate, documented
  * simplification at this layer; callers needing east-asian width handle it above.
  *
@@ -132,7 +133,7 @@ export function freezeStyle(style: Style): Style {
  * at or above the threshold's.
  *
  * @remarks
- * The level gate (AGENTS §5 — the comparison lives here, not inlined in the logger). Reads
+ * The level gate (the comparison lives here, not inlined in the logger). Reads
  * the ascending {@link LEVEL_SEVERITY} order: `meetsLevel('warn', 'error')` is `true`
  * (error ≥ warn), `meetsLevel('warn', 'info')` is `false` (info < warn).
  *
@@ -148,6 +149,35 @@ export function freezeStyle(style: Style): Style {
  */
 export function meetsLevel(threshold: LogLevel, level: LogLevel): boolean {
 	return LEVEL_SEVERITY[level] >= LEVEL_SEVERITY[threshold]
+}
+
+/**
+ * Selects the member of a {@link WriterSet} a {@link LogLevel} routes to — `error` to `error`,
+ * `warn` to `warn`, every other level and an omitted level to `log`.
+ *
+ * @remarks
+ * The single owner of the level-to-target decision every sink backend shares, so core's console
+ * sink, the browser `%c` sink, and the server stream sink cannot drift apart. A backend that sends
+ * two levels to one destination passes the same member twice: the server sink routes `warn`
+ * alongside `error` by supplying its error stream for both, which matches `console.warn` writing
+ * to `stderr`. The member type is the caller's, so the same leaf selects a bound console method, a
+ * stream target, or a per-target styling fact.
+ *
+ * @param level - The originating record's {@link LogLevel}, or `undefined` when the caller has none
+ * @param writers - See {@link WriterSet}
+ * @returns The member `level` routes to
+ *
+ * @example
+ * ```ts
+ * selectWriter('error', { log: 'out', warn: 'out', error: 'err' }) // 'err'
+ * selectWriter('debug', { log: 'out', warn: 'out', error: 'err' }) // 'out'
+ * selectWriter(undefined, { log: 'out', warn: 'out', error: 'err' }) // 'out'
+ * ```
+ */
+export function selectWriter<T>(level: LogLevel | undefined, writers: WriterSet<T>): T {
+	if (level === 'error') return writers.error
+	if (level === 'warn') return writers.warn
+	return writers.log
 }
 
 /**
@@ -175,7 +205,7 @@ export function formatTime(time: number): string {
  * the originating logger's `name` in brackets (omitted when absent), the message, and the
  * structured `data` appended as compact JSON (omitted when absent / empty). Coloring flows
  * through the injected `styler`, so a disabled styler yields a plain line and a browser
- * `%c` styler (C-f) retargets it — the layout never changes. Pure: same record + styler →
+ * `%c` styler retargets it — the layout never changes. Pure: same record + styler →
  * same line.
  *
  * @param record - The {@link LogRecord} to render
@@ -206,14 +236,14 @@ export function formatRecord(record: LogRecord, styler: StylerInterface, theme: 
 }
 
 /**
- * Pad (or, when over budget, truncate) `text` to exactly `target` VISIBLE columns, positioning
+ * Pad (or, when over budget, truncate) `text` to exactly `target` visible columns, positioning
  * it by `alignment`. The width primitive the box / table renderers align every cell with.
  *
  * @remarks
  * Measures with {@link width} (visible code points, ANSI-aware), so a styled string aligns by
  * its visible content, not its escape codes. When `width(text) < target`, the deficit is added
  * as spaces — all trailing (`left`), all leading (`right`), or split with the extra space on
- * the right (`center`). When `width(text) > target`, the VISIBLE characters are sliced to
+ * the right (`center`). When `width(text) > target`, the visible characters are sliced to
  * `target` (a defensive guard — the renderers size columns to fit, so this is rarely hit; it
  * slices the stripped text, so it never bisects an escape sequence into a broken half).
  *
@@ -260,10 +290,10 @@ export function formatDuration(ms: number): string {
 /**
  * Color `text` through `styler`, or return it verbatim when `styler` is `undefined` — the
  * single optional-styling primitive every renderer applies to its border / title / connector
- * glyphs (AGENTS §5 — the ONE styler seam, shared, never re-hand-rolled per renderer).
+ * glyphs (the one styler seam, shared, never re-hand-rolled per renderer).
  *
  * @remarks
- * The renderers all take an OPTIONAL `styler`: present ⇒ glyphs are colored, absent ⇒ plain.
+ * The renderers all take an optional `styler`: present ⇒ glyphs are colored, absent ⇒ plain.
  * Folding that `styler === undefined ? text : styler(text)` ternary into one exported helper
  * keeps the renderers terse and the styling decision in one tested place. A disabled styler
  * (`enabled: false`) is still a styler — it returns its text verbatim — so passing one paints
@@ -280,7 +310,7 @@ export function paint(styler: StylerInterface | undefined, text: string, style?:
 }
 
 /**
- * Repeat `unit` until it fills exactly `count` VISIBLE columns, trimming a trailing partial
+ * Repeat `unit` until it fills exactly `count` visible columns, trimming a trailing partial
  * unit so the run is never over-wide — the fill primitive the separator + box edges draw with.
  *
  * @remarks
@@ -332,7 +362,7 @@ export function cellAt(row: readonly string[], index: number): string {
  *   a title at least as wide as `width` yields just the gapped title (no fill).
  * - **Styling.** When `options.styler` is given, the fill runs (and the embedded title) are
  *   colored through it; the layout is identical with or without color, since width is measured
- *   on the visible content (AGENTS — width-aware via {@link width}).
+ *   on the visible content (width-aware via {@link width}).
  *
  * @param options - See {@link SeparatorOptions}
  * @returns The rule line (no trailing newline)
@@ -360,15 +390,15 @@ export function renderSeparator(options: SeparatorOptions): string {
  * styled content stays aligned inside the frame. Pure: same {@link BoxOptions} → same string.
  *
  * @remarks
- * - **Lines.** `content` is split on `\n` OR `\r\n`, so caller text written on Windows frames
- *   exactly as the same text written on POSIX; a LONE `\r` is kept inside its line (it is a
+ * - **Lines.** `content` is split on `\n` or `\r\n`, so caller text written on Windows frames
+ *   exactly as the same text written on POSIX; a lone `\r` is kept inside its line (it is a
  *   cursor control — the animation frame prefix — not a line separator). Each line is padded
  *   (left-aligned) to the inner
- *   width by {@link align} — measured on VISIBLE width, so a styled line never breaks the
+ *   width by {@link align} — measured on visible width, so a styled line never breaks the
  *   right edge. The inner width is the widest line's visible width (or `width − borders −
  *   2·padding` when an explicit `width` is given and is wider), plus `padding` blank cells
  *   inside each {@link BorderChars.vertical} edge.
- * - **Title.** An optional `title` is embedded in the TOP border (` title `), the remaining
+ * - **Title.** An optional `title` is embedded in the top border (` title `), the remaining
  *   top edge drawn as fill; a title wider than the inner width widens the box to fit it.
  * - **Border + styling.** The {@link BorderStyle} (`options.border`, default
  *   {@link DEFAULT_BORDER}) selects the glyph set from {@link BORDER_CHARS}; `options.styler`
@@ -383,15 +413,15 @@ export function renderBox(options: BoxOptions): string {
 	const chars = BORDER_CHARS[options.border ?? DEFAULT_BORDER]
 	const padding = Math.max(0, Math.trunc(options.padding ?? DEFAULT_PADDING))
 	const styler = options.styler
-	// Split on a line feed OR a CRLF pair, so caller text written on Windows frames exactly as the
-	// same text written on POSIX. A LONE carriage return is deliberately NOT a separator: the
+	// Split on a line feed or a CRLF pair, so caller text written on Windows frames exactly as the
+	// same text written on POSIX. A lone carriage return is deliberately not a separator: the
 	// animation frame prefix is a bare `\r` cursor control, so splitting on it would cut a frame in
 	// half. The literal is local because this is the one caller-text split in the module.
 	const lines = options.content.split(/\r\n|\n/)
 	// The inner content width: the widest line, the title (when present), and any explicit
 	// `width` budget (minus the two edges and the two padding gutters) all compete — the
 	// widest wins, so nothing is ever clipped and an explicit width only ever pads outward.
-	// The title's claim is its EMBEDDED form ` title ` (a gap each side) plus one lead fill
+	// The title's claim is its embedded form ` title ` (a gap each side) plus one lead fill
 	// glyph, all spanning `inner + 2·padding` — so the top edge stays exactly as wide as the
 	// rest of the box (the frame is always rectangular) and a long title widens the box.
 	const titleRoom =
@@ -408,7 +438,7 @@ export function renderBox(options: BoxOptions): string {
 	// The top border — the two corners with the horizontal run between, optionally carrying a
 	// leading ` title ` embedded in the run. `span` is the full inner run (`inner + 2·padding`):
 	// with no `title` the whole run is fill between the corners; with one, ` title ` sits after a
-	// single leading fill glyph, the remainder drawn as fill — its VISIBLE width stays `span` (the
+	// single leading fill glyph, the remainder drawn as fill — its visible width stays `span` (the
 	// title's escape codes don't count).
 	const span = inner + padding * 2
 	let top: string
@@ -440,7 +470,7 @@ export function renderBox(options: BoxOptions): string {
  * column sizing. Pure: same {@link TableOptions} → same string.
  *
  * @remarks
- * - **Column sizing — visible width.** Each column is sized to the widest VISIBLE width
+ * - **Column sizing — visible width.** Each column is sized to the widest visible width
  *   ({@link width}) among its header label and its cells, so an already-styled cell never
  *   breaks the column (its escape codes don't count toward the width).
  * - **Ragged rows.** A row shorter than the column count is padded with empty cells; a longer
@@ -541,7 +571,7 @@ export function renderTree(options: TreeOptions): string {
  * beneath under the carried guide (`│  ` under a non-last node, `   ` under the last).
  *
  * @remarks
- * A centralized, exported recursion branch (AGENTS §5) so it is directly testable and
+ * A centralized, exported recursion branch so it is directly testable and
  * reusable outside {@link renderTree}'s top-level `root.label` framing.
  *
  * @param nodes - The sibling {@link TreeNode}s to render at this depth
@@ -578,12 +608,12 @@ export function renderTreeChildren(
 }
 
 /**
- * Stringify ONE captured console argument into a line fragment — the per-argument rule behind
+ * Stringify one captured console argument into a line fragment — the per-argument rule behind
  * {@link formatArgs}: an `Error` → `name: message`, a plain object / array → circular-safe JSON,
  * anything else (string, number, boolean, `null`, `undefined`, symbol, function) → `String(value)`.
  *
  * @remarks
- * - **Total + never throws.** Like a guard (§14), this never throws on adversarial input — a value
+ * - **Total + never throws.** Like a guard, this never throws on adversarial input — a value
  *   carrying a circular reference, a `BigInt`, or a throwing `toJSON` is rendered, not raised. The
  *   `JSON.stringify` runs with a circular-guard replacer (a seen-set drops a back-reference as
  *   `'[Circular]'`); should `JSON.stringify` still throw (e.g. a `BigInt`), the value falls back to
@@ -610,7 +640,7 @@ export function stringifyValue(value: unknown): string {
 	if (value instanceof Error) return `${value.name}: ${value.message}`
 	if (value === null || typeof value !== 'object') return String(value)
 	// A circular-safe replacer — a seen-set drops any back-reference so a cyclic graph serializes
-	// instead of throwing (total, like a guard §14). A residual throw (e.g. a BigInt field) falls
+	// instead of throwing (total, like a guard). A residual throw (e.g. a BigInt field) falls
 	// back to String(value), so this helper is total on every input.
 	const seen = new WeakSet<object>()
 	try {
@@ -627,7 +657,7 @@ export function stringifyValue(value: unknown): string {
 }
 
 /**
- * Stringify a captured `console.*` argument list into ONE line — the text of a {@link
+ * Stringify a captured `console.*` argument list into one line — the text of a {@link
  * import('./types.js').CapturedMessage}. Each argument is rendered by {@link stringifyValue} and
  * the parts are space-joined, mirroring how a console concatenates its arguments.
  *
@@ -652,21 +682,21 @@ export function formatArgs(args: readonly unknown[]): string {
 /**
  * Render a determinate progress bar string — a filled / empty glyph track followed by the percentage
  * and the `(current/total)` count (`█████░░░░░ 50% (5/10)`). Pure: same {@link ProgressBarOptions} →
- * same string. The animation-layer sibling of the C-c `render*` renderers (box / table / tree /
+ * same string. The animation-layer sibling of the `render*` renderers (box / table / tree /
  * separator), shared so a {@link import('./types.js').ProgressInterface} and any direct caller draw
- * the ONE bar — never a second, hand-rolled one (AGENTS §5; scsr shipped three).
+ * the one bar — never a second, hand-rolled one.
  *
  * @remarks
  * - **Fill fraction, clamped.** The filled cell count is `round((current / total) · width)` with
  *   `current` clamped to `[0, total]`, so an overrun never over-fills and a negative never under-fills.
- *   A `total <= 0` renders a FULL track (there is nothing to fill toward — the work is trivially done).
+ *   A `total <= 0` renders a full track (there is nothing to fill toward — the work is trivially done).
  * - **Width-aware track.** The filled run is `fill` tiled to the filled cell count and the empty run
- *   `empty` tiled to the remainder, each via {@link repeatTo} — so the TRACK is exactly `width` VISIBLE
+ *   `empty` tiled to the remainder, each via {@link repeatTo} — so the track is exactly `width` visible
  *   columns even for a multi-cell glyph (its escape codes / extra cells never break the width).
- * - **Styling.** `options.styler` colors the FILLED run only (the empty run + the trailing
+ * - **Styling.** `options.styler` colors the filled run only (the empty run + the trailing
  *   `percent (count)` label stay plain), through {@link paint}; the layout is identical with or
  *   without color, since the track is measured on visible width.
- * - **Label.** The percentage is the rounded `current / total` (e.g. `50%`); the count is the CLAMPED
+ * - **Label.** The percentage is the rounded `current / total` (e.g. `50%`); the count is the clamped
  *   `current` over `total` (`(5/10)`), a single space separating the track, the percent, and the count.
  *
  * @param options - See {@link ProgressBarOptions}
@@ -717,11 +747,11 @@ export function withCapture<T>(fn: () => T, options?: CaptureOptions): CaptureRe
  * - **Always restores.** `start()` runs before `fn`; `stop()` runs in a `finally`, so `console` is
  *   restored even if `fn` throws / rejects (the throw / rejection still propagates). The capture
  *   is local — created, used, and destroyed within the call.
- * - **Sync vs async.** A `fn` returning a `Promise` is detected and AWAITED before `stop()`, so
+ * - **Sync vs async.** A `fn` returning a `Promise` is detected and awaited before `stop()`, so
  *   captures during the async work are included; a plain `fn` stops synchronously. The return type
  *   follows `fn`'s (overloaded).
- * - **PROCESS-GLOBAL caveat.** Like {@link createCapture}, this patches the one global `console`.
- *   Concurrent `withCapture` calls (or a `withCapture` around other capturing code) INTERLEAVE —
+ * - **process-global caveat.** Like {@link createCapture}, this patches the one global `console`.
+ *   Concurrent `withCapture` calls (or a `withCapture` around other capturing code) interleave —
  *   each captures every `console.*` call in flight, and the inner `stop()` restores whatever the
  *   outer had installed. Use it for sequential, scoped capture, not overlapping captures.
  *
@@ -769,7 +799,7 @@ export function withCapture<T>(
 		capture.destroy()
 		return { value: result, messages }
 	} catch (error) {
-		// A SYNC throw — restore console before rethrowing (the async rejection path is handled above).
+		// A sync throw — restore console before rethrowing (the async rejection path is handled above).
 		capture.destroy()
 		throw error
 	}

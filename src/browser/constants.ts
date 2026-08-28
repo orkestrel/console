@@ -1,17 +1,17 @@
 import type { Color } from '@src/core'
 import { ATTRIBUTE_CODES, ESC } from '@src/core'
 
-// The SGR → CSS translation DATA the browser sink maps ANSI runs through (the C-f branch).
-// The core `src/core/console` is the source of truth for the SGR NUMBERS (which code is which
-// color / attribute); this module owns only the BROWSER-side mapping — a named-color → hex
+// The SGR → CSS translation data the browser sink maps ANSI runs through (the browser branch).
+// The core `src/core/console` is the source of truth for the SGR numbers (which code is which
+// color / attribute); this module owns only the browser-side mapping — a named-color → hex
 // palette and the attribute CSS declarations. The live translator resolves color SGR numbers
 // through core's code maps and then reads this named palette, so no second number→CSS table drifts.
 // The SGR-scan pattern is built from core's `ESC` so no control-character literal appears in
-// source. UPPER_SNAKE, deeply `Object.freeze`d, every member exported (AGENTS §5).
+// source. UPPER_SNAKE, deeply `Object.freeze`d, every member exported.
 
 /**
  * Each named {@link Color}'s hex value — the 16 standard terminal colors a browser DevTools
- * console renders the SAME {@link Color} names as. The source of truth for the BROWSER color
+ * console renders the same {@link Color} names as. The source of truth for the browser color
  * axis: the ANSI renderer maps a `Color` name to an SGR number, and this maps the same name to
  * the CSS color the `%c` sink paints with, so a browser shows the same 16 colors a terminal does.
  *
@@ -43,7 +43,7 @@ export const COLOR_HEX: Readonly<Record<Exclude<Color, 'default'>, string>> = Ob
  * counterpart to the terminal's SGR text effects (`bold` 1 → `font-weight:bold`, `dim` 2 →
  * `opacity:0.6`, `italic` 3 → `font-style:italic`, `underline` 4 → `text-decoration:underline`,
  * `inverse` 7 → best-effort, `strikethrough` 9 → `text-decoration:line-through`). Keyed by the SGR
- * NUMBER (derived from core's {@link ATTRIBUTE_CODES}) so the sink looks a parameter up directly
+ * number (derived from core's {@link ATTRIBUTE_CODES}) so the sink looks a parameter up directly
  * while scanning a run.
  *
  * @remarks
@@ -68,15 +68,15 @@ export const ATTRIBUTE_CSS: Readonly<Record<number, string>> = Object.freeze({
 export const DIRECTIVE = '%c'
 
 /**
- * Matches one SGR sequence (`ESC[ <params> m`) and CAPTURES its `;`-separated numeric parameters —
- * the subset of ANSI {@link import('@src/core').strip} cares about that carries STYLE (color /
+ * Matches one SGR sequence (`ESC[ <params> m`) and captures its `;`-separated numeric parameters —
+ * the subset of ANSI {@link import('@src/core').strip} cares about that carries style (color /
  * attribute / reset), as opposed to cursor / erase / OSC sequences. Global, so the scanner walks
  * every SGR run in a string; built from core's {@link ESC} so no control-character literal appears
  * in source (the codebase idiom). The capture group is the parameter list (`''` for a bare `ESC[m`,
  * which the spec treats as a reset).
  *
  * @remarks
- * A global `RegExp` carries a mutable `lastIndex`; a scan builds a FRESH `RegExp` from this one's
+ * A global `RegExp` carries a mutable `lastIndex`; a scan builds a fresh `RegExp` from this one's
  * `source` + `flags` rather than reuse this instance, so concurrent scans never collide. This is the
  * canonical definition, not a shared scanner.
  */

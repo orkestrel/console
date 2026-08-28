@@ -1,18 +1,18 @@
-// Server-local types for the C-g console branch — the TTY sink + the process-stream capture.
+// Server-local types for the server console branch — the TTY sink + the process-stream capture.
 // The core `src/core/console` owns the cross-environment contracts (`SinkInterface` / `LogLevel`
-// + the style DATA model) and the C-d console `Capture`; those are IMPORTED from `@src/core`,
+// + the style data model) and the console `Capture`; those are imported from `@src/core`,
 // never redeclared. The types here are server-only: the injectable stream-target shape, the
 // `createServerSink` options + its column-aware return, and the process-stream `Capture` family
-// (whose "level" axis is the STREAM, `'stdout' | 'stderr'`, not a `console.*` method).
+// (whose "level" axis is the stream, `'stdout' | 'stderr'`, not a `console.*` method).
 
 import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkestrel/emitter'
 import type { SinkInterface } from '@src/core'
 
 /**
- * The minimal writable-stream shape the C-g server sink and process capture address — exactly the
+ * The minimal writable-stream shape the server sink and process capture address — exactly the
  * slice of a Node `tty.WriteStream` / `process.stdout` they touch, and no more. A
  * {@link ServerSinkOptions} target and a {@link ProcessCaptureInterface}'s patched streams are
- * narrowed to this via {@link import('./helpers.js').isStreamTarget} (AGENTS §14 — narrow the
+ * narrowed to this via {@link import('./helpers.js').isStreamTarget} (narrow the
  * boundary, never `as`), so a test can drive either with a hand-built fake stream that never
  * touches the real `process` streams.
  *
@@ -67,7 +67,7 @@ export interface ServerSinkOptions {
  * @remarks
  * - `styled` is the `out` target's construction-time fact. The sink handles `err` through its own
  *   independently inferred fact because the two targets can differ.
- * - `columns` is a getter, re-read on every access — so it reflects the CURRENT terminal width (a
+ * - `columns` is a getter, re-read on every access — so it reflects the current terminal width (a
  *   resize is observed) unless a fixed `options.columns` was supplied, in which case it is constant.
  */
 export interface ServerSinkInterface extends SinkInterface {
@@ -80,25 +80,35 @@ export interface ServerSinkInterface extends SinkInterface {
  * {@link ProcessCaptureInterface}, the server analogue of the core `Capture`'s `CaptureLevel`.
  *
  * @remarks
- * DISTINCT from {@link import('@src/core').LogLevel}: a `StreamLevel` names the ORIGINATING process stream
+ * distinct from {@link import('@src/core').LogLevel}: a `StreamLevel` names the originating process stream
  * (`process.stdout` vs `process.stderr`), not a severity. It is a named value family (it indexes
  * {@link import('./constants.js').STREAM_LEVEL_MAP} to a {@link import('@src/core').LogLevel} for the optional sink
- * forward), never a binary toggle — so it stays a union (AGENTS §4.4).
+ * forward), never a binary toggle — so it stays a union.
  */
 export type StreamLevel = 'stdout' | 'stderr'
 
-// The process-stream `write` method the {@link ProcessCaptureInterface} patch swaps in — taken
-// VERBATIM as `NodeJS.WriteStream['write']` (the overloaded `(chunk, encoding?, callback?) => boolean`
-// of `process.stdout.write` / `process.stderr.write`). It names the GLOBAL stream method this capture
-// snapshots + swaps at the patch boundary (the {@link ConsoleMethod} analogue on the WRITE side).
-// Using the canonical type (not a hand-rolled approximation) makes snapshot + restore EXACT and lets
-// the wrapper assign cleanly. The {@link StreamLevel} (`'stdout' | 'stderr'`) IS the `process` property
-// key, so `process[level]` indexes the matching `WriteStream` directly — no lookup map.
+/**
+ * Names the process-stream `write` method a {@link ProcessCaptureInterface} snapshots and swaps at
+ * the patch boundary — the write-side analogue of {@link import('@src/core').ConsoleMethod}.
+ *
+ * @remarks
+ * It is taken verbatim as `NodeJS.WriteStream['write']`, the overloaded
+ * `(chunk, encoding?, callback?) => boolean` of `process.stdout.write` / `process.stderr.write`.
+ * Using the canonical type rather than a hand-rolled approximation keeps snapshot and restore
+ * exact and lets the wrapper assign cleanly. A {@link StreamLevel} (`'stdout' | 'stderr'`) is
+ * itself the `process` property key, so `process[level]` indexes the matching `WriteStream`
+ * directly, with no lookup map.
+ */
 export type StreamWriteFunction = NodeJS.WriteStream['write']
 
-// The completion callback a `process.*.write` accepts as its last argument — the Node `write`
-// callback shape (the {@link StreamWriteFunction} companion). The wrapper forwards it verbatim to
-// the mirror so a caller's write-completion handler still fires.
+/**
+ * Names the completion callback `process.*.write` accepts as its last argument — the Node `write`
+ * callback shape, and the {@link StreamWriteFunction} companion.
+ *
+ * @remarks
+ * The capture wrapper forwards the callback verbatim to the mirror, so a caller's
+ * write-completion handler still fires.
+ */
 export type StreamWriteCallback = (error?: Error | null) => void
 
 /**
@@ -109,7 +119,7 @@ export type StreamWriteCallback = (error?: Error | null) => void
  * @remarks
  * - `level` — the {@link StreamLevel} naming which stream (`stdout` / `stderr`) was written.
  * - `text` — the chunk decoded to a string (via {@link import('./helpers.js').decodeChunk} —
- *   total, never throws), VERBATIM: no trailing-newline trimming and no ANSI stripping, so the
+ *   total, never throws), verbatim: no trailing-newline trimming and no ANSI stripping, so the
  *   captured text is exactly the bytes the program emitted.
  * - `time` — the capture instant as epoch milliseconds (`Date.now()`); a plain number so the record
  *   stays serializable and orderable.
@@ -122,7 +132,7 @@ export interface CapturedChunk {
 }
 
 /**
- * The observable events a {@link ProcessCaptureInterface} emits (AGENTS §13) — mirrors the core
+ * The observable events a {@link ProcessCaptureInterface} emits — mirrors the core
  * `Capture`'s `CaptureEventMap`, but the captured record is a {@link CapturedChunk} (stream-keyed).
  *
  * @remarks
@@ -130,11 +140,11 @@ export interface CapturedChunk {
  *   {@link CapturedChunk}. The hook a live log viewer / tee subscribes to.
  * - `start` / `stop` — the interception toggled on / off (pure signals, empty tuples).
  *
- * Listener isolation is the emitter's (§13): a listener throw routes to the emitter's `error`
+ * Listener isolation is the emitter's: a listener throw routes to the emitter's `error`
  * handler, never onto this map — so a buggy `capture` listener can never escape into the host's
  * `process.stdout.write` call (which would crash the program).
  *
- * Declared as a `type` alias (not `interface extends EventMap`, §4.5): a type-literal satisfies the
+ * Declared as a `type` alias (not `interface extends EventMap`): a type-literal satisfies the
  * `EventMap` constraint structurally, whereas an interface lacks the index signature.
  */
 export type ProcessCaptureEventMap = {
@@ -153,18 +163,18 @@ export type ProcessCaptureEventMap = {
  * @remarks
  * - `on` — initial {@link ProcessCaptureEventMap} listeners, wired at construction (e.g.
  *   `{ capture: (c) => tee(c) }`).
- * - `error` — the listener-error handler forwarded to the entity's emitter (§13).
+ * - `error` — the listener-error handler forwarded to the entity's emitter.
  * - `levels` — which streams to intercept; defaults to {@link import('./constants.js').DEFAULT_CAPTURE_LEVELS}
  *   (both `stdout` and `stderr`). Narrow it (e.g. just `['stderr']`) to capture one stream.
- * - `mirror` — when `true`, each intercepted write is ALSO replayed to the snapshot-original
+ * - `mirror` — when `true`, each intercepted write is also replayed to the snapshot-original
  *   `write` (bound to its stream), so the output still reaches the terminal while being captured;
  *   defaults to `false` (capture-only, the program's output is swallowed into the buffer).
  * - `sink` — an optional {@link SinkInterface} each intercepted chunk is also written to
  *   (`sink.write(text, level)` with the {@link StreamLevel} mapped to a {@link import('@src/core').LogLevel} via
  *   {@link import('./constants.js').STREAM_LEVEL_MAP}), to tee captured output into the logging
  *   pipeline / a file. Absent by default.
- * - `limit` — the bounded-buffer cap (total AND each per-stream bucket); defaults to
- *   {@link import('./constants.js').DEFAULT_CAPTURE_LIMIT}. Retention is ALWAYS bounded.
+ * - `limit` — the bounded-buffer cap (total and each per-stream bucket); defaults to
+ *   {@link import('./constants.js').DEFAULT_CAPTURE_LIMIT}. Retention is always bounded.
  */
 export interface ProcessCaptureOptions {
 	readonly on?: EmitterHooks<ProcessCaptureEventMap>
@@ -176,28 +186,28 @@ export interface ProcessCaptureOptions {
 }
 
 /**
- * An observable interceptor of the RAW process output streams (AGENTS §13) — the server's
- * "own ALL output" capture. Where the core `Capture` patches `console.*` (the high-level read
+ * An observable interceptor of the raw process output streams — the server's
+ * "own all output" capture. Where the core `Capture` patches `console.*` (the high-level read
  * side), this patches `process.stdout.write` / `process.stderr.write` (the low-level stream), so it
- * catches DIRECT `process.stdout.write`, third-party library output, and child-process pipes —
+ * catches direct `process.stdout.write`, third-party library output, and child-process pipes —
  * everything that reaches the streams, not just `console.*`.
  *
  * @remarks
- * - **Snapshot-at-start (the no-capture-loop principle).** `start()` snapshots the CURRENT
+ * - **Snapshot-at-start (the no-capture-loop principle).** `start()` snapshots the current
  *   `process[stream].write` for each configured {@link StreamLevel}, then installs the wrappers. The
- *   mirror replays through that snapshot — so a server sink created from the same streams BEFORE the
+ *   mirror replays through that snapshot — so a server sink created from the same streams before the
  *   capture is never re-captured. Create your sinks before installing a capture.
- * - **Idempotent + PROCESS-GLOBAL + NON-REENTRANT.** `start()` while `active` is a no-op (never
- *   double-patches); `stop()` while inactive is a no-op. It patches the ONE global `process`, so at
- *   most ONE process capture may be active at a time — running two concurrently interleaves their
+ * - **Idempotent + process-global + non-reentrant.** `start()` while `active` is a no-op (never
+ *   double-patches); `stop()` while inactive is a no-op. It patches the one global `process`, so at
+ *   most one process capture may be active at a time — running two concurrently interleaves their
  *   buffers and clobbers each other's restore.
- * - **The wrapper NEVER throws and passes through backpressure.** A throw inside
+ * - **The wrapper never throws and passes through backpressure.** A throw inside
  *   `process.stdout.write` would crash the host, so the wrapper builds its record through a total
  *   decode, and returns the snapshot-original's boolean (or `true` when mirroring is off) so a
  *   caller's backpressure handling keeps working.
  * - **Bounded buffers.** The total buffer and each per-stream bucket are each capped at `limit`
  *   (oldest dropped first), never unbounded.
- * - **Lifecycle (§10).** `start` / `stop` toggle interception (emitting `start` / `stop`);
+ * - **Lifecycle.** `start` / `stop` toggle interception (emitting `start` / `stop`);
  *   `destroy()` stops (restoring the pristine `write`) then destroys the emitter.
  */
 export interface ProcessCaptureInterface {
@@ -210,7 +220,7 @@ export interface ProcessCaptureInterface {
 	stop(): void
 	/** A copy of the full captured buffer, oldest first (capped at `limit`). */
 	messages(): readonly CapturedChunk[]
-	/** A copy of the captured buffer for ONE {@link StreamLevel}, oldest first (capped at `limit`). */
+	/** A copy of the captured buffer for one {@link StreamLevel}, oldest first (capped at `limit`). */
 	messages(level: StreamLevel): readonly CapturedChunk[]
 	/** Drop every buffered chunk (total + per-stream); interception is unaffected. */
 	clear(): void

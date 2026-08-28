@@ -60,6 +60,8 @@ Structured logging — the immutable `LogRecord` + the `entry` event ARE the tra
 | `LogLevel`               | type      | The severity scale — `debug` < `info` < `warn` < `error`; a logger gates by THRESHOLD (styling is orthogonal).                       |
 | `LogRecord`              | interface | One immutable, serializable log entry — `level` / `message` / `time` (+ `name?` / `data?`); every sink / transport consumes it.      |
 | `SinkInterface`          | interface | The minimal output primitive — the one seam text leaves the system through (`write(text, level?)`); swap it to retarget.             |
+| `WriterSet`              | interface | The three write targets a level-routing sink chooses between — `log` / `warn` / `error`, each of the backend's own member type.      |
+| `selectWriter`           | function  | Select the `WriterSet` member a `LogLevel` routes to — the one level-to-target decision all three sink backends share.               |
 | `createConsoleSink`      | function  | Create the default console `SinkInterface` — routes by level, writes through the `console` methods SNAPSHOTTED at creation.          |
 | `Logger`                 | class     | The observable, leveled logger — builds a frozen `LogRecord`, gates it, retains a bounded tail, emits `entry`, writes a styled line. |
 | `createLogger`           | function  | Create an observable, leveled `LoggerInterface` — the entry point into structured logging.                                           |
@@ -114,18 +116,20 @@ Narrative reporting — pure width-aware LAYOUT renderers + a lean `Reporter` fr
 
 Console interception — take control of `console.*` on the READ side; a buffered, mirroring, forwarding interceptor with a lifecycle.
 
-| API                | Kind      | Summary                                                                                                                                |
-| ------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `CaptureLevel`     | type      | One intercepted `console` method — `log` / `info` / `warn` / `error` / `debug` (names the ORIGINATING method, not a severity).         |
-| `ConsoleMethod`    | type      | The patched `console.*` method shape — a variadic `(...args) => void`; the boundary type the capture snapshots + swaps (§14).          |
-| `CapturedMessage`  | interface | One captured console call — an immutable, serializable `{ level, text, time }`; every consumer reads this exact shape.                 |
-| `CaptureEventMap`  | type      | A capture's observable events (§13) — `capture(message)` per intercepted call + the `start` / `stop` lifecycle signals.                |
-| `CaptureOptions`   | interface | `createCapture` options — `on?` / `error?` / `levels?` / `mirror?` / `sink?` / `limit?`.                                               |
-| `CaptureInterface` | interface | The console interceptor — `emitter` / `active` data + `start` / `stop` / `messages` (whole buffer or one level) / `clear` / `destroy`. |
-| `CaptureResult`    | interface | The structured outcome of `withCapture` — the wrapped function's `value` plus the `messages` it logged.                                |
-| `Capture`          | class     | The observable console interceptor — buffers (total + by level), emits `capture`, optionally mirrors + forwards to a sink.             |
-| `createCapture`    | function  | Create an observable `CaptureInterface` — console interception on the read side (inactive until `start()`).                            |
-| `withCapture`      | function  | Run a function with `console.*` captured for its duration (scoped, self-restoring) — returns `{ value, messages }` (sync or async).    |
+| API                  | Kind      | Summary                                                                                                                                |
+| -------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `CaptureLevel`       | type      | One intercepted `console` method — `log` / `info` / `warn` / `error` / `debug` (names the ORIGINATING method, not a severity).         |
+| `ConsoleMethod`      | type      | The patched `console.*` method shape — a variadic `(...args) => void`; the boundary type the capture snapshots + swaps (§14).          |
+| `CapturedMessage`    | interface | One captured console call — an immutable, serializable `{ level, text, time }`; every consumer reads this exact shape.                 |
+| `CaptureEventMap`    | type      | A capture's observable events (§13) — `capture(message)` per intercepted call + the `start` / `stop` lifecycle signals.                |
+| `CaptureOptions`     | interface | `createCapture` options — `on?` / `error?` / `levels?` / `mirror?` / `sink?` / `limit?`.                                               |
+| `CaptureInterface`   | interface | The console interceptor — `emitter` / `active` data + `start` / `stop` / `messages` (whole buffer or one level) / `clear` / `destroy`. |
+| `CaptureResult`      | interface | The structured outcome of `withCapture` — the wrapped function's `value` plus the `messages` it logged.                                |
+| `RetentionInterface` | interface | The bounded, level-keyed retention buffer a capture keeps its records in — one capped total buffer plus one capped bucket per level.   |
+| `Retention`          | class     | The bounded, level-keyed retention engine both captures compose — generic over the record type each carries, so neither can drift.     |
+| `Capture`            | class     | The observable console interceptor — buffers (total + by level), emits `capture`, optionally mirrors + forwards to a sink.             |
+| `createCapture`      | function  | Create an observable `CaptureInterface` — console interception on the read side (inactive until `start()`).                            |
+| `withCapture`        | function  | Run a function with `console.*` captured for its duration (scoped, self-restoring) — returns `{ value, messages }` (sync or async).    |
 
 ### Errors
 
@@ -149,6 +153,7 @@ Live activity animations — pure frame PRODUCERS over the SAME styler + sink su
 | `SpinnerInterface`   | interface | The activity spinner — `emitter` / `active` / `message` data + `start` / `tick` / `update` / `success` / `failure` / `stop` / `destroy`. |
 | `Spinner`            | class     | The self-driving, observable spinner — a timer-advanced glyph cycle writing `\r` + a frame line to its sink; leak-free.                  |
 | `createSpinner`      | function  | Create a self-driving, observable `SpinnerInterface` — a live activity spinner (inactive until `start()`).                               |
+| `ProgressReport`     | interface | One advance of a progress bar — the clamped `{ current, total }` the `update` event carries.                                             |
 | `ProgressEventMap`   | type      | A progress bar's observable events (§13) — `update({current,total})` per report + a `complete` signal on a successful finish.            |
 | `ProgressOptions`    | interface | `createProgress` options — `on?` / `error?` / `total` / `message?` / `width?` / `fill?` / `empty?` / `sink?` / `styler?` / `theme?`.     |
 | `ProgressInterface`  | interface | The progress bar — `emitter` / `active` / `completed` / `current` / `total` data + `update` / `complete` / `failure` / `destroy`.        |
@@ -282,7 +287,7 @@ The default stream set, buffer cap, no-TTY column fallback, and the stream → l
 
 The public methods of each behavioral interface — one table per type, keyed by its backticked name, every call-signature member listed. Each type's `readonly` data members (e.g. `emitter` / `active` / `message` / `level` / `name` / `current` / `total` / `completed` / `columns`) stay in the Surface rows above and are not repeated here. Each implementing class implements its interface exactly, so this doubles as the per-instance method surface (AGENTS §22).
 
-**Data-only / callable surfaces (no `## Methods` subsection).** `ServerSinkInterface` adds `styled` and `columns` data members to `SinkInterface` (its `write` is the inherited contract below). Every `*Options` / `*EventMap` / `LogRecord` / `Style` / `Theme` / `ThemeStatus` / `BorderChars` / `ColumnSpec` / `TreeNode` / `StepPosition` / `CapturedMessage` / `CapturedChunk` / `CaptureResult` / `BrowserPalette` / `ConsoleOutput` / `StyleAccumulator` / `StreamTargetInterface` row is a data / options shape with no behavioral methods.
+**Data-only / callable surfaces (no `## Methods` subsection).** `ServerSinkInterface` adds `styled` and `columns` data members to `SinkInterface` (its `write` is the inherited contract below). Every `*Options` / `*EventMap` / `LogRecord` / `Style` / `Theme` / `ThemeStatus` / `BorderChars` / `ColumnSpec` / `TreeNode` / `StepPosition` / `ProgressReport` / `WriterSet` / `CapturedMessage` / `CapturedChunk` / `CaptureResult` / `BrowserPalette` / `ConsoleOutput` / `StyleAccumulator` / `StreamTargetInterface` row is a data / options shape with no behavioral methods.
 
 #### `RendererInterface`
 
@@ -343,6 +348,14 @@ The public methods of each behavioral interface — one table per type, keyed by
 | `line`    | `void`  | Write one raw line (colored if styling is embedded) — no prefix, no icon.          |
 | `blank`   | `void`  | Write `count` blank lines (default `1`).                                           |
 
+#### `RetentionInterface`
+
+| Method    | Returns        | Behavior                                                                                                                   |
+| --------- | -------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `add`     | `void`         | Retain one record in the whole buffer and in its level's bucket, evicting the oldest of each past `limit`.                 |
+| `records` | `readonly T[]` | No arg → a copy of the whole buffer, oldest first; with a level → a copy of that bucket, empty for a level with no bucket. |
+| `clear`   | `void`         | Drop every retained record from the whole buffer and every bucket; further records are still retained.                     |
+
 #### `CaptureInterface`
 
 | Method     | Returns                      | Behavior                                                                                                                            |
@@ -395,7 +408,7 @@ These invariants hold across `src/core` ↔ `src/browser` ↔ `src/server` ↔ `
 5. **A theme is the application's vocabulary; an option is this instance's presentation.** A `Theme` binds the semantic roles the WHOLE application shares to `Style` values — a label style per `LogLevel` under `levels`, an icon + style per `StatusLevel` under `statuses`, one `accent` (spinner glyph, bar fill, step prefix) and one `chrome` (separators, box / table / tree connectors, a log line's timestamp / name / data surround). Hand ONE theme to the logger, the reporter, the spinner, and the progress bar and every surface speaks it; `createTheme` merges per role — and per entry within `levels` / `statuses` — over `DEFAULT_THEME`, snapshots every style leaf, and deep-freezes each snapshot, so an override restyles one role and later caller mutation cannot change it. A per-entity option carries what only THAT instance draws with: a spinner's `frames`, a progress bar's `fill` / `empty`, a box's / table's / tree's `border`. The test is which axis the value keys on: a domain axis (level, status, accent, chrome) is a theme role; a glyph one instance happens to use is an option, and it never enters the theme.
 6. **The `Sink` seam + the no-capture-loop.** `SinkInterface` is the ONE place text leaves the system — redirect output by supplying a different sink, with no change to the logger / reporter / animation. The default `createConsoleSink` (and `createBrowserSink` / `createServerSink`) SNAPSHOTS the underlying `console` / `process` write at creation and writes through that snapshot, so a `Capture` / `ProcessCapture` installed AFTERWARD can never feed the system's own output back into itself — create sinks (and loggers) BEFORE installing a capture.
 7. **`format` owns the human line; the record + `entry` / `capture` event owns the machine record.** A `Logger` ALWAYS emits an accepted record on `entry`, and a `Capture` / `ProcessCapture` emits every intercepted call on `capture`; a file / JSON / remote transport rides that emitter rather than a second code path, and it rides `entry` rather than `format` — the record is already structured there, so no transport parses a line back apart. `format` (a `LogFormatFunction`, defaulting to `formatRecord`) decides only what the human line looks like, and the order is fixed: gate, freeze the record, retain it, emit `entry`, then — unless `silent` — `format` and write. `silent` suppresses the WRITE and never invokes `format`, so a silent logger still feeds every transport and pays nothing for a line nobody reads. A formatter throw is a programmer error: it propagates to the `logger.info` caller and prevents that logger's write after its record and event have left. A manager fans out sequentially, so the throw also stops every remaining logger for that call before retention or `entry`. Listener isolation is the emitter's (§13): a listener throw routes to the emitter's OWN `error` handler, never onto the domain `EventMap`, so a buggy transport / capture listener can never perturb logging — nor (for the captures) escape into the host's `console.*` / `process.*.write` call.
-8. **Bounded retention.** Every buffer is capped, never unbounded: a logger's `entries()` tail at `DEFAULT_LOG_LIMIT`, a `Capture` / `ProcessCapture`'s total buffer AND each per-level / per-stream bucket at `DEFAULT_CAPTURE_LIMIT` — oldest dropped first. A long-running logger or capture can never grow without bound.
+8. **Bounded retention.** Every buffer is capped, never unbounded: a logger's `entries()` tail at `DEFAULT_LOG_LIMIT`, a `Capture` / `ProcessCapture`'s total buffer AND each per-level / per-stream bucket at `DEFAULT_CAPTURE_LIMIT` — oldest dropped first. A long-running logger or capture can never grow without bound. Both captures buffer through the ONE `Retention` engine (`RetentionInterface`, generic over the record type each carries), so their retention semantics cannot drift apart.
 9. **The environment split — one engine, environment sinks.** The cross-environment core owns the contract (`Style` / `SinkInterface` / `LogLevel`) and all the universal logic; each environment supplies only the platform output backend at the `Sink` seam. ANSI lives in core (`ANSIRenderer` + `createConsoleSink`); the browser translates ANSI to `console.log('%c…', css)` AT THE SINK (`createBrowserSink` over the pure, total, `%`-safe `ansiToConsole`); the server writes to the real `process` streams with styling selected per target at construction by the precedence in Contract 10. The browser / server modules import the core contracts (never redeclare them) and add only their backend.
 10. **Color detection is the server sink's alone.** `createServerSink` decides each target's styling ONCE, at construction: `options.styled` when supplied; otherwise `inferStyled(target, options.environment ?? process.env)` checks a PRESENT `FORCE_COLOR` first (only the exact value `'0'` disables), then a present, non-empty `NO_COLOR`, then the target's own `isTTY === true`. The sink stores that fact per target (`out` and `err` can differ), keys its ANSI stripping off it, and exposes the `out` fact as `styled`. Nothing else reads the environment: core's `createStyler` takes `enabled` from its caller and defaults to `true`, and the browser sink always styles. The server pairing is `createStyler({ enabled: sink.styled })` — one styling fact drives both ANSI generation and sink stripping.
 11. **Animations: every sink gets the frame, the sink decides the redraw + timer leak-freedom.** A `Spinner` / `Progress` builds a frame line and writes a leading `\r` + that line to its sink, then emits it — every sink receives the SAME frame and the line-OVERWRITE is the SINK's decision. A `ServerSink` writes the frame straight to the stream and appends no newline (a plain target loses the frame's ANSI, never its `\r`), so a terminal returns to column 0 and redraws in place. Core's `createConsoleSink` also writes it verbatim, and because `console.log` terminates each call the frame lands as a fresh line rather than an overwrite — the plain-environment degrade, with no `\r`-specific branch in core. `createBrowserSink` strips the leading `\r` (a DevTools console cannot overwrite a line, and the stray control character would be rendered) and writes a fresh line — the locked browser degrade. A `Spinner`'s internal timer is ALWAYS cleared on `success` / `failure` / `stop` / `destroy`, so it never leaks; a `Progress` has no self-timer (the caller drives `update`). Both are universal — `setInterval` + the one styler + the one sink, no `node:*`, no `process.stdout`.
@@ -540,6 +553,24 @@ capture.stop() // restore the snapshot-original console.*
 capture.destroy() // stop() then destroy the emitter
 ```
 
+### The bounded retention engine directly
+
+```ts
+import { Retention } from '@orkestrel/console'
+
+// Both captures buffer through this one engine, so their retention semantics cannot drift apart.
+const retention = new Retention<{ level: 'warn' | 'error'; text: string }>(['warn'], 2)
+retention.add({ level: 'warn', text: 'first' })
+retention.add({ level: 'error', text: 'second' }) // no `error` bucket — the whole buffer still keeps it
+retention.records().length // 2 — the whole buffer, oldest first
+retention.records('warn') // [{ level: 'warn', text: 'first' }] — just that bucket
+retention.add({ level: 'warn', text: 'third' })
+retention.records().length // 2 — 'first' was evicted; the whole buffer is capped at 2
+retention.records('warn').length // 2 — each bucket is capped independently, also at 2
+retention.clear()
+retention.records() // []
+```
+
 ### A spinner and a progress bar
 
 ```ts
@@ -670,11 +701,13 @@ isBufferEncoding('nope') // false
 - [`tests/src/core/Capture.test.ts`](../tests/src/core/Capture.test.ts) — the console interceptor: snapshot-at-`start` + restore, capture (total + by level) + bounded buffers, the `capture` event + `start` / `stop` lifecycle, `mirror` / `sink` forwarding, idempotency, and the no-capture-loop.
 - [`tests/src/core/Spinner.test.ts`](../tests/src/core/Spinner.test.ts) — the spinner: deterministic `tick()` frame advance + the `\r` write, idempotent `start`, the leak-free timer (armed / always cleared, fake timers), `update`, `success` / `failure` outcome lines (the theme's status icon + style), the accent glyph, and the `frame` / `start` / `stop` events.
 - [`tests/src/core/Progress.test.ts`](../tests/src/core/Progress.test.ts) — the progress bar: `update` clamp + render + `\r` write, the `update` event, terminal `complete` (full bar + `complete` event) / `failure` (error stream, no complete), the custom `fill` / `empty` glyphs with the accent on the filled run only, and the post-terminal ignore.
-- [`tests/src/core/helpers.test.ts`](../tests/src/core/helpers.test.ts) — the pure helpers: `strip` / `width` (ANSI-aware, code points), `freezeStyle` snapshot and deep freeze, `meetsLevel` / `formatTime` / `formatRecord`, `align` / `paint` / `repeatTo` / `cellAt`, `renderSeparator` / `renderBox` / `renderTable` / `renderTree` (every connector derived from the selected border set, an omitted `border` byte-identical to an explicit `single`) / `renderBar`, `formatDuration`, and the total `stringifyValue` / `formatArgs` (Error / cycle / BigInt).
+- [`tests/src/core/Retention.test.ts`](../tests/src/core/Retention.test.ts) — the shared retention engine both captures compose: oldest-first order in the whole buffer and per level, the independent cap on each, a record whose level has no bucket, the copy returned by every `records` call, `clear` leaving retention working, and the zero / one limits.
+- [`tests/src/core/helpers.test.ts`](../tests/src/core/helpers.test.ts) — the pure helpers: `strip` / `width` (ANSI-aware, code points), `freezeStyle` snapshot and deep freeze, `meetsLevel` / `selectWriter` (every `LogLevel` plus an omitted one, and a backend folding two levels onto one target) / `formatTime` / `formatRecord`, `align` / `paint` / `repeatTo` / `cellAt`, `renderSeparator` / `renderBox` / `renderTable` / `renderTree` (every connector derived from the selected border set, an omitted `border` byte-identical to an explicit `single`) / `renderBar`, `formatDuration`, and the total `stringifyValue` / `formatArgs` (Error / cycle / BigInt).
 - [`tests/src/core/factories.test.ts`](../tests/src/core/factories.test.ts) — each `create*` returns a working instance of its interface, `createTheme`'s per-role / per-entry merge over the frozen `DEFAULT_THEME` plus style-leaf snapshot isolation through live entities, `createConsoleSink`'s level routing + snapshot + the verbatim `\r` redraw frame (a real `Spinner` driven through a recorder, against a plain-write control), and `withCapture` (sync + async, restore-on-throw).
 - [`tests/src/browser/helpers.test.ts`](../tests/src/browser/helpers.test.ts) — `ansiToConsole` in real Chromium: SGR runs → `%c` segments + parallel CSS, the reset clear, last-color-wins, the plain-text short-circuit, `%`-safety, and a partial `BrowserPalette` overriding named colors / attributes while every omission stays byte-identical; plus `escapePercent` / `parseParameters`.
 - [`tests/src/browser/factories.test.ts`](../tests/src/browser/factories.test.ts) — `createBrowserSink` in real Chromium: the ANSI → `%c` `console[method](format, ...styles)` call, level routing, a threaded `palette`, the leading-`\r` animation degrade (only the leading one), and the snapshot (no capture loop).
-- [`tests/src/server/helpers.test.ts`](../tests/src/server/helpers.test.ts) — the server helpers: `inferStyled` over the full `FORCE_COLOR` × `NO_COLOR` × `isTTY` matrix, `isStreamTarget` (the boundary guard), `columnsOf` (live TTY width / fallback), and the total `decodeChunk` (string / Buffer / Uint8Array / bad encoding) + `isBufferEncoding`.
+- [`tests/src/server/helpers.test.ts`](../tests/src/server/helpers.test.ts) — the server helpers: `inferStyled` over the full `FORCE_COLOR` × `NO_COLOR` × `isTTY` matrix, `columnsOf` (live TTY width / fallback), and the total `decodeChunk` (string / Buffer / Uint8Array / bad encoding).
+- [`tests/src/server/validators.test.ts`](../tests/src/server/validators.test.ts) — the server boundary guards: `isStreamTarget` (the real process streams, any callable `write`, and every off-shape value rejected without throwing) and `isBufferEncoding` (the full Node encoding family, case-insensitive and hyphenated, against non-encodings and non-strings).
 - [`tests/src/server/factories.test.ts`](../tests/src/server/factories.test.ts) — `createServerSink` over a fake `StreamTargetInterface`: level routing to `out` / `err`, injected-environment inference with a TTY `out` beside piped `err`, a `styled` override, construction-time facts, the `\r` frame without an appended newline, and live / fixed `columns`.
 - [`tests/src/server/ProcessCapture.test.ts`](../tests/src/server/ProcessCapture.test.ts) — the process capture over a `process.*.write` probe: snapshot-at-`start` + pristine restore, capture (total + per-stream) + bounded buffers, the `capture` / `start` / `stop` events, `mirror` (backpressure passed through) / `sink` forwarding, idempotency, and the never-throw decode.
 
