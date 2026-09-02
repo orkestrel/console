@@ -25,7 +25,7 @@ npm install @orkestrel/console
 The same code retargets to any environment by swapping the `sink`:
 
 ```ts
-import { Logger, Reporter, Spinner } from '@src/core'
+import { Logger, Reporter, Spinner } from '@orkestrel/console'
 
 const logger = new Logger({ name: 'http', level: 'info' }) // ANSI to the console by default
 logger.info('request', { method: 'GET', path: '/' }) // a styled, leveled line + an `entry` event
@@ -45,7 +45,7 @@ Style is data — a `Style` is a frozen record rendered through a swappable
 `RendererInterface` (`ANSIRenderer` by default):
 
 ```ts
-import { createStyler } from '@src/core'
+import { createStyler } from '@orkestrel/console'
 
 const styler = createStyler()
 console.log(styler.red.bold('hi')) // renders through the injected renderer
@@ -54,7 +54,7 @@ console.log(styler.red.bold('hi')) // renders through the injected renderer
 Take control of `console.*` on the read side with `Capture`:
 
 ```ts
-import { Capture } from '@src/core'
+import { Capture } from '@orkestrel/console'
 
 const capture = new Capture({ mirror: true })
 capture.start()
@@ -67,7 +67,7 @@ On the server, `ProcessCapture` takes over the whole `process` output surface
 (direct `process.stdout`/`stderr` writes, not just `console.*`):
 
 ```ts
-import { createProcessCapture } from '@src/server'
+import { createProcessCapture } from '@orkestrel/console/server'
 
 const capture = createProcessCapture({ levels: ['stderr'], mirror: true })
 capture.start()

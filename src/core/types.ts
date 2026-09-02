@@ -383,7 +383,7 @@ export type LoggerEventMap = {
 export type LogFormatFunction = (record: LogRecord, styler: StylerInterface, theme: Theme) => string
 
 /**
- * Options for the {@link LoggerInterface} constructor.
+ * Options for the {@link import('./Logger.js').Logger} constructor.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
@@ -457,7 +457,7 @@ export interface LoggerInterface {
 }
 
 /**
- * Options for the {@link LoggerManagerInterface} constructor.
+ * Options for the {@link import('./LoggerManager.js').LoggerManager} constructor.
  *
  * @remarks
  * The manager is an event-free registry — it carries no emitter of its own (each
@@ -717,7 +717,7 @@ export interface StepPosition {
 }
 
 /**
- * Options for the {@link ReporterInterface} constructor.
+ * Options for the {@link import('./Reporter.js').Reporter} constructor.
  *
  * @remarks
  * - `sink` — where every formatted line is written; defaults to
@@ -857,7 +857,7 @@ export type CaptureEventMap = {
 }
 
 /**
- * Options for the {@link CaptureInterface} constructor.
+ * Options for the {@link import('./Capture.js').Capture} constructor.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
@@ -1007,7 +1007,7 @@ export type SpinnerEventMap = {
 }
 
 /**
- * Options for the {@link SpinnerInterface} constructor.
+ * Options for the {@link import('./Spinner.js').Spinner} constructor.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
@@ -1146,7 +1146,7 @@ export type ProgressEventMap = {
 }
 
 /**
- * Options for the {@link ProgressInterface} constructor.
+ * Options for the {@link import('./Progress.js').Progress} constructor.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the

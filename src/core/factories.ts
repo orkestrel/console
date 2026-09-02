@@ -136,8 +136,9 @@ export function createConsoleSink(): SinkInterface {
 
 // Run `fn` under a fresh, scoped console capture — the ergonomic form of the `Capture` class. A
 // sync `fn` returning T yields { value, messages }; an async `fn` returning Promise<T> yields a
-// Promise of the same. The capture starts before `fn`, stops in a finally (so console is always
-// restored, even on throw), and is discarded — only the buffered messages are returned.
+// Promise of the same. The capture starts before `fn`, and `destroy()` runs on every path — sync
+// success, sync throw, and each async handler — stopping the capture so console is always
+// restored, and the capture is discarded — only the buffered messages are returned.
 export function createCaptureResult<T>(
 	fn: () => Promise<T>,
 	options?: CaptureOptions,
@@ -156,9 +157,10 @@ export function createCaptureResult<T>(fn: () => T, options?: CaptureOptions): C
  *   `fn`, a `Promise<CaptureResult<T>>` (awaited, then console restored)
  *
  * @remarks
- * - **Always restores.** `start()` runs before `fn`; `stop()` runs in a `finally`, so `console` is
- *   restored even if `fn` throws / rejects (the throw / rejection still propagates). The capture
- *   is local — created, used, and destroyed within the call.
+ * - **Always restores.** `start()` runs before `fn`; `destroy()` (which calls `stop()`) runs on
+ *   every path — sync success, sync throw, and each async handler — so `console` is restored even
+ *   if `fn` throws / rejects (the throw / rejection still propagates). The capture is local —
+ *   created, used, and destroyed within the call.
  * - **Sync vs async.** A `fn` returning a `Promise` is detected and awaited before `stop()`, so
  *   captures during the async work are included; a plain `fn` stops synchronously. The return type
  *   follows `fn`'s (overloaded).

@@ -11,7 +11,7 @@ import { inferColumns, inferStyled } from './helpers.js'
 import { isStreamTarget } from './validators.js'
 
 /**
- * Create the server TTY {@link ServerSinkInterface} — the server output backend, the
+ * Creates the server TTY {@link ServerSinkInterface} — the server output backend, the
  * env-symmetric sibling of `createBrowserSink` / core's `createConsoleSink`. `write(text, level?)`
  * routes by level to the process streams and uses construction-time styled facts: it sends ANSI
  * straight to a styled target (with a leading `\r` overwriting a terminal line natively) but

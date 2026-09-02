@@ -12,7 +12,7 @@ import { ansiToConsole } from './helpers.js'
 // `SinkInterface` / `LogLevel` are imported from `@src/core`, never redeclared.
 
 /**
- * Create the browser `%c` {@link SinkInterface} — the browser output backend. `write(text, level?)`
+ * Creates the browser `%c` {@link SinkInterface} — the browser output backend. `write(text, level?)`
  * translates the ANSI-styled `text` into a browser `console` call (`console[method](format, ...styles)`)
  * via {@link ansiToConsole}, so a DevTools console renders the same styling a terminal does. Drop it in
  * as a logger / reporter / spinner sink (`new Logger({ sink: createBrowserSink() })`) to retarget the
