@@ -3,7 +3,8 @@ import { ATTRIBUTES, COLORS } from './constants.js'
 import { ConsoleError } from './errors.js'
 
 /**
- * The fluent, composable styler — the consumer-facing API over the style engine. It
+ * Builds the fluent, composable styling surface — the consumer-facing API over the style
+ * engine. It
  * builds a {@link Style} (style as data) and renders it through an injected
  * {@link RendererInterface} (the ANSI default, or a browser `%c` renderer). Each
  * color / attribute accessor is immutable copy-on-write: it returns a new styler's
@@ -38,18 +39,18 @@ export class Styler {
 		this.#style = style
 	}
 
-	/** The accumulated style data — the empty style on a base styler. */
+	/** Holds the accumulated style data — the empty style on a base styler. */
 	get style(): Style {
 		return this.#style
 	}
 
-	/** Whether styling is applied; when `false`, the surface returns text unchanged. */
+	/** Reports whether styling is applied; when `false`, the surface returns text unchanged. */
 	get enabled(): boolean {
 		return this.#enabled
 	}
 
 	/**
-	 * The fluent {@link StylerInterface} value — a render function (`text => string`) with
+	 * Builds the fluent {@link StylerInterface} value — a render function (`text => string`) with
 	 * `style`, `enabled`, and every {@link Color} / {@link Attribute} as a lazy accessor
 	 * (each computes the next styler's surface only when read). This is what consumers
 	 * hold and call.
@@ -87,7 +88,7 @@ export class Styler {
 	}
 
 	/**
-	 * Render `text` in `style` merged over the accumulated style — the by-value door beside
+	 * Renders `text` in `style` merged over the accumulated style — the by-value door beside
 	 * the accessor chain, and how a {@link import('./types.js').Theme} role is applied.
 	 *
 	 * @param style - The style to overlay; its colors win over the accumulated ones and its

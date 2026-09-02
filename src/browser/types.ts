@@ -7,7 +7,7 @@
 import type { Attribute, Color } from '@src/core'
 
 /**
- * Partial browser CSS overrides for the core color and attribute axes. Omitted entries retain the
+ * Holds partial browser CSS overrides for the core color and attribute axes. Omitted entries retain the
  * built-in browser mappings, so one override changes only its named value.
  *
  * @remarks
@@ -21,7 +21,7 @@ export interface BrowserPalette {
 }
 
 /**
- * Options for {@link import('./factories.js').createBrowserSink}.
+ * Configures {@link import('./factories.js').createBrowserSink}.
  *
  * @remarks
  * `palette` partially overrides the browser's default color and attribute CSS mappings.
@@ -31,7 +31,7 @@ export interface BrowserSinkOptions {
 }
 
 /**
- * The `console.log`-ready output {@link import('./helpers.js').ansiToConsole} produces from
+ * Represents the `console.log`-ready output {@link import('./helpers.js').ansiToConsole} produces from
  * an ANSI-styled string — a format string of `%c`-prefixed segments and the parallel array
  * of CSS declarations, ready to spread into a browser `console` call as
  * `console.log(format, ...styles)`.
@@ -52,7 +52,7 @@ export interface ConsoleOutput {
 }
 
 /**
- * The immutable accumulator {@link import('./helpers.js').ansiToConsole} carries across a run while
+ * Represents the immutable accumulator {@link import('./helpers.js').ansiToConsole} carries across a run while
  * translating SGR codes to CSS — a single `foreground` and `background` declaration (each channel
  * replaceable by a later color of the same channel) plus an ordered, de-duplicated list of attribute
  * declarations. An SGR reset empties all three; {@link import('./helpers.js').ansiToConsole} folds

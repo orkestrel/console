@@ -8,7 +8,7 @@ import { isArray } from '@orkestrel/contract'
 import { Logger } from './Logger.js'
 
 /**
- * An event-free registry of named {@link Logger}s plus a convenience fan-out — the
+ * Implements an event-free registry of named {@link Logger}s plus a convenience fan-out — the
  * manager over the logging layer (a registry, never observable itself; each {@link Logger}
  * owns its own `emitter`).
  *

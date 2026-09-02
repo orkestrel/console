@@ -17,7 +17,7 @@ import { decodeChunk } from './helpers.js'
 import { isBufferEncoding } from './validators.js'
 
 /**
- * An observable interceptor of the raw process output streams — it takes control of
+ * Implements an observable interceptor of the raw process output streams — it takes control of
  * `process.stdout.write` / `process.stderr.write` on the write side. While `active`, every write to
  * a configured {@link StreamLevel} is captured as a frozen {@link CapturedChunk}, buffered (total +
  * per-stream, bounded), emitted on `capture`, and — per options — mirrored to the real stream and/or

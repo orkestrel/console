@@ -19,7 +19,7 @@ import { ATTRIBUTE_CSS, COLOR_HEX, DIRECTIVE, SGR_PATTERN } from './constants.js
 // exported alongside it.
 
 /**
- * Translate an ANSI-styled string into a browser `console.log`-ready {@link ConsoleOutput} — a
+ * Translates an ANSI-styled string into a browser `console.log`-ready {@link ConsoleOutput} — a
  * `%c`-segmented format string and the parallel array of CSS declarations, so a DevTools console
  * renders the same styling a terminal would (the browser sink calls `console[method](format, ...styles)`).
  *
@@ -124,7 +124,7 @@ export function ansiToConsole(text: string, palette?: BrowserPalette): ConsoleOu
 }
 
 /**
- * Double every literal `%` in `text` to `%%` — the `%`-escape that keeps a browser console from
+ * Doubles every literal `%` in `text` to `%%` — the `%`-escape that keeps a browser console from
  * reading a stray `%` (e.g. in `50%` or `%s`) as a format directive. The single escape the
  * {@link ansiToConsole} translation applies to every text segment before assembling the format
  * string (so only the `%c`s it inserts are real directives).
@@ -142,7 +142,7 @@ export function escapePercent(text: string): string {
 }
 
 /**
- * Parse an SGR parameter list (the `;`-separated numeric string captured by {@link SGR_PATTERN})
+ * Parses an SGR parameter list (the `;`-separated numeric string captured by {@link SGR_PATTERN})
  * into its numeric codes — `'1;31'` → `[1, 31]`. An empty list (a bare `ESC[m`) yields `[0]`, since
  * the SGR spec treats a parameterless sequence as a reset; an empty field within a list (`'1;;4'`)
  * likewise counts as a `0` reset, matching the spec.

@@ -27,7 +27,7 @@ export function inferColumns(target: StreamTargetInterface): number {
 }
 
 /**
- * Infer whether one stream target should receive styled output. The result is a construction-time
+ * Infers whether one stream target should receive styled output. The result is a construction-time
  * target fact for {@link import('./factories.js').createServerSink}; this helper is pure and never
  * reads process globals itself.
  *
@@ -38,7 +38,7 @@ export function inferColumns(target: StreamTargetInterface): number {
  *
  * @param target - The stream target whose terminal capability is the fallback
  * @param environment - The environment record supplying `FORCE_COLOR` and `NO_COLOR`
- * @returns Whether output for the target should retain styling and control sequences
+ * @returns True if output for the target retains styling and control sequences; false otherwise
  *
  * @example
  * ```ts
@@ -57,7 +57,7 @@ export function inferStyled(
 }
 
 /**
- * Decode one `process.stdout.write` / `process.stderr.write` chunk to a string — total, never
+ * Decodes one `process.stdout.write` / `process.stderr.write` chunk to a string — total, never
  * throws. The process write signature accepts `string | Uint8Array` plus an optional
  * encoding; the capture wrapper reuses this so intercepting a raw stream write can never crash the
  * host (a throw inside `process.stdout.write` would take the program down).

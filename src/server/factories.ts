@@ -87,7 +87,7 @@ export function createServerSink(options?: ServerSinkOptions): ServerSinkInterfa
 }
 
 /**
- * Create an observable {@link ProcessCaptureInterface} — the server "own all output" capture. It
+ * Creates an observable {@link ProcessCaptureInterface} — the server "own all output" capture. It
  * intercepts the raw `process.stdout.write` / `process.stderr.write` (not just `console.*`, which is
  * the core `Capture`), so it catches direct `process` writes, library output, and child-process
  * pipes. Each intercepted write becomes a frozen {@link import('./types.js').CapturedChunk},

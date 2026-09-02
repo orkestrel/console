@@ -12,7 +12,7 @@ import { DEFAULT_SPINNER_INTERVAL, DEFAULT_THEME, SPINNER_FRAMES } from './const
 import { createConsoleSink, createStyler } from './factories.js'
 
 /**
- * A self-driving, observable activity spinner — a glyph cycle that advances on a
+ * Implements a self-driving, observable activity spinner — a glyph cycle that advances on a
  * periodic timer, writing each `\r` + frame line to its {@link SinkInterface} and emitting it on
  * `frame`. The leading `\r` is what an overwrite-capable sink (the TTY sink) redraws on; a plain
  * sink degrades to a fresh, non-overwriting line — the line-overwrite is the sink's job, never

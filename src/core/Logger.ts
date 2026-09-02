@@ -16,7 +16,7 @@ import { createConsoleSink, createStyler } from './factories.js'
 import { formatRecord, meetsLevel } from './helpers.js'
 
 /**
- * An observable, leveled logger — the entry point into the structured-logging
+ * Implements an observable, leveled logger — the entry point into the structured-logging
  * pipeline. Each `debug` / `info` / `warn` / `error` call builds a frozen {@link LogRecord},
  * gates it by severity, retains a bounded tail of accepted records, always emits it on
  * `entry` (the transport seam), and — unless `silent` — formats it into a styled line and

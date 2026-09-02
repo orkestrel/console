@@ -14,7 +14,7 @@ import { createConsoleSink, createStyler } from './factories.js'
 import { renderBar } from './helpers.js'
 
 /**
- * An update-driven, observable progress bar — {@link update} recomputes the bar via
+ * Implements an update-driven, observable progress bar — {@link update} recomputes the bar via
  * {@link renderBar}, writes `\r` + bar to its {@link SinkInterface}, and emits the `{ current, total }`
  * on `update`. The leading `\r` is what an overwrite-capable sink (the TTY sink) redraws on; a
  * plain sink degrades to a fresh, non-overwriting line — the line-overwrite is the sink's job.

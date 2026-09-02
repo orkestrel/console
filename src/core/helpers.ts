@@ -38,7 +38,7 @@ import {
 // shared — the level gate's comparison and the styled-line layout, kept off the impl class.
 
 /**
- * Remove every ANSI escape sequence from `text`, returning the plain visible string.
+ * Removes every ANSI escape sequence from `text`, returning the plain visible string.
  *
  * @remarks
  * Strips SGR color/style codes and other CSI controls (cursor, erase) plus OSC
@@ -59,7 +59,7 @@ export function strip(text: string): string {
 }
 
 /**
- * Remove every non-printing C0 control character from `text` except `\t` / `\n` / `\r`
+ * Removes every non-printing C0 control character from `text` except `\t` / `\n` / `\r`
  * (meaningful whitespace), plus DEL — returning the sanitized string.
  *
  * @remarks
@@ -82,7 +82,7 @@ export function stripControls(text: string): string {
 }
 
 /**
- * The visible width of `text` — its length after ANSI escapes are stripped, counted in
+ * Measures how many visible columns `text` occupies — its length after ANSI escapes are stripped, counted in
  * Unicode code points (so an astral character such as an emoji counts as one, not the
  * two UTF-16 units `String.length` would report).
  *
@@ -105,7 +105,7 @@ export function width(text: string): number {
 }
 
 /**
- * Snapshot and deeply freeze one {@link Style} value.
+ * Snapshots and deeply freezes one {@link Style} value.
  *
  * @param style - The caller-owned style to snapshot
  * @returns A frozen style record with an independently frozen attributes list
@@ -124,7 +124,7 @@ export function freezeStyle(style: Style): Style {
 }
 
 /**
- * Whether a record at `level` passes a logger gated at `threshold` — i.e. its severity is
+ * Checks whether a record at `level` passes a logger gated at `threshold` — i.e. its severity is
  * at or above the threshold's.
  *
  * @remarks
@@ -134,7 +134,7 @@ export function freezeStyle(style: Style): Style {
  *
  * @param threshold - The logger's configured minimum {@link LogLevel}
  * @param level - The record's {@link LogLevel}
- * @returns `true` when `level` is at least as severe as `threshold`
+ * @returns True if `level` is at least as severe as `threshold`; false otherwise
  *
  * @example
  * ```ts
@@ -176,7 +176,7 @@ export function selectWriter<T>(level: LogLevel | undefined, writers: WriterSet<
 }
 
 /**
- * Format a {@link LogRecord}'s `time` (epoch milliseconds) as an ISO-8601 timestamp string.
+ * Formats a {@link LogRecord}'s `time` (epoch milliseconds) as an ISO-8601 timestamp string.
  *
  * @remarks
  * Deterministic and serializable — `new Date(time).toISOString()`, e.g.
@@ -191,7 +191,7 @@ export function formatTime(time: number): string {
 }
 
 /**
- * Format a {@link LogRecord} into a single styled line — the default human line layout a
+ * Formats a {@link LogRecord} into a single styled line — the default human line layout a
  * {@link import('./types.js').LoggerInterface} writes to its sink.
  *
  * @remarks
@@ -231,7 +231,7 @@ export function formatRecord(record: LogRecord, styler: StylerInterface, theme: 
 }
 
 /**
- * Pad (or, when over budget, truncate) `text` to exactly `target` visible columns, positioning
+ * Pads (or, when over budget, truncates) `text` to exactly `target` visible columns, positioning
  * it by `alignment`. The width primitive the box / table renderers align every cell with.
  *
  * @remarks
@@ -267,7 +267,7 @@ export function align(text: string, target: number, alignment: Alignment = DEFAU
 }
 
 /**
- * Format a millisecond duration as a compact human string — `…ms` below one second, `…s`
+ * Formats a millisecond duration as a compact human string — `…ms` below one second, `…s`
  * (seconds to 2 decimal places) at or above one second. The timing rendering behind
  * {@link import('./types.js').ReporterInterface.timing}.
  *
@@ -283,7 +283,7 @@ export function formatDuration(ms: number): string {
 }
 
 /**
- * Color `text` through `styler`, or return it verbatim when `styler` is `undefined` — the
+ * Colors `text` through `styler`, or returns it verbatim when `styler` is `undefined` — the
  * single optional-styling primitive every renderer applies to its border / title / connector
  * glyphs (the one styler seam, shared, never re-hand-rolled per renderer).
  *
@@ -305,7 +305,7 @@ export function paint(styler: StylerInterface | undefined, text: string, style?:
 }
 
 /**
- * Repeat `unit` until it fills exactly `count` visible columns, trimming a trailing partial
+ * Repeats `unit` until it fills exactly `count` visible columns, trimming a trailing partial
  * unit so the run is never over-wide — the fill primitive the separator + box edges draw with.
  *
  * @remarks
@@ -332,7 +332,7 @@ export function repeatTo(unit: string, count: number): string {
 }
 
 /**
- * The cell at `index` of a (possibly ragged) row — `''` when the row is shorter than the
+ * Returns the cell at `index` of a (possibly ragged) row — `''` when the row is shorter than the
  * column count, so a short row pads out instead of throwing (the ragged-row guard
  * {@link renderTable} reads every cell through).
  *
@@ -345,7 +345,7 @@ export function cellAt(row: readonly string[], index: number): string {
 }
 
 /**
- * Render a horizontal rule — an optional centered title embedded in a line of fill characters,
+ * Renders a horizontal rule — an optional centered title embedded in a line of fill characters,
  * to a fixed visible width. Pure: same {@link SeparatorOptions} → same string.
  *
  * @remarks
@@ -381,7 +381,7 @@ export function renderSeparator(options: SeparatorOptions): string {
 }
 
 /**
- * Render `content` framed in box-drawing characters, optionally captioned, width-aware so
+ * Renders `content` framed in box-drawing characters, optionally captioned, width-aware so
  * styled content stays aligned inside the frame. Pure: same {@link BoxOptions} → same string.
  *
  * @remarks
@@ -461,7 +461,7 @@ export function renderBox(options: BoxOptions): string {
 }
 
 /**
- * Render a bordered grid of `columns` + `rows` with per-column alignment and width-aware
+ * Renders a bordered grid of `columns` + `rows` with per-column alignment and width-aware
  * column sizing. Pure: same {@link TableOptions} → same string.
  *
  * @remarks
@@ -529,7 +529,7 @@ export function renderTable(options: TableOptions): string {
 }
 
 /**
- * Render a nested {@link TreeNode} tree with box-drawing connectors. Pure: same
+ * Renders a nested {@link TreeNode} tree with box-drawing connectors. Pure: same
  * {@link TreeOptions} → same string.
  *
  * @remarks
@@ -560,7 +560,7 @@ export function renderTree(options: TreeOptions): string {
 }
 
 /**
- * Render the connector-prefixed lines for a {@link TreeNode} list — the recursive core
+ * Renders the connector-prefixed lines for a {@link TreeNode} list — the recursive core
  * behind {@link renderTree}. Each child is drawn as `prefix` + its connector (`├─ ` for
  * any but the last, `└─ ` for the last) + its label, with its own descendants recursed
  * beneath under the carried guide (`│  ` under a non-last node, `   ` under the last).
@@ -603,7 +603,7 @@ export function renderTreeChildren(
 }
 
 /**
- * Stringify one captured console argument into a line fragment — the per-argument rule behind
+ * Stringifies one captured console argument into a line fragment — the per-argument rule behind
  * {@link formatArgs}: an `Error` → `name: message`, a plain object / array → circular-safe JSON,
  * anything else (string, number, boolean, `null`, `undefined`, symbol, function) → `String(value)`.
  *
@@ -652,7 +652,7 @@ export function stringifyValue(value: unknown): string {
 }
 
 /**
- * Stringify a captured `console.*` argument list into one line — the text of a {@link
+ * Stringifies a captured `console.*` argument list into one line — the text of a {@link
  * import('./types.js').CapturedMessage}. Each argument is rendered by {@link stringifyValue} and
  * the parts are space-joined, mirroring how a console concatenates its arguments.
  *
@@ -675,7 +675,7 @@ export function formatArgs(args: readonly unknown[]): string {
 }
 
 /**
- * Render a determinate progress bar string — a filled / empty glyph track followed by the percentage
+ * Renders a determinate progress bar string — a filled / empty glyph track followed by the percentage
  * and the `(current/total)` count (`█████░░░░░ 50% (5/10)`). Pure: same {@link ProgressBarOptions} →
  * same string. The animation-layer sibling of the `render*` renderers (box / table / tree /
  * separator), shared so a {@link import('./types.js').ProgressInterface} and any direct caller draw

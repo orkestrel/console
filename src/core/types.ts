@@ -13,7 +13,7 @@ import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkes
 export type ConsoleMethod = (...args: unknown[]) => void
 
 /**
- * A machine-readable error code for a {@link import('./errors.js').ConsoleError}.
+ * Names a machine-readable error code for a {@link import('./errors.js').ConsoleError}.
  *
  * @remarks
  * `INVARIANT` — an internal invariant / unreachable-guard was violated (a defensive
@@ -31,7 +31,7 @@ export type ConsoleErrorCode = 'INVARIANT'
 // pure styling primitive, like `Scheduler`.
 
 /**
- * A named terminal color — the 8 standard base colors, their 8 bright variants, and
+ * Names a terminal color — the 8 standard base colors, their 8 bright variants, and
  * `default` (the target's own default ink, emitting no color code).
  *
  * @remarks
@@ -60,7 +60,7 @@ export type Color =
 	| 'default'
 
 /**
- * A text-style attribute — the six standard SGR text effects.
+ * Names a text-style attribute — the six standard SGR text effects.
  *
  * @remarks
  * Style as data: an `Attribute` is a name. The ANSI renderer maps each to its SGR
@@ -71,7 +71,7 @@ export type Color =
 export type Attribute = 'bold' | 'dim' | 'italic' | 'underline' | 'inverse' | 'strikethrough'
 
 /**
- * Text style as data — a frozen, readonly record of a foreground color, a background
+ * Represents text style as data — a frozen, readonly record of a foreground color, a background
  * color, and a set of text attributes. The single style value the whole console /
  * terminal system shares; a {@link RendererInterface} renders it for one target.
  *
@@ -90,21 +90,21 @@ export interface Style {
 }
 
 /**
- * A swappable style renderer — the seam that turns style data into output for one
+ * Declares a swappable style renderer — the seam that turns style data into output for one
  * target. The cross-environment default is the ANSI renderer (SGR escape codes); a
  * browser `%c` / CSS renderer implements the same contract over the same {@link Style}
  * model, so it drops in without touching the style data (the browser branch).
  */
 export interface RendererInterface {
 	/**
-	 * Render `text` wrapped in the target codes for `style`. The empty style (no colors,
+	 * Renders `text` wrapped in the target codes for `style`. The empty style (no colors,
 	 * no attributes) and the empty string both return `text` unchanged — no wrapping.
 	 */
 	render(style: Style, text: string): string
 }
 
 /**
- * Options for {@link createStyler}.
+ * Configures {@link createStyler}.
  *
  * @remarks
  * - `renderer` — the {@link RendererInterface} every style renders through; defaults to
@@ -119,7 +119,7 @@ export interface StylerOptions {
 }
 
 /**
- * The fluent, composable styling surface — the consumer-facing API. It is both a
+ * Declares the fluent, composable styling surface — the consumer-facing API. It is both a
  * function (call it with text to render the accumulated style) and a record of
  * chainable accessors: every {@link Color} and {@link Attribute} is a getter returning a
  * new styler with that token added, so `styler.red.bold('hi')` and
@@ -140,14 +140,14 @@ export interface StylerOptions {
  *   attribute is idempotent (`styler.bold.bold` carries one `bold`).
  */
 export interface StylerInterface {
-	/** Render the accumulated style around `text` (verbatim when `enabled` is `false`). */
+	/** Renders the accumulated style around `text` (verbatim when `enabled` is `false`). */
 	(text: string): string
-	/** The accumulated style data — the empty style on a base styler. */
+	/** Holds the accumulated style data — the empty style on a base styler. */
 	readonly style: Style
-	/** Whether styling is applied; when `false`, calls return text unchanged. */
+	/** Reports whether styling is applied; when `false`, calls return text unchanged. */
 	readonly enabled: boolean
 	/**
-	 * Render `text` in `style` merged over the accumulated style — the by-value counterpart
+	 * Renders `text` in `style` merged over the accumulated style — the by-value counterpart
 	 * of the accessor chain, and the door a {@link Theme} role is applied through.
 	 *
 	 * @param style - The style to overlay; its colors win over the accumulated ones and its
@@ -197,7 +197,7 @@ export interface StylerInterface {
 // once — and every value in it is style data, rendered through the one `Styler`.
 
 /**
- * One narrative outcome's presentation — the icon glyph a {@link StatusLevel} shows and the
+ * Represents one narrative outcome's presentation — the icon glyph a {@link StatusLevel} shows and the
  * {@link Style} the line renders in.
  *
  * @remarks
@@ -211,7 +211,7 @@ export interface ThemeStatus {
 }
 
 /**
- * The app-wide semantic style vocabulary — every role the console system styles, bound to a
+ * Represents the app-wide semantic style vocabulary — every role the console system styles, bound to a
  * {@link Style} value. Pass one theme to a logger / reporter / spinner / progress and every
  * surface speaks it.
  *
@@ -236,7 +236,7 @@ export interface Theme {
 }
 
 /**
- * Options for {@link createTheme} — the roles to override on {@link DEFAULT_THEME}.
+ * Holds the options for {@link createTheme} — the roles to override on {@link DEFAULT_THEME}.
  *
  * @remarks
  * Every key is optional and merges per role, never per theme: an omitted role keeps its
@@ -261,7 +261,7 @@ export interface ThemeOptions {
 // style choice, never a separate level — no `success`/`ready` pseudo-levels).
 
 /**
- * The severity level of a {@link LogRecord} — one coherent, ascending-severity scale.
+ * Names the severity level of a {@link LogRecord} — one coherent, ascending-severity scale.
  *
  * @remarks
  * Ordered least-to-most severe: `debug` < `info` < `warn` < `error`. A {@link LoggerInterface}
@@ -273,7 +273,7 @@ export interface ThemeOptions {
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
 /**
- * One immutable, serializable log entry — the universal record the whole logging system
+ * Represents one immutable, serializable log entry — the universal record the whole logging system
  * carries. A {@link LoggerInterface} builds one per call, freezes it, retains a bounded
  * tail of them, and emits it on `entry`; every sink / transport consumes this exact shape.
  *
@@ -299,7 +299,7 @@ export interface LogRecord {
 }
 
 /**
- * The minimal output primitive — the seam every formatted line is written through. A
+ * Declares the minimal output primitive — the seam every formatted line is written through. A
  * `Sink` is the one place text leaves the logging system; redirect output (to a file, a
  * buffer, a test recorder, the browser `%c` path, a server TTY) by supplying a different
  * `SinkInterface`, with no change to the logger.
@@ -317,7 +317,7 @@ export interface LogRecord {
  */
 export interface SinkInterface {
 	/**
-	 * Write one already-formatted chunk of output. `text` receives one line without its
+	 * Writes one already-formatted chunk of output. `text` receives one line without its
 	 * terminator — the sink's target supplies it (e.g. `console.log`; the server TTY sink
 	 * appends one) — unless `text` begins with `\r`: that is an in-place redraw frame (the
 	 * Spinner / Progress animation protocol), written verbatim. A tick frame carries no
@@ -346,7 +346,7 @@ export interface WriterSet<T> {
 }
 
 /**
- * The observable events a {@link LoggerInterface} emits — the transport seam.
+ * Declares the observable events a {@link LoggerInterface} emits — the transport seam.
  *
  * @remarks
  * `entry` fires for every accepted record (one that passed the level gate), carrying the
@@ -359,12 +359,12 @@ export interface WriterSet<T> {
  * satisfies the `EventMap` constraint structurally, whereas an interface lacks the index signature.
  */
 export type LoggerEventMap = {
-	/** A record was logged (passed the level gate) — the frozen {@link LogRecord}. */
+	/** Fires after a record was logged (passed the level gate) — the frozen {@link LogRecord}. */
 	readonly entry: readonly [record: LogRecord]
 }
 
 /**
- * The line layout a logger writes — one {@link LogRecord} plus the styling substrate in,
+ * Represents the line layout a logger writes — one {@link LogRecord} plus the styling substrate in,
  * one finished line out. {@link import('./helpers.js').formatRecord} is the default.
  *
  * @param record - The frozen record to lay out
@@ -383,7 +383,7 @@ export type LoggerEventMap = {
 export type LogFormatFunction = (record: LogRecord, styler: StylerInterface, theme: Theme) => string
 
 /**
- * Options for the {@link import('./Logger.js').Logger} constructor.
+ * Configures the {@link import('./Logger.js').Logger} constructor.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
@@ -419,7 +419,7 @@ export interface LoggerOptions {
 }
 
 /**
- * An observable, leveled logger — builds a frozen {@link LogRecord} per call, gates it by
+ * Declares an observable, leveled logger — builds a frozen {@link LogRecord} per call, gates it by
  * severity, retains a bounded tail, emits it on `entry`, and (unless silent) writes a
  * styled line to its {@link SinkInterface}.
  *
@@ -440,24 +440,24 @@ export interface LoggerInterface {
 	readonly emitter: EmitterInterface<LoggerEventMap>
 	readonly level: LogLevel
 	readonly name?: string
-	/** Log at `debug` — dropped unless the logger's `level` is `debug`. */
+	/** Logs at `debug` — dropped unless the logger's `level` is `debug`. */
 	debug(message: string, data?: Record<string, unknown>): void
-	/** Log at `info`. */
+	/** Logs at `info`. */
 	info(message: string, data?: Record<string, unknown>): void
-	/** Log at `warn`. */
+	/** Logs at `warn`. */
 	warn(message: string, data?: Record<string, unknown>): void
-	/** Log at `error`. */
+	/** Logs at `error`. */
 	error(message: string, data?: Record<string, unknown>): void
-	/** The bounded tail of recent {@link LogRecord}s, oldest first (capped at `limit`). */
+	/** Returns the bounded tail of recent {@link LogRecord}s, oldest first (capped at `limit`). */
 	entries(): readonly LogRecord[]
-	/** Drop every retained record (does not touch listeners). */
+	/** Drops every retained record (does not touch listeners). */
 	clear(): void
-	/** Tear down — clear retention and destroy the emitter. */
+	/** Tears down — clears retention and destroys the emitter. */
 	destroy(): void
 }
 
 /**
- * Options for the {@link import('./LoggerManager.js').LoggerManager} constructor.
+ * Configures the {@link import('./LoggerManager.js').LoggerManager} constructor.
  *
  * @remarks
  * The manager is an event-free registry — it carries no emitter of its own (each
@@ -478,7 +478,7 @@ export interface LoggerManagerOptions {
 }
 
 /**
- * An event-free registry of named {@link LoggerInterface}s plus a convenience fan-out — the
+ * Declares an event-free registry of named {@link LoggerInterface}s plus a convenience fan-out — the
  * manager over the logging layer. It mints + stores loggers keyed by `name`, looks them
  * up, removes them, and broadcasts a one-off log to every registered logger.
  *
@@ -499,13 +499,13 @@ export interface LoggerManagerInterface {
 	register(name: string, options?: LoggerOptions): LoggerInterface
 	logger(name: string): LoggerInterface | undefined
 	loggers(): readonly LoggerInterface[]
-	/** Fan out a `debug` log to every registered logger. */
+	/** Fans out a `debug` log to every registered logger. */
 	debug(message: string, data?: Record<string, unknown>): void
-	/** Fan out an `info` log to every registered logger. */
+	/** Fans out an `info` log to every registered logger. */
 	info(message: string, data?: Record<string, unknown>): void
-	/** Fan out a `warn` log to every registered logger. */
+	/** Fans out a `warn` log to every registered logger. */
 	warn(message: string, data?: Record<string, unknown>): void
-	/** Fan out an `error` log to every registered logger. */
+	/** Fans out an `error` log to every registered logger. */
 	error(message: string, data?: Record<string, unknown>): void
 	remove(): void
 	remove(name: string): boolean
@@ -521,14 +521,14 @@ export interface LoggerManagerInterface {
 // — a formatting / output front-end with no observable lifecycle, like the renderers.
 
 /**
- * Horizontal text alignment within a fixed-width cell — the conventional three-value set a
+ * Names the horizontal text alignment within a fixed-width cell — the conventional three-value set a
  * {@link ColumnSpec} (and the box / separator title) aligns by. A value pair / set, not a
  * binary toggle, so it stays a union.
  */
 export type Alignment = 'left' | 'center' | 'right'
 
 /**
- * A box-drawing border style — the four standard Unicode line weights the renderers frame
+ * Names a box-drawing border style — the four standard Unicode line weights the renderers frame
  * with. Each selects a full junction set in {@link BORDER_CHARS} (corners, edges, and the
  * `T` / cross junctions a table needs). A named, fixed set (an external-spec value family),
  * never a toggle — so it stays a union.
@@ -541,7 +541,7 @@ export type Alignment = 'left' | 'center' | 'right'
 export type BorderStyle = 'single' | 'double' | 'round' | 'heavy'
 
 /**
- * One complete box-drawing junction set for a {@link BorderStyle} — every glyph the box /
+ * Represents one complete box-drawing junction set for a {@link BorderStyle} — every glyph the box /
  * table renderers need to frame content and rule a table. Plain data (the value lives in
  * {@link BORDER_CHARS}); the renderers read these so no glyph literal is hard-coded in a
  * renderer.
@@ -569,7 +569,7 @@ export interface BorderChars {
 }
 
 /**
- * Options for {@link import('./helpers.js').renderSeparator} — a horizontal rule, optionally
+ * Configures {@link import('./helpers.js').renderSeparator} — a horizontal rule, optionally
  * carrying a centered title.
  *
  * @remarks
@@ -590,7 +590,7 @@ export interface SeparatorOptions {
 }
 
 /**
- * Options for {@link import('./helpers.js').renderBox} — content framed in box-drawing
+ * Configures {@link import('./helpers.js').renderBox} — content framed in box-drawing
  * characters.
  *
  * @remarks
@@ -619,7 +619,7 @@ export interface BoxOptions {
 }
 
 /**
- * One column of a {@link TableOptions} — its header label and how its cells align.
+ * Represents one column of a {@link TableOptions} — its header label and how its cells align.
  *
  * @remarks
  * - `label` — the header text shown in the table's first row.
@@ -634,7 +634,7 @@ export interface ColumnSpec {
 }
 
 /**
- * Options for {@link import('./helpers.js').renderTable} — a bordered grid of columns + rows
+ * Configures {@link import('./helpers.js').renderTable} — a bordered grid of columns + rows
  * with per-column alignment and width-aware sizing.
  *
  * @remarks
@@ -657,7 +657,7 @@ export interface TableOptions {
 }
 
 /**
- * One node of a {@link TreeOptions} tree — a label plus optional children, recursively.
+ * Represents one node of a {@link TreeOptions} tree — a label plus optional children, recursively.
  *
  * @remarks
  * - `label` — the node's text (a single visible line; it may already be styled).
@@ -670,7 +670,7 @@ export interface TreeNode {
 }
 
 /**
- * Options for {@link import('./helpers.js').renderTree} — a nested {@link TreeNode} tree drawn
+ * Configures {@link import('./helpers.js').renderTree} — a nested {@link TreeNode} tree drawn
  * with box-drawing connectors.
  *
  * @remarks
@@ -690,7 +690,7 @@ export interface TreeOptions {
 }
 
 /**
- * A narrative outcome level — the four states {@link ReporterInterface.status} reports, each
+ * Names a narrative outcome level — the four states {@link ReporterInterface.status} reports, each
  * with its own icon + color ({@link STATUS_ICONS} / {@link STATUS_COLORS}).
  *
  * @remarks
@@ -703,8 +703,8 @@ export interface TreeOptions {
 export type StatusLevel = 'success' | 'error' | 'warn' | 'info'
 
 /**
- * A step's position in a sequence — the `{ index, total }` a {@link ReporterInterface.step}
- * renders as a `[2/5]` prefix.
+ * Represents where one step sits in a sequence — the `{ index, total }` a
+ * {@link ReporterInterface.step} renders as a `[2/5]` prefix.
  *
  * @remarks
  * Both are 1-based for display (`{ index: 2, total: 5 }` ⇒ `[2/5]`); the reporter formats
@@ -717,7 +717,7 @@ export interface StepPosition {
 }
 
 /**
- * Options for the {@link import('./Reporter.js').Reporter} constructor.
+ * Configures the {@link import('./Reporter.js').Reporter} constructor.
  *
  * @remarks
  * - `sink` — where every formatted line is written; defaults to
@@ -743,7 +743,7 @@ export interface ReporterOptions {
 }
 
 /**
- * A lean, event-free narrative reporter — the composable verb set for human / build-run
+ * Declares a lean, event-free narrative reporter — the composable verb set for human / build-run
  * output (sections, steps, timings, outcomes, tables, trees, boxes), formatting through the
  * shared {@link StylerInterface} + layout renderers and writing to a {@link SinkInterface}.
  *
@@ -761,23 +761,23 @@ export interface ReporterOptions {
  *   writes immediately; there is no retained state worth observing.
  */
 export interface ReporterInterface {
-	/** Write a titled separator block — a section heading framed by a horizontal rule. */
+	/** Writes a titled separator block — a section heading framed by a horizontal rule. */
 	section(title: string): void
-	/** Write a step line, optionally prefixed with its `[index/total]` {@link StepPosition}. */
+	/** Writes a step line, optionally prefixed with its `[index/total]` {@link StepPosition}. */
 	step(message: string, position?: StepPosition): void
-	/** Write a timing line — `label … 1.23s` (sub-second shown as `…ms`). */
+	/** Writes a timing line — `label … 1.23s` (sub-second shown as `…ms`). */
 	timing(label: string, ms: number): void
-	/** Write an icon + colored outcome line for `level` (`error` routes to the error stream). */
+	/** Writes an icon + colored outcome line for `level` (`error` routes to the error stream). */
 	status(level: StatusLevel, message: string): void
-	/** Render a {@link TableOptions} grid through {@link import('./helpers.js').renderTable} and write it. */
+	/** Renders a {@link TableOptions} grid through {@link import('./helpers.js').renderTable} and writes it. */
 	table(options: TableOptions): void
-	/** Render a {@link TreeOptions} tree through {@link import('./helpers.js').renderTree} and write it. */
+	/** Renders a {@link TreeOptions} tree through {@link import('./helpers.js').renderTree} and writes it. */
 	tree(options: TreeOptions): void
-	/** Render a {@link BoxOptions} frame through {@link import('./helpers.js').renderBox} and write it. */
+	/** Renders a {@link BoxOptions} frame through {@link import('./helpers.js').renderBox} and writes it. */
 	box(options: BoxOptions): void
-	/** Write one raw line, colored through the styler if any styling is embedded — no prefix, no icon. */
+	/** Writes one raw line, colored through the styler if any styling is embedded — no prefix, no icon. */
 	line(text: string): void
-	/** Write `count` blank lines (default `1`). */
+	/** Writes `count` blank lines (default `1`). */
 	blank(count?: number): void
 }
 
@@ -793,7 +793,7 @@ export interface ReporterInterface {
 // restore. Observable — a buffered, mirroring, forwarding interceptor with a lifecycle.
 
 /**
- * One intercepted `console` method — the names a {@link CaptureInterface} patches and reports
+ * Identifies one intercepted `console` method — the names a {@link CaptureInterface} patches and reports
  * under. A fixed set keyed off the universal `console.*` methods (`console.log` / `info` / `warn`
  * / `error` / `debug`); a named value family (it indexes {@link CAPTURE_LEVEL_MAP} to a
  * {@link LogLevel} for the optional sink forward), never a binary toggle — so it stays a union.
@@ -808,7 +808,7 @@ export interface ReporterInterface {
 export type CaptureLevel = 'log' | 'info' | 'warn' | 'error' | 'debug'
 
 /**
- * One captured console call — an immutable, serializable record of a single intercepted
+ * Represents one captured console call — an immutable, serializable record of a single intercepted
  * `console.*` invocation. A {@link CaptureInterface} builds one per call, freezes it, buffers it
  * (total + by level), and emits it on `capture`; every consumer reads this exact shape.
  *
@@ -829,7 +829,7 @@ export interface CapturedMessage {
 }
 
 /**
- * The observable events a {@link CaptureInterface} emits.
+ * Declares the observable events a {@link CaptureInterface} emits.
  *
  * @remarks
  * - `capture` — the core event: fires for every intercepted `console.*` call (one per call,
@@ -848,16 +848,16 @@ export interface CapturedMessage {
  * structurally, whereas an interface lacks the index signature.
  */
 export type CaptureEventMap = {
-	/** An intercepted `console.*` call — the frozen {@link CapturedMessage}. */
+	/** Fires on an intercepted `console.*` call — the frozen {@link CapturedMessage}. */
 	readonly capture: readonly [message: CapturedMessage]
-	/** Interception was installed (an inactive capture's `start()`). */
+	/** Fires after interception was installed (an inactive capture's `start()`). */
 	readonly start: readonly []
-	/** Interception was torn down (an active capture's `stop()` / `destroy()`). */
+	/** Fires after interception was torn down (an active capture's `stop()` / `destroy()`). */
 	readonly stop: readonly []
 }
 
 /**
- * Options for the {@link import('./Capture.js').Capture} constructor.
+ * Configures the {@link import('./Capture.js').Capture} constructor.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
@@ -889,7 +889,7 @@ export interface CaptureOptions {
 }
 
 /**
- * An observable console interceptor — it takes control of the global `console.*` on
+ * Declares an observable console interceptor — it takes control of the global `console.*` on
  * the read side: while `active`, every configured `console.x` call is captured as a frozen
  * {@link CapturedMessage}, buffered (total + by level, bounded), emitted on `capture`, and —
  * per options — mirrored to the real console and/or forwarded to a {@link SinkInterface}.
@@ -912,24 +912,24 @@ export interface CaptureOptions {
  */
 export interface CaptureInterface {
 	readonly emitter: EmitterInterface<CaptureEventMap>
-	/** Whether interception is currently installed (between `start()` and `stop()`). */
+	/** Reports whether interception is currently installed (between `start()` and `stop()`). */
 	readonly active: boolean
-	/** Snapshot the configured `console.*` and install the interceptors — a no-op when already `active`. */
+	/** Snapshots the configured `console.*` and installs the interceptors — a no-op when already `active`. */
 	start(): void
-	/** Restore the snapshot-original `console.*` — a no-op when not `active`. */
+	/** Restores the snapshot-original `console.*` — a no-op when not `active`. */
 	stop(): void
-	/** A copy of the whole captured buffer, oldest first (capped at `limit`). */
+	/** Returns a copy of the whole captured buffer, oldest first (capped at `limit`). */
 	messages(): readonly CapturedMessage[]
-	/** A copy of the captured buffer for one {@link CaptureLevel}, oldest first (capped at `limit`). */
+	/** Returns a copy of the captured buffer for one {@link CaptureLevel}, oldest first (capped at `limit`). */
 	messages(level: CaptureLevel): readonly CapturedMessage[]
-	/** Drop every buffered message (total + by level); does not stop interception. */
+	/** Drops every buffered message (total + by level); does not stop interception. */
 	clear(): void
-	/** Tear down — `stop()` (restoring `console`) then destroy the emitter. */
+	/** Tears down — `stop()` (restoring `console`) then destroys the emitter. */
 	destroy(): void
 }
 
 /**
- * The structured outcome of {@link import('./factories.js').createCaptureResult} — the wrapped function's
+ * Represents the structured outcome of {@link import('./factories.js').createCaptureResult} — the wrapped function's
  * own return `value` plus the {@link CapturedMessage}s intercepted while it ran.
  *
  * @remarks
@@ -953,7 +953,7 @@ export interface CaptureResult<T> {
 // observable: a spinner's frames + lifecycle, a progress's updates + completion.
 
 /**
- * Options for the pure {@link import('./helpers.js').renderBar} renderer — a determinate progress
+ * Configures the pure {@link import('./helpers.js').renderBar} renderer — a determinate progress
  * bar string (`█████░░░░░ 50% (5/10)`), width-aware and styler-optional.
  *
  * @remarks
@@ -980,7 +980,7 @@ export interface ProgressBarOptions {
 }
 
 /**
- * The observable events a {@link SpinnerInterface} emits.
+ * Declares the observable events a {@link SpinnerInterface} emits.
  *
  * @remarks
  * - `frame` — the core event: fires once per advance (every `tick()`, whether driven by the internal
@@ -998,16 +998,16 @@ export interface ProgressBarOptions {
  * index signature.
  */
 export type SpinnerEventMap = {
-	/** A frame was produced (a `tick()` advance or the final `succeed` / `fail` line) — the rendered line. */
+	/** Fires after a frame was produced (a `tick()` advance or the final `succeed` / `fail` line) — the rendered line. */
 	readonly frame: readonly [line: string]
-	/** The internal timer was armed (an inactive spinner's `start()`). */
+	/** Fires after the internal timer was armed (an inactive spinner's `start()`). */
 	readonly start: readonly []
-	/** The internal timer was cleared (an active spinner's `stop()` / `succeed()` / `fail()` / `destroy()`). */
+	/** Fires after the internal timer was cleared (an active spinner's `stop()` / `succeed()` / `fail()` / `destroy()`). */
 	readonly stop: readonly []
 }
 
 /**
- * Options for the {@link import('./Spinner.js').Spinner} constructor.
+ * Configures the {@link import('./Spinner.js').Spinner} constructor.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
@@ -1039,7 +1039,7 @@ export interface SpinnerOptions {
 }
 
 /**
- * A self-driving, observable activity spinner — a glyph cycle that advances on a
+ * Declares a self-driving, observable activity spinner — a glyph cycle that advances on a
  * periodic timer, writing each `\r` + frame line to its {@link SinkInterface} and emitting it on
  * `frame`. The line-overwrite is the sink's job (a TTY sink overwrites on the `\r`; a plain sink
  * degrades to a fresh line).
@@ -1063,28 +1063,28 @@ export interface SpinnerOptions {
  */
 export interface SpinnerInterface {
 	readonly emitter: EmitterInterface<SpinnerEventMap>
-	/** Whether the internal timer is currently armed (between `start()` and `stop` / `succeed` / `fail`). */
+	/** Reports whether the internal timer is currently armed (between `start()` and `stop` / `succeed` / `fail`). */
 	readonly active: boolean
-	/** The current message shown beside the glyph. */
+	/** Holds the current message shown beside the glyph. */
 	readonly message: string
-	/** Arm the periodic timer and render the first frame — a no-op when already `active`. */
+	/** Arms the periodic timer and renders the first frame — a no-op when already `active`. */
 	start(): void
-	/** Advance one frame: build the line, emit `frame`, and write `\r` + line to the sink. */
+	/** Advances one frame: builds the line, emits `frame`, and writes `\r` + line to the sink. */
 	tick(): void
-	/** Change the message; re-renders immediately when `active` so the change shows at once. */
+	/** Changes the message; re-renders immediately when `active` so the change shows at once. */
 	update(message: string): void
-	/** Stop with a success line — clear the timer, write + emit `✔ message` + newline. */
+	/** Stops with a success line — clears the timer, writes + emits `✔ message` + newline. */
 	succeed(message?: string): void
-	/** Stop with an error line — clear the timer, write + emit `✖ message` + newline (error stream). */
+	/** Stops with an error line — clears the timer, writes + emits `✖ message` + newline (error stream). */
 	fail(message?: string): void
-	/** Clear the timer and leave the current line (no final write) — a no-op when not `active`. */
+	/** Clears the timer and leaves the current line (no final write) — a no-op when not `active`. */
 	stop(): void
-	/** Tear down — `stop()` then destroy the emitter. */
+	/** Tears down — `stop()` then destroys the emitter. */
 	destroy(): void
 }
 
 /**
- * The bounded, level-keyed retention buffer a capture keeps its records in — one capped total
+ * Declares the bounded, level-keyed retention buffer a capture keeps its records in — one capped total
  * buffer plus one capped bucket per level configured at construction.
  *
  * @remarks
@@ -1097,13 +1097,13 @@ export interface SpinnerInterface {
  *   retained state through the value it receives.
  */
 export interface RetentionInterface<T extends { readonly level: string }> {
-	/** Retain one record — append it to the total buffer and to its level's bucket, evicting the oldest of each past the cap. */
+	/** Retains one record — appends it to the total buffer and to its level's bucket, evicting the oldest of each past the cap. */
 	add(record: T): void
-	/** A copy of the whole retained buffer, oldest first. */
+	/** Returns a copy of the whole retained buffer, oldest first. */
 	records(): readonly T[]
-	/** A copy of one level's bucket, oldest first; empty for a level with no bucket. */
+	/** Returns a copy of one level's bucket, oldest first; empty for a level with no bucket. */
 	records(level: T['level']): readonly T[]
-	/** Drop every retained record from the total buffer and every bucket. */
+	/** Drops every retained record from the total buffer and every bucket. */
 	clear(): void
 }
 
@@ -1123,7 +1123,7 @@ export interface ProgressReport {
 }
 
 /**
- * The observable events a {@link ProgressInterface} emits.
+ * Declares the observable events a {@link ProgressInterface} emits.
  *
  * @remarks
  * - `update` — the core event: fires on every `update(current)` (and on `complete` / `fail`),
@@ -1139,14 +1139,14 @@ export interface ProgressReport {
  * structurally, whereas an interface lacks the index signature.
  */
 export type ProgressEventMap = {
-	/** Progress advanced — the clamped `{ current, total }` (fires on `update` and on `complete` / `fail`). */
+	/** Reports progress advancing — the clamped `{ current, total }` (fires on `update` and on `complete` / `fail`). */
 	readonly update: readonly [progress: ProgressReport]
-	/** The bar reached its end via `complete()` (a successful finish). */
+	/** Fires after the bar reached its end via `complete()` (a successful finish). */
 	readonly complete: readonly []
 }
 
 /**
- * Options for the {@link import('./Progress.js').Progress} constructor.
+ * Configures the {@link import('./Progress.js').Progress} constructor.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
@@ -1180,7 +1180,7 @@ export interface ProgressOptions {
 }
 
 /**
- * An update-driven, observable progress bar — `update(current)` recomputes the bar via
+ * Declares an update-driven, observable progress bar — `update(current)` recomputes the bar via
  * {@link import('./helpers.js').renderBar}, writes `\r` + bar to its {@link SinkInterface}, and emits
  * the `{ current, total }` on `update`. The line-overwrite is the sink's job (a TTY sink overwrites
  * on the `\r`; a plain sink degrades to a fresh line). No self-timer — the caller drives it.
@@ -1200,20 +1200,20 @@ export interface ProgressOptions {
  */
 export interface ProgressInterface {
 	readonly emitter: EmitterInterface<ProgressEventMap>
-	/** Whether the bar is still advancing (before any `complete()` / `fail()`). */
+	/** Reports whether the bar is still advancing (before any `complete()` / `fail()`). */
 	readonly active: boolean
-	/** Whether `complete()` has run (the bar finished successfully). */
+	/** Reports whether `complete()` has run (the bar finished successfully). */
 	readonly completed: boolean
-	/** The current value, clamped to `[0, total]`. */
+	/** Holds the current value, clamped to `[0, total]`. */
 	readonly current: number
-	/** The target value the bar fills toward. */
+	/** Holds the target value the bar fills toward. */
 	readonly total: number
-	/** Report progress: clamp `current`, re-render the bar, emit `update`, write `\r` + bar. Ignored once terminal. */
+	/** Reports progress: clamps `current`, re-renders the bar, emits `update`, writes `\r` + bar. Ignored once terminal. */
 	update(current: number, message?: string): void
-	/** Finish successfully — render a full bar + newline, emit a final `update` then `complete`. */
+	/** Finishes successfully — renders a full bar + newline, emits a final `update` then `complete`. */
 	complete(message?: string): void
-	/** Finish unsuccessfully — render the bar at its current fill + newline to the error stream (no `complete`). */
+	/** Finishes unsuccessfully — renders the bar at its current fill + newline to the error stream (no `complete`). */
 	fail(message?: string): void
-	/** Tear down — destroy the emitter. */
+	/** Tears down — destroys the emitter. */
 	destroy(): void
 }

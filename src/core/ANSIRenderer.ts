@@ -2,7 +2,7 @@ import type { RendererInterface, Style } from './types.js'
 import { ATTRIBUTE_CODES, BACKGROUND_CODES, CSI, FOREGROUND_CODES, RESET } from './constants.js'
 
 /**
- * The cross-environment default {@link RendererInterface} — renders style data as ANSI
+ * Implements the cross-environment default {@link RendererInterface} — renders style data as ANSI
  * SGR escape codes, exactly as `Scheduler` is the `setTimeout` default for its seam. It
  * is the single styling output the whole console / terminal system uses in a terminal;
  * the browser `%c` / CSS renderer implements the same contract over
@@ -24,7 +24,7 @@ import { ATTRIBUTE_CODES, BACKGROUND_CODES, CSI, FOREGROUND_CODES, RESET } from 
  */
 export class ANSIRenderer implements RendererInterface {
 	/**
-	 * Wrap `text` in the SGR codes for `style`. Returns `text` unchanged when the style
+	 * Wraps `text` in the SGR codes for `style`. Returns `text` unchanged when the style
 	 * is empty or `text` is `''`.
 	 */
 	render(style: Style, text: string): string {

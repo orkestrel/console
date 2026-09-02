@@ -5,7 +5,7 @@ import type { ConsoleErrorCode } from './types.js'
 // `error.code` instead of parsing the message.
 
 /**
- * An error thrown by the console layer.
+ * Represents an error thrown by the console layer.
  *
  * @remarks
  * Carries a {@link ConsoleErrorCode} and an optional `context` bag. Thrown for: an
@@ -29,10 +29,10 @@ export class ConsoleError extends Error {
 }
 
 /**
- * Narrow an unknown caught value to a {@link ConsoleError}.
+ * Narrows an unknown caught value to a {@link ConsoleError}.
  *
  * @param value - The value to test (typically a `catch` binding)
- * @returns `true` when `value` is a {@link ConsoleError}
+ * @returns True if `value` is a {@link ConsoleError}; false otherwise
  *
  * @example
  * ```ts

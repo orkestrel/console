@@ -10,7 +10,7 @@ import { ATTRIBUTE_CODES, ESC } from '@src/core'
 // source. UPPER_SNAKE, deeply `Object.freeze`d, every member exported.
 
 /**
- * Each named {@link Color}'s hex value — the 16 standard terminal colors a browser DevTools
+ * Maps each named {@link Color} to its hex value — the 16 standard terminal colors a browser DevTools
  * console renders the same {@link Color} names as. The source of truth for the browser color
  * axis: the ANSI renderer maps a `Color` name to an SGR number, and this maps the same name to
  * the CSS color the `%c` sink paints with, so a browser shows the same 16 colors a terminal does.
@@ -39,7 +39,7 @@ export const COLOR_HEX: Readonly<Record<Exclude<Color, 'default'>, string>> = Ob
 })
 
 /**
- * Each text-{@link Attribute}'s SGR "on" number → its equivalent CSS declaration — the browser
+ * Maps each text-{@link Attribute}'s SGR "on" number to its equivalent CSS declaration — the browser
  * counterpart to the terminal's SGR text effects (`bold` 1 → `font-weight:bold`, `dim` 2 →
  * `opacity:0.6`, `italic` 3 → `font-style:italic`, `underline` 4 → `text-decoration:underline`,
  * `inverse` 7 → best-effort, `strikethrough` 9 → `text-decoration:line-through`). Keyed by the SGR
@@ -61,7 +61,7 @@ export const ATTRIBUTE_CSS: Readonly<Record<number, string>> = Object.freeze({
 })
 
 /**
- * The browser console directive that switches the active style — one `%c` prefixes every styled run
+ * Names the browser console directive that switches the active style — one `%c` prefixes every styled run
  * in the {@link import('./types.js').ConsoleOutput} format string, consuming the next entry of the
  * parallel CSS array. The single source of truth for the directive token.
  */

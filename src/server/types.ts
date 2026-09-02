@@ -9,7 +9,7 @@ import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkes
 import type { SinkInterface } from '@src/core'
 
 /**
- * The minimal writable-stream shape the server sink and process capture address — exactly the
+ * Declares the minimal writable-stream shape the server sink and process capture address — exactly the
  * slice of a Node `tty.WriteStream` / `process.stdout` they touch, and no more. A
  * {@link ServerSinkOptions} target and a {@link ProcessCaptureInterface}'s patched streams are
  * narrowed to this via {@link import('./validators.js').isStreamTarget} (narrow the
@@ -35,7 +35,7 @@ export interface StreamTargetInterface {
 }
 
 /**
- * Options for {@link import('./factories.js').createServerSink} — all optional, so a bare
+ * Holds the options for {@link import('./factories.js').createServerSink} — all optional, so a bare
  * `createServerSink()` writes to the real process streams.
  *
  * @remarks
@@ -58,7 +58,7 @@ export interface ServerSinkOptions {
 }
 
 /**
- * A {@link SinkInterface} that also exposes the target terminal's {@link columns} width — the shape
+ * Declares a {@link SinkInterface} that also exposes the target terminal's {@link columns} width — the shape
  * {@link import('./factories.js').createServerSink} returns. It is a drop-in {@link SinkInterface}
  * (so a `Logger` / `Reporter` / `Spinner` / `Progress` takes it as `sink`) whose extra `columns`
  * getter lets a consumer size a `Reporter`'s layout to the live terminal. Its `styled` fact lets
@@ -76,7 +76,7 @@ export interface ServerSinkInterface extends SinkInterface {
 }
 
 /**
- * Which process stream a {@link CapturedChunk} came from — the "level" axis of the process-stream
+ * Names which process stream a {@link CapturedChunk} came from — the "level" axis of the process-stream
  * {@link ProcessCaptureInterface}, the server analogue of the core `Capture`'s `CaptureLevel`.
  *
  * @remarks
@@ -112,7 +112,7 @@ export type StreamWriteFunction = NodeJS.WriteStream['write']
 export type StreamWriteCallback = (error?: Error | null) => void
 
 /**
- * One intercepted process-stream write — the immutable, serializable record a
+ * Represents one intercepted process-stream write — the immutable, serializable record a
  * {@link ProcessCaptureInterface} buffers and emits, the server analogue of the core
  * `CapturedMessage`.
  *
@@ -132,7 +132,7 @@ export interface CapturedChunk {
 }
 
 /**
- * The observable events a {@link ProcessCaptureInterface} emits — mirrors the core
+ * Declares the observable events a {@link ProcessCaptureInterface} emits — mirrors the core
  * `Capture`'s `CaptureEventMap`, but the captured record is a {@link CapturedChunk} (stream-keyed).
  *
  * @remarks
@@ -148,16 +148,16 @@ export interface CapturedChunk {
  * `EventMap` constraint structurally, whereas an interface lacks the index signature.
  */
 export type ProcessCaptureEventMap = {
-	/** An intercepted process-stream write — the frozen {@link CapturedChunk}. */
+	/** Fires on an intercepted process-stream write — the frozen {@link CapturedChunk}. */
 	readonly capture: readonly [chunk: CapturedChunk]
-	/** Interception began (`process.*.write` patched). */
+	/** Fires after interception began (`process.*.write` patched). */
 	readonly start: readonly []
-	/** Interception ended (`process.*.write` restored). */
+	/** Fires after interception ended (`process.*.write` restored). */
 	readonly stop: readonly []
 }
 
 /**
- * Options for {@link import('./factories.js').createProcessCapture} — every field optional, so a
+ * Holds the options for {@link import('./factories.js').createProcessCapture} — every field optional, so a
  * bare `createProcessCapture()` buffers both streams without mirroring or forwarding.
  *
  * @remarks
@@ -186,7 +186,7 @@ export interface ProcessCaptureOptions {
 }
 
 /**
- * An observable interceptor of the raw process output streams — the server's
+ * Declares an observable interceptor of the raw process output streams — the server's
  * "own all output" capture. Where the core `Capture` patches `console.*` (the high-level read
  * side), this patches `process.stdout.write` / `process.stderr.write` (the low-level stream), so it
  * catches direct `process.stdout.write`, third-party library output, and child-process pipes —
@@ -212,18 +212,18 @@ export interface ProcessCaptureOptions {
  */
 export interface ProcessCaptureInterface {
 	readonly emitter: EmitterInterface<ProcessCaptureEventMap>
-	/** Whether interception is currently installed (`start`ed and not yet `stop`ped). */
+	/** Reports whether interception is currently installed (`start`ed and not yet `stop`ped). */
 	readonly active: boolean
-	/** Begin intercepting the configured process streams (idempotent; emits `start`). */
+	/** Begins intercepting the configured process streams (idempotent; emits `start`). */
 	start(): void
-	/** Restore the pristine `process.*.write` references (idempotent; emits `stop`). */
+	/** Restores the pristine `process.*.write` references (idempotent; emits `stop`). */
 	stop(): void
-	/** A copy of the full captured buffer, oldest first (capped at `limit`). */
+	/** Returns a copy of the full captured buffer, oldest first (capped at `limit`). */
 	messages(): readonly CapturedChunk[]
-	/** A copy of the captured buffer for one {@link StreamLevel}, oldest first (capped at `limit`). */
+	/** Returns a copy of the captured buffer for one {@link StreamLevel}, oldest first (capped at `limit`). */
 	messages(level: StreamLevel): readonly CapturedChunk[]
-	/** Drop every buffered chunk (total + per-stream); interception is unaffected. */
+	/** Drops every buffered chunk (total + per-stream); interception is unaffected. */
 	clear(): void
-	/** Stop interception (restoring the streams) and tear down the emitter. */
+	/** Stops interception (restoring the streams) and tears down the emitter. */
 	destroy(): void
 }

@@ -15,7 +15,7 @@ import { createConsoleSink, createStyler } from './factories.js'
 import { formatDuration, renderBox, renderSeparator, renderTable, renderTree } from './helpers.js'
 
 /**
- * A lean, event-free narrative reporter — the composable verb set for human /
+ * Implements a lean, event-free narrative reporter — the composable verb set for human /
  * build-run output. Each verb formats its line through the shared {@link StylerInterface} and
  * the pure layout renderers ({@link renderSeparator} / {@link renderBox} / {@link renderTable}
  * / {@link renderTree}) and writes it to a {@link SinkInterface} — the same styler + sink

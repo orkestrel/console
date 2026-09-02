@@ -19,7 +19,7 @@ import type {
 // color maps — the renderer emits a code only for a present, non-`default` color.
 
 /**
- * Each {@link Color}'s SGR foreground parameter — the 8 base colors at 30–37 and their
+ * Maps each {@link Color} to its SGR foreground parameter — the 8 base colors at 30–37 and their
  * bright variants at 90–97. `default` is intentionally absent (it emits no code).
  */
 export const FOREGROUND_CODES: Readonly<Record<Exclude<Color, 'default'>, number>> = Object.freeze({
@@ -42,7 +42,7 @@ export const FOREGROUND_CODES: Readonly<Record<Exclude<Color, 'default'>, number
 })
 
 /**
- * Each {@link Color}'s SGR background parameter — the 8 base colors at 40–47 and their
+ * Maps each {@link Color} to its SGR background parameter — the 8 base colors at 40–47 and their
  * bright variants at 100–107. `default` is intentionally absent (it emits no code).
  */
 export const BACKGROUND_CODES: Readonly<Record<Exclude<Color, 'default'>, number>> = Object.freeze({
@@ -65,7 +65,7 @@ export const BACKGROUND_CODES: Readonly<Record<Exclude<Color, 'default'>, number
 })
 
 /**
- * Each {@link Attribute}'s SGR "on" parameter — `bold` 1, `dim` 2, `italic` 3,
+ * Maps each {@link Attribute} to its SGR "on" parameter — `bold` 1, `dim` 2, `italic` 3,
  * `underline` 4, `inverse` 7, `strikethrough` 9. The renderer composes several by
  * joining their codes with `;` in one SGR sequence.
  */
@@ -79,14 +79,14 @@ export const ATTRIBUTE_CODES: Readonly<Record<Attribute, number>> = Object.freez
 })
 
 /**
- * The empty {@link Style} — no foreground, no background, no attributes — frozen. The
+ * Holds the empty {@link Style} — no foreground, no background, no attributes — frozen. The
  * neutral starting point a base styler builds from, and what a renderer passes through
  * unchanged (it carries no codes). Deeply frozen, so it is safe to share as the base.
  */
 export const EMPTY_STYLE: Style = Object.freeze({ attributes: Object.freeze([]) })
 
 /**
- * Every named {@link Color} except `default`, frozen — the colors the styler exposes as
+ * Lists every named {@link Color} except `default`, frozen — the colors the styler exposes as
  * chainable accessors. The source of truth for the color axis; the styler drives its
  * accessors from this array so the literals live in one place.
  */
@@ -110,7 +110,7 @@ export const COLORS: ReadonlyArray<Exclude<Color, 'default'>> = Object.freeze([
 ])
 
 /**
- * Every {@link Attribute}, frozen — the attributes the styler exposes as chainable
+ * Lists every {@link Attribute}, frozen — the attributes the styler exposes as chainable
  * accessors. The source of truth for the attribute axis.
  */
 export const ATTRIBUTES: readonly Attribute[] = Object.freeze([
@@ -122,22 +122,22 @@ export const ATTRIBUTES: readonly Attribute[] = Object.freeze([
 	'strikethrough',
 ])
 
-/** The SGR RESET parameter (0) — terminates a styled run, clearing all colors and attributes. */
+/** Holds the SGR RESET parameter (0) — terminates a styled run, clearing all colors and attributes. */
 export const RESET_CODE = 0
 
 /**
- * The ESC control character (`U+001B`) that begins every ANSI escape sequence. Built
+ * Holds the ESC control character (`U+001B`) that begins every ANSI escape sequence. Built
  * with `String.fromCharCode` so no raw control character appears in source.
  */
 export const ESC = String.fromCharCode(27)
 
-/** The BEL control character (`U+0007`) that can terminate an OSC sequence. */
+/** Holds the BEL control character (`U+0007`) that can terminate an OSC sequence. */
 export const BEL = String.fromCharCode(7)
 
-/** The Control Sequence Introducer (`ESC[`) that opens every SGR sequence. */
+/** Holds the Control Sequence Introducer (`ESC[`) that opens every SGR sequence. */
 export const CSI = `${ESC}[`
 
-/** The full SGR reset sequence (`ESC[0m`) appended after a styled run. */
+/** Holds the full SGR reset sequence (`ESC[0m`) appended after a styled run. */
 export const RESET = `${CSI}${RESET_CODE}m`
 
 /**
@@ -193,7 +193,7 @@ export const CONTROL_PATTERN = new RegExp(
 // member exported.
 
 /**
- * Each {@link LogLevel}'s numeric severity — the ascending order the level gate compares
+ * Maps each {@link LogLevel} to its numeric severity — the ascending order the level gate compares
  * through (`debug` 0 < `info` 1 < `warn` 2 < `error` 3). A record is kept when its level's
  * severity is at or above the logger's threshold. The source of truth for level ordering.
  */
@@ -205,7 +205,7 @@ export const LEVEL_SEVERITY: Readonly<Record<LogLevel, number>> = Object.freeze(
 })
 
 /**
- * Each {@link LogLevel}'s default label {@link Color} — the level's visual treatment, which
+ * Maps each {@link LogLevel} to its default label {@link Color} — the level's visual treatment, which
  * is a styling choice orthogonal to the level itself (never a separate pseudo-level). The
  * logger colors the level label through its styler with these; swapping a color never
  * changes leveling. `debug` is cyan, `info` blue, `warn` yellow, `error` red.
@@ -222,17 +222,17 @@ export const LEVEL_COLORS: Readonly<Record<LogLevel, Exclude<Color, 'default'>>>
 })
 
 /**
- * The default bounded-retention cap for a {@link import('./types.js').LoggerInterface} — at
+ * Sets the default bounded-retention cap for a {@link import('./types.js').LoggerInterface} — at
  * most this many recent records are kept (oldest dropped first). Retention is always bounded — the
  * oldest record is dropped once the cap is reached; a consumer overrides it via `options.limit`.
  */
 export const DEFAULT_LOG_LIMIT = 1000
 
-/** The default {@link LogLevel} threshold a logger gates at when none is supplied — `info`. */
+/** Sets the default {@link LogLevel} threshold a logger gates at when none is supplied — `info`. */
 export const DEFAULT_LOG_LEVEL: LogLevel = 'info'
 
 /**
- * Every {@link LogLevel}, in ascending severity order — the levels a logger exposes as
+ * Lists every {@link LogLevel}, in ascending severity order — the levels a logger exposes as
  * methods and the manager fans out to. The source of truth for the level axis (drives
  * exhaustive tests); aligned with {@link LEVEL_SEVERITY}.
  */
@@ -245,7 +245,7 @@ export const LOG_LEVELS: readonly LogLevel[] = Object.freeze(['debug', 'info', '
 // external spec, so the literals are the source of truth.
 
 /**
- * The complete {@link BorderChars} junction set for each {@link BorderStyle} — the standard
+ * Holds the complete {@link BorderChars} junction set for each {@link BorderStyle} — the standard
  * Unicode box-drawing glyphs at the four line weights. The renderers ({@link
  * import('./helpers.js').renderBox} / {@link import('./helpers.js').renderTable}) look the
  * style up here, so no glyph literal lives in a renderer. Deeply frozen.
@@ -309,7 +309,7 @@ export const BORDER_CHARS: Readonly<Record<BorderStyle, BorderChars>> = Object.f
 })
 
 /**
- * Each {@link StatusLevel}'s icon glyph — the leading mark a {@link
+ * Maps each {@link StatusLevel} to its icon glyph — the leading mark a {@link
  * import('./types.js').ReporterInterface.status} outcome line shows: `success` ✔, `error` ✖,
  * `warn` ⚠, `info` ℹ. The narrative-outcome counterpart to a log level's label; frozen.
  */
@@ -321,7 +321,7 @@ export const STATUS_ICONS: Readonly<Record<StatusLevel, string>> = Object.freeze
 })
 
 /**
- * Each {@link StatusLevel}'s {@link Color} — the icon + message color a `status` line renders
+ * Maps each {@link StatusLevel} to its {@link Color} — the icon + message color a `status` line renders
  * in (`success` green, `error` red, `warn` yellow, `info` blue). The visual treatment of a
  * narrative outcome, colored through the reporter's styler; orthogonal to leveling, like
  * {@link LEVEL_COLORS}. Excludes `default` so each value indexes a real styler accessor.
@@ -335,7 +335,7 @@ export const STATUS_COLORS: Readonly<Record<StatusLevel, Exclude<Color, 'default
 	})
 
 /**
- * Every {@link StatusLevel}, frozen — the outcomes a `status` line supports (drives exhaustive
+ * Lists every {@link StatusLevel}, frozen — the outcomes a `status` line supports (drives exhaustive
  * tests). The source of truth for the status axis; aligned with {@link STATUS_ICONS} /
  * {@link STATUS_COLORS}.
  */
@@ -347,33 +347,33 @@ export const STATUS_LEVELS: readonly StatusLevel[] = Object.freeze([
 ])
 
 /**
- * The default visible column width for the width-aware renderers — the separator rule and a
+ * Sets the default visible column width for the width-aware renderers — the separator rule and a
  * {@link import('./helpers.js').renderBox} with no explicit `width`, and the reporter's
  * `section` rule. A sane terminal default (80 columns); a caller overrides it per-call or via
  * {@link import('./types.js').ReporterOptions}`.width`.
  */
 export const DEFAULT_WIDTH = 80
 
-/** The default horizontal padding inside a box's edges ({@link import('./helpers.js').renderBox}) — one cell. */
+/** Sets the default horizontal padding inside a box's edges ({@link import('./helpers.js').renderBox}) — one cell. */
 export const DEFAULT_PADDING = 1
 
-/** The default {@link BorderStyle} the box / table renderers frame with when none is given — `single`. */
+/** Sets the default {@link BorderStyle} the box / table renderers frame with when none is given — `single`. */
 export const DEFAULT_BORDER: BorderStyle = 'single'
 
-/** The default cell {@link Alignment} a {@link import('./types.js').ColumnSpec} uses when none is given — `left`. */
+/** Sets the default cell {@link Alignment} a {@link import('./types.js').ColumnSpec} uses when none is given — `left`. */
 export const DEFAULT_ALIGN: Alignment = 'left'
 
-/** The default fill character {@link import('./helpers.js').renderSeparator} draws its rule with — `─`. */
+/** Holds the default fill character {@link import('./helpers.js').renderSeparator} draws its rule with — `─`. */
 export const SEPARATOR_FILL = '─'
 
 /**
- * The single padding cell on each side of a separator's embedded title (` title `) — keeps the
+ * Holds the single padding cell on each side of a separator's embedded title (` title `) — keeps the
  * title from butting against the rule. One space.
  */
 export const SEPARATOR_TITLE_GAP = ' '
 
 /**
- * The number of milliseconds at or above which {@link import('./helpers.js').formatDuration}
+ * Sets the number of milliseconds at or above which {@link import('./helpers.js').formatDuration}
  * (and so `Reporter.timing`) switches from a `…ms` rendering to a `…s` (seconds, 2 d.p.)
  * rendering — exactly one second.
  */
@@ -386,7 +386,7 @@ export const SECOND_MS = 1000
 // the source of truth.
 
 /**
- * Every {@link CaptureLevel}, frozen — the `console.*` methods a {@link
+ * Lists every {@link CaptureLevel}, frozen — the `console.*` methods a {@link
  * import('./types.js').CaptureInterface} intercepts by default (and the source of truth for the
  * capture-level axis; drives exhaustive tests). The universal console methods: `log`, `info`,
  * `warn`, `error`, `debug`.
@@ -400,7 +400,7 @@ export const CAPTURE_LEVELS: readonly CaptureLevel[] = Object.freeze([
 ])
 
 /**
- * The default bounded-buffer cap for a {@link import('./types.js').CaptureInterface} — at most this
+ * Sets the default bounded-buffer cap for a {@link import('./types.js').CaptureInterface} — at most this
  * many recent {@link CapturedMessage}s are retained per buffer (the total buffer and each by-level
  * bucket; oldest dropped first). Capture retention is always bounded so a long-running capture can
  * never grow without bound (the same retention precedent as {@link DEFAULT_LOG_LIMIT}); a consumer
@@ -409,7 +409,7 @@ export const CAPTURE_LEVELS: readonly CaptureLevel[] = Object.freeze([
 export const DEFAULT_CAPTURE_LIMIT = 1000
 
 /**
- * Each {@link CaptureLevel}'s {@link LogLevel} for the optional sink forward — the projection the
+ * Maps each {@link CaptureLevel} to its {@link LogLevel} for the optional sink forward — the projection the
  * Capture routes through when writing an intercepted call to a {@link
  * import('./types.js').SinkInterface} (`sink.write(text, CAPTURE_LEVEL_MAP[level])`). `warn` /
  * `error` / `debug` / `info` map to their matching {@link LogLevel}; `log` maps to `info` (a plain
@@ -432,7 +432,7 @@ export const CAPTURE_LEVEL_MAP: Readonly<Record<CaptureLevel, LogLevel>> = Objec
 // one bar glyph pair; a caller overrides either through options rather than declaring a second.
 
 /**
- * The default spinner frame cycle a {@link import('./types.js').SpinnerInterface} advances through —
+ * Holds the default spinner frame cycle a {@link import('./types.js').SpinnerInterface} advances through —
  * the ten braille-pattern glyphs (U+2800 block) that read as a smoothly rotating dot, the universal
  * terminal-spinner convention. Frozen; a consumer swaps the whole cycle via `options.frames`.
  *
@@ -454,7 +454,7 @@ export const SPINNER_FRAMES: readonly string[] = Object.freeze([
 ])
 
 /**
- * The default timer period in milliseconds between a {@link import('./types.js').SpinnerInterface}'s
+ * Sets the default timer period in milliseconds between a {@link import('./types.js').SpinnerInterface}'s
  * frames — the `setInterval` interval `start()` arms. Eighty milliseconds (≈12.5 frames/second) is
  * the conventional spinner cadence: fast enough to read as motion, slow enough not to thrash a
  * terminal. A consumer overrides it via `options.interval`.
@@ -462,21 +462,21 @@ export const SPINNER_FRAMES: readonly string[] = Object.freeze([
 export const DEFAULT_SPINNER_INTERVAL = 80
 
 /**
- * The default filled-cell glyph {@link import('./helpers.js').renderBar} draws the completed run of a
+ * Holds the default filled-cell glyph {@link import('./helpers.js').renderBar} draws the completed run of a
  * progress bar with — the full block `█` (U+2588). A single visible cell; a consumer overrides it via
  * {@link import('./types.js').ProgressBarOptions}`.fill`.
  */
 export const BAR_FILL = '█'
 
 /**
- * The default empty-cell glyph {@link import('./helpers.js').renderBar} draws the remaining run of a
+ * Holds the default empty-cell glyph {@link import('./helpers.js').renderBar} draws the remaining run of a
  * progress bar with — the light-shade block `░` (U+2591). A single visible cell; a consumer overrides
  * it via {@link import('./types.js').ProgressBarOptions}`.empty`.
  */
 export const BAR_EMPTY = '░'
 
 /**
- * The default visible cell count of a progress-bar track — the glyph run {@link
+ * Sets the default visible cell count of a progress-bar track — the glyph run {@link
  * import('./helpers.js').renderBar} fills (and a {@link import('./types.js').ProgressInterface} sizes
  * its bar to). Thirty cells is a compact, terminal-friendly default; a consumer overrides it via
  * `options.width`. Distinct from {@link DEFAULT_WIDTH} (the renderers' 80-column line width) — a bar
@@ -491,7 +491,7 @@ export const DEFAULT_BAR_WIDTH = 30
 // `Object.freeze`d data.
 
 /**
- * The default {@link Theme} — every role bound to its default {@link Style}, deeply frozen.
+ * Holds the default {@link Theme} — every role bound to its default {@link Style}, deeply frozen.
  * The base {@link import('./factories.js').createTheme} merges over, and the theme every
  * entity uses when none is supplied.
  *
