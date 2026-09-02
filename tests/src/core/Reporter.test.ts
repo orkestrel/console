@@ -1,12 +1,5 @@
 import type { ReporterInterface } from '@src/core'
-import {
-	createReporter,
-	createStyler,
-	createTheme,
-	DEFAULT_THEME,
-	Reporter,
-	strip,
-} from '@src/core'
+import { createStyler, createTheme, DEFAULT_THEME, Reporter, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createRecordingSink } from '../../setup.js'
 
@@ -351,20 +344,13 @@ describe('Reporter', () => {
 		})
 	})
 
-	describe('factory parity', () => {
-		it('createReporter yields a working reporter over a supplied sink + plain styler', () => {
-			const sink = createRecordingSink()
-			const reporter = createReporter({ sink, styler: createStyler({ enabled: false }), width: 10 })
-			reporter.status('info', 'hello')
-			expect(firstLine(sink)).toBe('ℹ hello')
-		})
-
+	describe('default sink', () => {
 		it('defaults to the snapshotted console sink (writes one line through console.log)', () => {
 			const seen: string[] = []
 			const original = console.log
 			console.log = (text: string) => seen.push(text)
 			try {
-				const reporter = createReporter({ styler: createStyler({ enabled: false }) })
+				const reporter = new Reporter({ styler: createStyler({ enabled: false }) })
 				reporter.line('via default sink')
 				expect(seen).toEqual(['via default sink'])
 			} finally {

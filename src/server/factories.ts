@@ -7,7 +7,7 @@ import type {
 } from './types.js'
 import { selectWriter, strip, stripControls } from '@src/core'
 import { ProcessCapture } from './ProcessCapture.js'
-import { columnsOf, inferStyled } from './helpers.js'
+import { inferColumns, inferStyled } from './helpers.js'
 import { isStreamTarget } from './validators.js'
 
 /**
@@ -42,14 +42,14 @@ import { isStreamTarget } from './validators.js'
  *
  * @example
  * ```ts
- * import { createLogger, createReporter, createStyler } from '@src/core'
+ * import { createStyler, Logger, Reporter } from '@src/core'
  * import { createServerSink } from '@src/server'
  *
  * const sink = createServerSink()
  * const styler = createStyler({ enabled: sink.styled })
- * const logger = createLogger({ name: 'app', sink, styler })
+ * const logger = new Logger({ name: 'app', sink, styler })
  * logger.error('boom') // → process.stderr, ANSI rendered on a TTY / stripped to a pipe
- * const reporter = createReporter({ sink, width: sink.columns })
+ * const reporter = new Reporter({ sink, width: sink.columns })
  * ```
  */
 export function createServerSink(options?: ServerSinkOptions): ServerSinkInterface {
@@ -80,8 +80,8 @@ export function createServerSink(options?: ServerSinkOptions): ServerSinkInterfa
 		},
 		get columns(): number {
 			// A fixed override wins; otherwise the live out-stream width (tracks a resize), with the
-			// non-TTY fallback inside columnsOf.
-			return typeof fixed === 'number' ? fixed : columnsOf(out)
+			// non-TTY fallback inside inferColumns.
+			return typeof fixed === 'number' ? fixed : inferColumns(out)
 		},
 	})
 }

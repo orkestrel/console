@@ -25,20 +25,20 @@ npm install @orkestrel/console
 The same code retargets to any environment by swapping the `sink`:
 
 ```ts
-import { createLogger, createReporter, createSpinner } from '@src/core'
+import { Logger, Reporter, Spinner } from '@src/core'
 
-const logger = createLogger({ name: 'http', level: 'info' }) // ANSI to the console by default
+const logger = new Logger({ name: 'http', level: 'info' }) // ANSI to the console by default
 logger.info('request', { method: 'GET', path: '/' }) // a styled, leveled line + an `entry` event
 logger.emitter.on('entry', (record) => archive(record)) // the transport seam — file / JSON / remote
 
-const reporter = createReporter()
+const reporter = new Reporter()
 reporter.section('Build')
 reporter.step('bundling', { index: 2, total: 5 }) // [2/5] bundling
 reporter.status('success', 'built in 1.2s') // ✔ built in 1.2s
 
-const spinner = createSpinner({ message: 'deploying' })
+const spinner = new Spinner({ message: 'deploying' })
 spinner.start() // a self-driving glyph cycle, `\r`-redrawn by an overwrite-capable sink
-spinner.success('deployed') // ✔ deployed — the timer cleared, the line committed
+spinner.succeed('deployed') // ✔ deployed — the timer cleared, the line committed
 ```
 
 Style is data — a `Style` is a frozen record rendered through a swappable
@@ -54,9 +54,9 @@ console.log(styler.red.bold('hi')) // renders through the injected renderer
 Take control of `console.*` on the read side with `Capture`:
 
 ```ts
-import { createCapture } from '@src/core'
+import { Capture } from '@src/core'
 
-const capture = createCapture({ mirror: true })
+const capture = new Capture({ mirror: true })
 capture.start()
 console.log('hello')
 capture.messages() // [{ level: 'log', text: 'hello', time: ... }]

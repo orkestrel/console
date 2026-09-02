@@ -236,7 +236,7 @@ export const DEFAULT_LOG_LEVEL: LogLevel = 'info'
  * methods and the manager fans out to. The source of truth for the level axis (drives
  * exhaustive tests); aligned with {@link LEVEL_SEVERITY}.
  */
-export const LEVELS: readonly LogLevel[] = Object.freeze(['debug', 'info', 'warn', 'error'])
+export const LOG_LEVELS: readonly LogLevel[] = Object.freeze(['debug', 'info', 'warn', 'error'])
 
 // Narrative-rendering constants — the box-drawing junction sets the renderers frame with, the
 // status icons + colors a `Reporter.status` outcome shows, the tree connectors, and the default
@@ -398,13 +398,6 @@ export const CAPTURE_LEVELS: readonly CaptureLevel[] = Object.freeze([
 	'error',
 	'debug',
 ])
-
-/**
- * The default set of {@link CaptureLevel}s a Capture patches when `options.levels` is omitted —
- * all five universal `console.*` methods ({@link CAPTURE_LEVELS}). A consumer narrows it (e.g. just
- * `['warn', 'error']`) via `options.levels`.
- */
-export const DEFAULT_CAPTURE_LEVELS: readonly CaptureLevel[] = CAPTURE_LEVELS
 
 /**
  * The default bounded-buffer cap for a {@link import('./types.js').CaptureInterface} — at most this

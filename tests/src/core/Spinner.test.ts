@@ -1,20 +1,12 @@
 import type { SpinnerEventMap } from '@src/core'
 import type { RecordingSinkInterface } from '../../setup.js'
-import {
-	createSpinner,
-	createStyler,
-	createTheme,
-	DEFAULT_THEME,
-	SPINNER_FRAMES,
-	Spinner,
-	strip,
-} from '@src/core'
+import { createStyler, createTheme, DEFAULT_THEME, SPINNER_FRAMES, Spinner, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createRecorder, createRecorders, waitForDelay } from '@orkestrel/test'
 import { createRecordingSink } from '../../setup.js'
 
 // Spinner — the self-driving, observable activity spinner. start() arms a setInterval that advances
-// a glyph cycle, writing each `\r` + frame line to its sink and emitting it on `frame`; success/failure
+// a glyph cycle, writing each `\r` + frame line to its sink and emitting it on `frame`; succeed/fail
 // commit a final ✔/✖ line. UNIVERSAL (setInterval + the one styler + the one sink — no node:*).
 //
 // DETERMINISM: frame-CONTENT is driven by calling tick() directly, so content assertions never wait.
@@ -247,8 +239,8 @@ describe('Spinner', () => {
 		})
 	})
 
-	describe('success / failure — the final outcome line, timer always cleared', () => {
-		it('success() stops the timer and writes ✔ + message + newline', async () => {
+	describe('succeed / fail — the final outcome line, timer always cleared', () => {
+		it('succeed() stops the timer and writes ✔ + message + newline', async () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({
 				message: 'work',
@@ -259,7 +251,7 @@ describe('Spinner', () => {
 			})
 
 			spinner.start()
-			spinner.success('done')
+			spinner.succeed('done')
 
 			expect(spinner.active).toBe(false)
 			// Final write: \r + ✔ + message + newline, on the default stream.
@@ -273,12 +265,12 @@ describe('Spinner', () => {
 			expect(sink.calls.at(-1)).toEqual(['\r✔ done\n', undefined])
 		})
 
-		it('failure() stops the timer and writes ✖ + message + newline to the error stream', async () => {
+		it('fail() stops the timer and writes ✖ + message + newline to the error stream', async () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ frames: ['*'], interval: PERIOD, sink, styler: PLAIN })
 
 			spinner.start()
-			spinner.failure('broke')
+			spinner.fail('broke')
 
 			expect(spinner.active).toBe(false)
 			expect(sink.calls.at(-1)).toEqual(['\r✖ broke\n', 'error']) // error routes to the error stream
@@ -289,17 +281,17 @@ describe('Spinner', () => {
 			expect(sink.calls.at(-1)).toEqual(['\r✖ broke\n', 'error'])
 		})
 
-		it('success() with no argument reuses the current message', () => {
+		it('succeed() with no argument reuses the current message', () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ message: 'kept', frames: ['*'], sink, styler: PLAIN })
-			spinner.success()
+			spinner.succeed()
 			expect(sink.calls.at(-1)).toEqual(['\r✔ kept\n', undefined])
 		})
 
-		it('success() on a never-started spinner still writes the final line (and arms no timer)', async () => {
+		it('succeed() on a never-started spinner still writes the final line (and arms no timer)', async () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ message: 'x', interval: PERIOD, sink, styler: PLAIN })
-			spinner.success('ok')
+			spinner.succeed('ok')
 			expect(frames(sink)).toEqual(['✔ ok'])
 
 			// Nothing armed a timer, so the window adds no frame.
@@ -310,7 +302,7 @@ describe('Spinner', () => {
 		it('colors the icon + message through the styler (asserted via strip)', () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ frames: ['*'], sink, styler: createStyler() })
-			spinner.success('green')
+			spinner.succeed('green')
 			const [text] = sink.calls.at(-1) ?? ['']
 			expect(strip(text)).not.toBe(text) // escapes present
 			// Strip ANSI via the framework helper; remove the leading \r + trailing newline.
@@ -319,7 +311,7 @@ describe('Spinner', () => {
 
 		it('pins the exact default-theme bytes for a success outcome line', () => {
 			const sink = createRecordingSink()
-			new Spinner({ sink }).success('done')
+			new Spinner({ sink }).succeed('done')
 			expect(sink.calls).toEqual([['\r\x1b[32m✔\x1b[0m \x1b[32mdone\x1b[0m\n', undefined]])
 		})
 
@@ -335,8 +327,8 @@ describe('Spinner', () => {
 					},
 				}),
 			})
-			spinner.success('done')
-			spinner.failure('failed')
+			spinner.succeed('done')
+			spinner.fail('failed')
 			expect(sink.calls).toEqual([
 				['\r\x1b[4;94m+\x1b[0m \x1b[4;94mdone\x1b[0m\n', undefined],
 				['\r\x1b[1;95m-\x1b[0m \x1b[1;95mfailed\x1b[0m\n', 'error'],
@@ -348,23 +340,23 @@ describe('Spinner', () => {
 			const explicitSink = createRecordingSink()
 			new Spinner({ sink: implicitSink, message: 'spin' }).tick()
 			new Spinner({ sink: explicitSink, message: 'spin', theme: DEFAULT_THEME }).tick()
-			new Spinner({ sink: implicitSink }).success('done')
-			new Spinner({ sink: explicitSink, theme: DEFAULT_THEME }).success('done')
-			new Spinner({ sink: implicitSink }).failure('failed')
-			new Spinner({ sink: explicitSink, theme: DEFAULT_THEME }).failure('failed')
+			new Spinner({ sink: implicitSink }).succeed('done')
+			new Spinner({ sink: explicitSink, theme: DEFAULT_THEME }).succeed('done')
+			new Spinner({ sink: implicitSink }).fail('failed')
+			new Spinner({ sink: explicitSink, theme: DEFAULT_THEME }).fail('failed')
 			expect(implicitSink.calls).toEqual(explicitSink.calls)
 		})
 	})
 
 	describe('the frame / start / stop events — the observation seam (§13)', () => {
-		it('emits a frame per tick and a final frame on success', () => {
+		it('emits a frame per tick and a final frame on succeed', () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ message: 'm', frames: ['a', 'b'], sink, styler: PLAIN })
 			const events = createRecorders<SpinnerEventMap, 'frame'>(spinner.emitter, ['frame'])
 
 			spinner.tick()
 			spinner.tick()
-			spinner.success('ok')
+			spinner.succeed('ok')
 
 			expect(events.frame.calls.map(([line]) => line)).toEqual(['a m', 'b m', '✔ ok'])
 		})
@@ -391,7 +383,7 @@ describe('Spinner', () => {
 			expect(events.frame.count).toBe(painted) // leak guard — nothing is still painting
 		})
 
-		it('success emits stop exactly once (the timer transition), then the final frame', async () => {
+		it('succeed emits stop exactly once (the timer transition), then the final frame', async () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ frames: ['a'], interval: PERIOD, sink, styler: PLAIN })
 			const events = createRecorders<SpinnerEventMap, 'start' | 'stop' | 'frame'>(spinner.emitter, [
@@ -401,7 +393,7 @@ describe('Spinner', () => {
 			])
 
 			spinner.start()
-			spinner.success('ok')
+			spinner.succeed('ok')
 
 			expect(events.start.count).toBe(1)
 			expect(events.stop.count).toBe(1)
@@ -470,15 +462,15 @@ describe('Spinner', () => {
 			expect(sink.calls.length).toBe(before) // no write while inactive
 		})
 
-		it('a second success() after stop writes another final line and arms no timer', async () => {
-			// success()/failure() are NOT idempotent: each commits a fresh final line (stop() inside is the
-			// no-op part). Documents that calling success twice writes two lines (the timer stays cleared).
+		it('a second succeed() after stop writes another final line and arms no timer', async () => {
+			// succeed()/fail() are NOT idempotent: each commits a fresh final line (stop() inside is the
+			// no-op part). Documents that calling succeed twice writes two lines (the timer stays cleared).
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ frames: ['*'], interval: PERIOD, sink, styler: PLAIN })
 			spinner.start()
-			spinner.success('one')
+			spinner.succeed('one')
 			const afterFirst = sink.calls.length
-			spinner.success('two')
+			spinner.succeed('two')
 			expect(sink.calls.length).toBe(afterFirst + 1)
 			expect(sink.calls.at(-1)).toEqual(['\r✔ two\n', undefined])
 
@@ -486,12 +478,12 @@ describe('Spinner', () => {
 			expect(sink.calls.length).toBe(afterFirst + 1) // leak guard
 		})
 
-		it('failure() after success() commits a failureure line to the error stream (no timer leak)', async () => {
+		it('fail() after succeed() commits a failure line to the error stream (no timer leak)', async () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ frames: ['*'], interval: PERIOD, sink, styler: PLAIN })
 			spinner.start()
-			spinner.success('ok')
-			spinner.failure('then broke')
+			spinner.succeed('ok')
+			spinner.fail('then broke')
 			expect(sink.calls.at(-1)).toEqual(['\r✖ then broke\n', 'error'])
 
 			const after = sink.calls.length
@@ -558,15 +550,6 @@ describe('Spinner', () => {
 			const all = frames(sink)
 			expect(all).toHaveLength(SPINNER_FRAMES.length)
 			expect(all.every((text) => !text.includes('NaN'))).toBe(true)
-		})
-	})
-
-	describe('factory parity', () => {
-		it('createSpinner yields a working spinner', () => {
-			const sink = createRecordingSink()
-			const spinner = createSpinner({ message: 'via factory', frames: ['*'], sink, styler: PLAIN })
-			spinner.tick()
-			expect(frames(sink)).toEqual(['* via factory'])
 		})
 	})
 })

@@ -1,18 +1,11 @@
 import type { ProgressEventMap } from '@src/core'
-import {
-	createProgress,
-	createStyler,
-	createTheme,
-	DEFAULT_THEME,
-	Progress,
-	strip,
-} from '@src/core'
+import { createStyler, createTheme, DEFAULT_THEME, Progress, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createRecorder, createRecorders } from '@orkestrel/test'
 import { createRecordingSink } from '../../setup.js'
 
 // Progress — the update-driven, observable progress bar. update(current) recomputes the bar via
-// renderBar, writes `\r` + bar to its sink, and emits { current, total } on `update`; complete/failure
+// renderBar, writes `\r` + bar to its sink, and emits { current, total } on `update`; complete/fail
 // commit a final line. NO self-timer (the caller drives it) — so these tests need no fake clock.
 // UNIVERSAL (the one styler + the one sink — no node:*). A disabled styler is used for content
 // assertions so the bar reads plainly; one case uses an enabled styler and asserts via strip().
@@ -140,7 +133,7 @@ describe('Progress', () => {
 		})
 	})
 
-	describe('failure — finish at current fill, error stream, NO complete', () => {
+	describe('fail — finish at current fill, error stream, NO complete', () => {
 		it('renders the bar at its current fill + newline to the error stream, no complete event', () => {
 			const sink = createRecordingSink()
 			const progress = new Progress({ total: 10, width: 10, sink, styler: PLAIN })
@@ -150,10 +143,10 @@ describe('Progress', () => {
 			])
 
 			progress.update(4)
-			progress.failure('broke')
+			progress.fail('broke')
 
 			expect(progress.active).toBe(false)
-			expect(progress.completed).toBe(false) // failure is NOT completion
+			expect(progress.completed).toBe(false) // fail is NOT completion
 			expect(progress.current).toBe(4) // stays at the current fill, not driven to total
 			// Final write: the CURRENT-fill bar + message + newline, on the error stream.
 			expect(sink.calls.at(-1)).toEqual(['\r████░░░░░░ 40% (4/10) broke\n', 'error'])
@@ -168,7 +161,7 @@ describe('Progress', () => {
 				'complete',
 			])
 			progress.update(3) // one update event
-			progress.failure('stopped') // one MORE terminal update event, still no complete
+			progress.fail('stopped') // one MORE terminal update event, still no complete
 			expect(events.update.count).toBe(2)
 			expect(events.update.calls.at(-1)?.[0]).toEqual({ current: 3, total: 10 })
 			expect(events.complete.count).toBe(0)
@@ -186,15 +179,15 @@ describe('Progress', () => {
 			expect(progress.current).toBe(10)
 		})
 
-		it('ignores update and a second complete/failure after failure', () => {
+		it('ignores update and a second complete/fail after fail', () => {
 			const sink = createRecordingSink()
 			const progress = new Progress({ total: 10, width: 10, sink, styler: PLAIN })
 			progress.update(2)
-			progress.failure('x')
+			progress.fail('x')
 			const after = sink.calls.length
 			progress.update(9)
 			progress.complete('late')
-			progress.failure('late')
+			progress.fail('late')
 			expect(sink.calls.length).toBe(after) // nothing more written
 			expect(progress.completed).toBe(false)
 		})
@@ -240,7 +233,7 @@ describe('Progress', () => {
 			expect(sink.calls).toEqual([['\r\x1b[36m████\x1b[0m 100% (4/4) done\n', undefined]])
 		})
 
-		it('keeps update, completion, and failure bytes identical with the explicit default theme', () => {
+		it('keeps update, completion, and fail-line bytes identical with the explicit default theme', () => {
 			const implicitSink = createRecordingSink()
 			const explicitSink = createRecordingSink()
 			const implicit = new Progress({ total: 4, message: 'work', sink: implicitSink })
@@ -258,8 +251,8 @@ describe('Progress', () => {
 			const explicitFailure = new Progress({ total: 4, sink: explicitSink, theme: DEFAULT_THEME })
 			implicitFailure.update(1)
 			explicitFailure.update(1)
-			implicitFailure.failure('failed')
-			explicitFailure.failure('failed')
+			implicitFailure.fail('failed')
+			explicitFailure.fail('failed')
 			expect(implicitSink.calls).toEqual(explicitSink.calls)
 		})
 	})
@@ -319,7 +312,7 @@ describe('Progress', () => {
 		})
 	})
 
-	describe('complete / failure idempotency (terminal is sticky)', () => {
+	describe('complete / fail idempotency (terminal is sticky)', () => {
 		it('a second complete() after complete() is ignored — no extra write, no extra event', () => {
 			const sink = createRecordingSink()
 			const progress = new Progress({ total: 10, width: 10, sink, styler: PLAIN })
@@ -331,26 +324,26 @@ describe('Progress', () => {
 			expect(events.complete.count).toBe(1)
 		})
 
-		it('complete() after failure() is ignored (failure already made it terminal)', () => {
+		it('complete() after fail() is ignored (fail already made it terminal)', () => {
 			const sink = createRecordingSink()
 			const progress = new Progress({ total: 10, width: 10, sink, styler: PLAIN })
 			const events = createRecorders<ProgressEventMap, 'complete'>(progress.emitter, ['complete'])
-			progress.failure('broke')
+			progress.fail('broke')
 			const after = sink.calls.length
 			progress.complete('late')
 			expect(sink.calls.length).toBe(after)
-			expect(events.complete.count).toBe(0) // failure never completes
+			expect(events.complete.count).toBe(0) // fail never completes
 			expect(progress.completed).toBe(false)
 		})
 
-		it('failure() after complete() is ignored (complete already made it terminal)', () => {
+		it('fail() after complete() is ignored (complete already made it terminal)', () => {
 			const sink = createRecordingSink()
 			const progress = new Progress({ total: 10, width: 10, sink, styler: PLAIN })
 			progress.complete('done')
 			const after = sink.calls.length
-			progress.failure('too late')
+			progress.fail('too late')
 			expect(sink.calls.length).toBe(after)
-			expect(progress.completed).toBe(true) // still completed; failure did nothing
+			expect(progress.completed).toBe(true) // still completed; fail did nothing
 		})
 	})
 
@@ -396,15 +389,6 @@ describe('Progress', () => {
 			expect(() => progress.update(5)).not.toThrow()
 			expect(progress.current).toBe(5)
 			expect(bars(sink)).toEqual(['█████░░░░░ 50% (5/10)'])
-		})
-	})
-
-	describe('factory parity', () => {
-		it('createProgress yields a working bar', () => {
-			const sink = createRecordingSink()
-			const progress = createProgress({ total: 4, width: 4, sink, styler: PLAIN })
-			progress.update(2)
-			expect(bars(sink)).toEqual(['██░░ 50% (2/4)'])
 		})
 	})
 })

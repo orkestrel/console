@@ -12,7 +12,7 @@ import type { RetentionInterface, SinkInterface } from '@src/core'
 import { StringDecoder } from 'node:string_decoder'
 import { Emitter } from '@orkestrel/emitter'
 import { Retention } from '@src/core'
-import { DEFAULT_CAPTURE_LEVELS, DEFAULT_CAPTURE_LIMIT, STREAM_LEVEL_MAP } from './constants.js'
+import { DEFAULT_STREAM_LIMIT, STREAM_LEVEL_MAP, STREAM_LEVELS } from './constants.js'
 import { decodeChunk } from './helpers.js'
 import { isBufferEncoding } from './validators.js'
 
@@ -92,12 +92,12 @@ export class ProcessCapture implements ProcessCaptureInterface {
 			...(options?.on !== undefined ? { on: options.on } : {}),
 			...(options?.error !== undefined ? { error: options.error } : {}),
 		})
-		this.#levels = options?.levels ?? DEFAULT_CAPTURE_LEVELS
+		this.#levels = options?.levels ?? STREAM_LEVELS
 		this.#mirror = options?.mirror ?? false
 		this.#sink = options?.sink
 		this.#retention = new Retention<CapturedChunk>(
 			this.#levels,
-			options?.limit ?? DEFAULT_CAPTURE_LIMIT,
+			options?.limit ?? DEFAULT_STREAM_LIMIT,
 		)
 	}
 

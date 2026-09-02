@@ -26,11 +26,11 @@ import { renderBar } from './helpers.js'
  *   to `current / total`, with the trailing `percent (current/total)` + message) via {@link renderBar},
  *   emits `update`, and writes `'\r' + bar`. Progress advances only when the caller reports it.
  * - **Outcome lines.** {@link complete} renders a full bar (`current = total`) + message, terminated by
- *   a newline, emits a final `update` then `complete`, and marks `completed`. {@link failure} renders the
+ *   a newline, emits a final `update` then `complete`, and marks `completed`. {@link fail} renders the
  *   bar at its current fill + message + newline and routes to the sink's error stream (no `complete` —
  *   the work did not finish). Both are terminal: a later {@link update} is ignored once `active` is false.
  * - **Bounded.** `current` is always clamped to `[0, total]`; {@link completed} reports whether
- *   {@link complete} has run; {@link active} is `true` until a {@link complete} / {@link failure}.
+ *   {@link complete} has run; {@link active} is `true` until a {@link complete} / {@link fail}.
  * - **Lifecycle.** {@link destroy} destroys the emitter (there is no timer to clear).
  *
  * @example
@@ -93,7 +93,7 @@ export class Progress implements ProgressInterface {
 	}
 
 	update(current: number, message?: string): void {
-		// Terminal bars ignore further updates — a complete()/failure() has committed the final line.
+		// Terminal bars ignore further updates — a complete()/fail() has committed the final line.
 		if (!this.#active) return
 		this.#advance(current, message)
 		this.#paint(false)
@@ -109,7 +109,7 @@ export class Progress implements ProgressInterface {
 		this.#emitter.emit('complete')
 	}
 
-	failure(message?: string): void {
+	fail(message?: string): void {
 		if (!this.#active) return
 		// Finish at the current fill (the work stopped short) — commit to the error stream, no complete.
 		// #advance emits a final `update` at the current fill (identical current/total), same as complete().
@@ -134,8 +134,8 @@ export class Progress implements ProgressInterface {
 
 	// Render the bar at the current state and write `\r` + bar to the sink — the leading `\r` an
 	// overwrite-capable sink redraws on. `final` appends a newline that commits the line (a finished
-	// bar is not overwritten); `level` routes a failure() write to the error stream. The single render
-	// path shared by update()/complete()/failure().
+	// bar is not overwritten); `level` routes a fail() write to the error stream. The single render
+	// path shared by update()/complete()/fail().
 	#paint(final: boolean, level?: 'error'): void {
 		const bar = renderBar({
 			current: this.#current,

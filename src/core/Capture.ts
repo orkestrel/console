@@ -10,7 +10,7 @@ import type {
 	ConsoleMethod,
 } from './types.js'
 import { Emitter } from '@orkestrel/emitter'
-import { CAPTURE_LEVEL_MAP, DEFAULT_CAPTURE_LEVELS, DEFAULT_CAPTURE_LIMIT } from './constants.js'
+import { CAPTURE_LEVEL_MAP, CAPTURE_LEVELS, DEFAULT_CAPTURE_LIMIT } from './constants.js'
 import { formatArgs } from './helpers.js'
 import { Retention } from './Retention.js'
 
@@ -68,7 +68,7 @@ export class Capture implements CaptureInterface {
 			...(options?.on !== undefined ? { on: options.on } : {}),
 			...(options?.error !== undefined ? { error: options.error } : {}),
 		})
-		this.#levels = options?.levels ?? DEFAULT_CAPTURE_LEVELS
+		this.#levels = options?.levels ?? CAPTURE_LEVELS
 		this.#mirror = options?.mirror ?? false
 		this.#sink = options?.sink
 		this.#retention = new Retention<CapturedMessage>(

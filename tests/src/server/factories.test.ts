@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createLogger, createReporter, strip } from '@src/core'
+import { Logger, Reporter, strip } from '@src/core'
 import { createProcessCapture, createServerSink } from '@src/server'
 import { createRecorder } from '@orkestrel/test'
 import { createStreamTarget, createWriteProbe } from '../../setupServer.js'
@@ -165,7 +165,7 @@ describe('createServerSink — through Logger / Reporter (integration, F2 newlin
 			err: createStreamTarget().target,
 			styled: false,
 		})
-		const logger = createLogger({ name: 'app', sink })
+		const logger = new Logger({ name: 'app', sink })
 		logger.info('hello')
 		expect(out.writes.calls).toHaveLength(1)
 		const call = out.writes.calls[0]
@@ -182,7 +182,7 @@ describe('createServerSink — through Logger / Reporter (integration, F2 newlin
 			err: createStreamTarget().target,
 			styled: false,
 		})
-		const reporter = createReporter({ sink })
+		const reporter = new Reporter({ sink })
 		reporter.blank()
 		expect(out.writes.calls).toEqual([['\n']])
 	})
@@ -194,7 +194,7 @@ describe('createServerSink — through Logger / Reporter (integration, F2 newlin
 			err: createStreamTarget().target,
 			styled: false,
 		})
-		const logger = createLogger({ name: 'app', sink })
+		const logger = new Logger({ name: 'app', sink })
 		logger.info('one')
 		logger.info('two')
 		expect(out.writes.calls).toHaveLength(2)
@@ -394,7 +394,7 @@ describe('createServerSink — frozen, stable surface', () => {
 
 	it('exposes a fixed columns override of 0-fallback semantics only when positive', () => {
 		// A fixed columns override is returned verbatim — even a small/odd width — since it short-
-		// circuits columnsOf entirely (the override is the consumer's explicit choice).
+		// circuits inferColumns entirely (the override is the consumer's explicit choice).
 		const sink = createServerSink({
 			out: createStreamTarget({ isTTY: false }).target,
 			err: createStreamTarget().target,

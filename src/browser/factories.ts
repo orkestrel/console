@@ -15,7 +15,7 @@ import { ansiToConsole } from './helpers.js'
  * Create the browser `%c` {@link SinkInterface} — the browser output backend. `write(text, level?)`
  * translates the ANSI-styled `text` into a browser `console` call (`console[method](format, ...styles)`)
  * via {@link ansiToConsole}, so a DevTools console renders the same styling a terminal does. Drop it in
- * as a logger / reporter / spinner sink (`createLogger({ sink: createBrowserSink() })`) to retarget the
+ * as a logger / reporter / spinner sink (`new Logger({ sink: createBrowserSink() })`) to retarget the
  * core output to the browser console with no change to the core.
  *
  * @param options - See {@link BrowserSinkOptions}
@@ -41,10 +41,10 @@ import { ansiToConsole } from './helpers.js'
  *
  * @example
  * ```ts
- * import { createLogger } from '@src/core'
+ * import { Logger } from '@src/core'
  * import { createBrowserSink } from '@src/browser'
  *
- * const logger = createLogger({ name: 'app', sink: createBrowserSink() })
+ * const logger = new Logger({ name: 'app', sink: createBrowserSink() })
  * logger.error('boom') // → console.error('%c…', 'color:#cd0000;…') in DevTools
  * ```
  */

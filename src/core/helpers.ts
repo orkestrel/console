@@ -1,8 +1,6 @@
 import type {
 	Alignment,
 	BoxOptions,
-	CaptureOptions,
-	CaptureResult,
 	LogLevel,
 	LogRecord,
 	ProgressBarOptions,
@@ -31,7 +29,6 @@ import {
 	SEPARATOR_FILL,
 	SEPARATOR_TITLE_GAP,
 } from './constants.js'
-import { Capture } from './Capture.js'
 
 // Pure, universal string helpers for the console / terminal system. `strip` removes
 // ANSI escapes; `width` is the visible length (strip then count). Both are needed later
@@ -39,8 +36,6 @@ import { Capture } from './Capture.js'
 // surface shares one implementation. Every function exported.
 // The logging helpers (`meetsLevel`, `formatTime`, `formatRecord`) are likewise pure and
 // shared — the level gate's comparison and the styled-line layout, kept off the impl class.
-// `withCapture` sits here too: it runs a function under a scoped `Capture` and returns that
-// function's value, so it produces no entity and is reusable infrastructure, not a factory.
 
 /**
  * Remove every ANSI escape sequence from `text`, returning the plain visible string.
@@ -720,87 +715,4 @@ export function renderBar(options: ProgressBarOptions): string {
 	const bar = `${paint(options.styler, repeatTo(fill, filledCells), options.style)}${repeatTo(empty, track - filledCells)}`
 	const percent = Math.round(fraction * 100)
 	return `${bar} ${percent}% (${current}/${options.total})`
-}
-
-// Run `fn` under a fresh, scoped console capture — the ergonomic form of {@link createCapture}.
-// A sync `fn` returning T yields { value, messages }; an async `fn` returning Promise<T> yields a
-// Promise of the same. The capture starts before `fn`, stops in a finally (so console is always
-// restored, even on throw), and is discarded — only the buffered messages are returned.
-export function withCapture<T>(
-	fn: () => Promise<T>,
-	options?: CaptureOptions,
-): Promise<CaptureResult<T>>
-export function withCapture<T>(fn: () => T, options?: CaptureOptions): CaptureResult<T>
-/**
- * Run `fn` with the global `console.*` captured for its duration, returning the function's `value`
- * plus the {@link import('./types.js').CapturedMessage}s it logged — the scoped, self-restoring
- * ergonomic form of {@link createCapture}.
- *
- * @param fn - The function to run under capture; may be sync (returns `T`) or async (returns
- *   `Promise<T>`)
- * @param options - See {@link CaptureOptions} (`levels` / `mirror` / `sink` / `limit` / `on` /
- *   `error`); the capture is started for the duration of `fn` regardless
- * @returns For a sync `fn`, a {@link CaptureResult}`<T>` (`{ value, messages }`); for an async
- *   `fn`, a `Promise<CaptureResult<T>>` (awaited, then console restored)
- *
- * @remarks
- * - **Always restores.** `start()` runs before `fn`; `stop()` runs in a `finally`, so `console` is
- *   restored even if `fn` throws / rejects (the throw / rejection still propagates). The capture
- *   is local — created, used, and destroyed within the call.
- * - **Sync vs async.** A `fn` returning a `Promise` is detected and awaited before `stop()`, so
- *   captures during the async work are included; a plain `fn` stops synchronously. The return type
- *   follows `fn`'s (overloaded).
- * - **process-global caveat.** Like {@link createCapture}, this patches the one global `console`.
- *   Concurrent `withCapture` calls (or a `withCapture` around other capturing code) interleave —
- *   each captures every `console.*` call in flight, and the inner `stop()` restores whatever the
- *   outer had installed. Use it for sequential, scoped capture, not overlapping captures.
- *
- * @example
- * ```ts
- * import { withCapture } from '@src/core'
- *
- * const { value, messages } = withCapture(() => {
- * 	console.log('working')
- * 	return 42
- * })
- * value // 42
- * messages.map((m) => m.text) // ['working']
- *
- * // Async — awaited before console is restored.
- * const out = await withCapture(async () => {
- * 	console.warn('async noise')
- * 	return 'done'
- * })
- * out.value // 'done'
- * ```
- */
-export function withCapture<T>(
-	fn: () => T | Promise<T>,
-	options?: CaptureOptions,
-): CaptureResult<T> | Promise<CaptureResult<T>> {
-	const capture = new Capture(options)
-	capture.start()
-	try {
-		const result = fn()
-		if (result instanceof Promise) {
-			return result.then(
-				(value) => {
-					const messages = capture.messages()
-					capture.destroy()
-					return { value, messages }
-				},
-				(error: unknown) => {
-					capture.destroy()
-					throw error
-				},
-			)
-		}
-		const messages = capture.messages()
-		capture.destroy()
-		return { value: result, messages }
-	} catch (error) {
-		// A sync throw — restore console before rethrowing (the async rejection path is handled above).
-		capture.destroy()
-		throw error
-	}
 }

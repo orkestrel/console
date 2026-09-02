@@ -1,5 +1,5 @@
 import type { CaptureEventMap, CaptureLevel, CapturedMessage } from '@src/core'
-import { Capture, createCapture, createLogger, createStyler } from '@src/core'
+import { Capture, createStyler, Logger } from '@src/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createRecorder, createRecorders } from '@orkestrel/test'
 import { createRecordingSink } from '../../setup.js'
@@ -473,7 +473,7 @@ describe('Capture', () => {
 			console.log = (text: string) => real.push(text)
 			console.info = (text: string) => real.push(text)
 			// Logger built FIRST — its console sink snapshots the real console.log now.
-			const logger = createLogger({ level: 'info', styler: createStyler({ enabled: false }) })
+			const logger = new Logger({ level: 'info', styler: createStyler({ enabled: false }) })
 			const capture = new Capture()
 			capture.start() // patches console AFTER the logger snapshotted it
 			console.log('third-party') // captured
@@ -484,16 +484,6 @@ describe('Capture', () => {
 			// And the logger's line still reached the real stream.
 			expect(real.some((line) => line.includes('our own line'))).toBe(true)
 			logger.destroy()
-		})
-	})
-
-	describe('factory parity', () => {
-		it('createCapture yields a working interceptor', () => {
-			const capture = createCapture({ levels: ['log'] })
-			capture.start()
-			console.log('via factory')
-			capture.stop()
-			expect(capture.messages().map((m) => m.text)).toEqual(['via factory'])
 		})
 	})
 })

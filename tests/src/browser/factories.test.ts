@@ -1,6 +1,6 @@
 import type { ConsoleCaptureInterface } from '../../setupBrowser.js'
 import { COLOR_HEX, createBrowserSink } from '@src/browser'
-import { createCapture, createLogger, createStyler } from '@src/core'
+import { Capture, createStyler, Logger } from '@src/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createRecorder } from '@orkestrel/test'
 import { captureConsole } from '../../setupBrowser.js'
@@ -11,7 +11,7 @@ import { captureConsole } from '../../setupBrowser.js'
 // so no spy leaks. We assert: ANSI runs become a `console[method](format, ...styles)` call with the
 // right CSS; the level routes to the matching console method; a leading `\r` (animation redraw)
 // degrades to a non-overwriting line; the sink snapshots `console` at creation (no capture loop);
-// and a real `createLogger({ sink })` writes one styled line end to end.
+// and a real `new Logger({ sink })` writes one styled line end to end.
 
 let consoleSwap: ConsoleCaptureInterface
 let log: ConsoleCaptureInterface['log']
@@ -126,8 +126,8 @@ describe('createBrowserSink', () => {
 		expect(replaced.count).toBe(0)
 	})
 
-	it('drives a real createLogger end to end — one styled info line via console.log', () => {
-		const logger = createLogger({ name: 'app', sink: createBrowserSink() })
+	it('drives a real Logger end to end — one styled info line through console.log', () => {
+		const logger = new Logger({ name: 'app', sink: createBrowserSink() })
 		logger.info('ready')
 		expect(log.count).toBe(1)
 		const [format, ...styles] = log.calls[0] ?? ['']
@@ -141,7 +141,7 @@ describe('createBrowserSink', () => {
 	})
 
 	it('routes a logger error line to console.error end to end', () => {
-		const logger = createLogger({ name: 'app', sink: createBrowserSink() })
+		const logger = new Logger({ name: 'app', sink: createBrowserSink() })
 		logger.error('exploded')
 		expect(error.count).toBe(1)
 		expect(log.count).toBe(0)
@@ -180,12 +180,12 @@ describe('createBrowserSink', () => {
 		expect(replacedError.count).toBe(0)
 	})
 
-	it('survives a REAL createCapture patching console.* — no capture loop, the program log still mirrors', () => {
+	it('survives a REAL Capture patching console.* — no capture loop, the program log still mirrors', () => {
 		// The production threat the snapshot defends against: a Capture (C-d) patches the global
 		// console AFTER the sink exists. The sink must still hit the snapshot-original recorders, and
 		// the capture must NOT see the sink's own writes — only a genuine third-party console call.
 		const sink = createBrowserSink()
-		const capture = createCapture({ mirror: true })
+		const capture = new Capture({ mirror: true })
 		capture.start()
 		// The sink writes — these must NOT be captured (they go through the pre-patch snapshot).
 		sink.write('sink line one')

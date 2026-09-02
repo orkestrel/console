@@ -1,5 +1,5 @@
 import type { LoggerEventMap, LoggerInterface, LogLevel, LogRecord } from '@src/core'
-import { createLogger, createStyler, createTheme, Logger, strip } from '@src/core'
+import { createStyler, createTheme, Logger, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createRecorder, createRecorders } from '@orkestrel/test'
 import { createRecordingSink } from '../../setup.js'
@@ -424,12 +424,20 @@ describe('Logger', () => {
 		})
 	})
 
-	describe('factory parity', () => {
-		it('createLogger yields a working logger', () => {
-			const sink = createRecordingSink()
-			const logger = createLogger({ styler: createStyler({ enabled: false }), sink, level: 'info' })
-			logger.info('via factory')
-			expect(logger.entries().map((record) => record.message)).toEqual(['via factory'])
+	describe('default sink', () => {
+		it('defaults to the snapshotted console sink (writes one info line through console.log)', () => {
+			const seen: string[] = []
+			const original = console.log
+			console.log = (text: string) => seen.push(text)
+			try {
+				const logger = new Logger({ name: 'svc', level: 'info' })
+				logger.info('up')
+				expect(logger.entries().map((record) => record.message)).toEqual(['up'])
+				expect(seen).toHaveLength(1)
+				expect(seen[0]).toContain('up')
+			} finally {
+				console.log = original
+			}
 		})
 	})
 })

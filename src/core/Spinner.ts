@@ -25,14 +25,14 @@ import { createConsoleSink, createStyler } from './factories.js'
  *   current frame, emits it on `frame`, writes `'\r' + line` to the sink, then advances the frame
  *   index (wrapping). A test drives frames by calling {@link tick} directly, or arms a real short
  *   `interval` and proves the timer arms / clears through the sink it writes to.
- * - **Leak-free timer.** The interval is always cleared on {@link success} / {@link failure} /
+ * - **Leak-free timer.** The interval is always cleared on {@link succeed} / {@link fail} /
  *   {@link stop} / {@link destroy} — `#handle` is the single source of `active`, set on arm and unset
  *   on clear, so a spinner never leaks a running interval.
  * - **Idempotent `start`.** A {@link start} while already `active` is a no-op (it never arms a second
  *   timer).
- * - **Outcome lines.** {@link success} / {@link failure} clear the timer then write + emit a final line —
+ * - **Outcome lines.** {@link succeed} / {@link fail} clear the timer then write + emit a final line —
  *   the supplied theme status icon + style (`✔` / `✖` by default) + the message — terminated
- *   by a newline (the activity is over; the line is committed, not overwritten). {@link failure} routes to
+ *   by a newline (the activity is over; the line is committed, not overwritten). {@link fail} routes to
  *   the sink's error stream.
  * - **Lifecycle.** {@link stop} clears the timer and leaves the current line; {@link destroy}
  *   stops then destroys the emitter. {@link update} swaps the message and re-renders immediately when
@@ -43,7 +43,7 @@ import { createConsoleSink, createStyler } from './factories.js'
  * const spinner = new Spinner({ message: 'building' })
  * spinner.start() // arms the timer, paints the first frame to the sink
  * spinner.update('bundling') // message changes, re-rendered at once
- * spinner.success('built in 1.2s') // ✔ built in 1.2s — timer cleared, line committed
+ * spinner.succeed('built in 1.2s') // ✔ built in 1.2s — timer cleared, line committed
  * ```
  */
 export class Spinner implements SpinnerInterface {
@@ -111,11 +111,11 @@ export class Spinner implements SpinnerInterface {
 		if (this.#handle !== undefined) this.#paint(this.#line())
 	}
 
-	success(message?: string): void {
+	succeed(message?: string): void {
 		this.#finish('success', message)
 	}
 
-	failure(message?: string): void {
+	fail(message?: string): void {
 		this.#finish('error', message)
 	}
 
@@ -135,7 +135,7 @@ export class Spinner implements SpinnerInterface {
 	// Stop the timer (emitting `stop` when it was running) and write + emit the final outcome line —
 	// the status icon + message, colored through the styler, terminated by a newline (the activity is
 	// over, so the line is committed, not overwritten). `error` routes to the sink's error stream. The
-	// shared body of success()/failure() — the single home for the outcome path.
+	// shared body of succeed()/fail() — the single home for the outcome path.
 	#finish(level: 'success' | 'error', message?: string): void {
 		this.stop()
 		const text = message ?? this.#message

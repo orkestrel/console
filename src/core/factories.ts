@@ -1,19 +1,8 @@
 import type {
-	CaptureInterface,
 	CaptureOptions,
-	LoggerInterface,
-	LoggerManagerInterface,
-	LoggerManagerOptions,
-	LoggerOptions,
+	CaptureResult,
 	LogLevel,
-	ProgressInterface,
-	ProgressOptions,
-	RendererInterface,
-	ReporterInterface,
-	ReporterOptions,
 	SinkInterface,
-	SpinnerInterface,
-	SpinnerOptions,
 	StylerInterface,
 	StylerOptions,
 	Theme,
@@ -21,40 +10,15 @@ import type {
 } from './types.js'
 import { ANSIRenderer } from './ANSIRenderer.js'
 import { Capture } from './Capture.js'
-import { DEFAULT_THEME, EMPTY_STYLE, LEVELS, STATUS_LEVELS } from './constants.js'
+import { DEFAULT_THEME, EMPTY_STYLE, LOG_LEVELS, STATUS_LEVELS } from './constants.js'
 import { freezeStyle, selectWriter } from './helpers.js'
-import { Logger } from './Logger.js'
-import { LoggerManager } from './LoggerManager.js'
-import { Progress } from './Progress.js'
-import { Reporter } from './Reporter.js'
-import { Spinner } from './Spinner.js'
 import { Styler } from './Styler.js'
 
 /**
- * Create the cross-environment default {@link RendererInterface} — the ANSI / SGR
- * renderer that turns style data into terminal escape codes. The default behind
- * {@link createStyler}; construct one directly to render a {@link import('./types.js').Style}
- * without the fluent surface, or to share one instance across stylers.
- *
- * @returns A stateless ANSI {@link RendererInterface}
- *
- * @example
- * ```ts
- * import { createANSIRenderer } from '@src/core'
- *
- * const renderer = createANSIRenderer()
- * renderer.render({ foreground: 'red', attributes: ['bold'] }, 'alert') // '\x1b[1;31malert\x1b[0m'
- * ```
- */
-export function createANSIRenderer(): RendererInterface {
-	return new ANSIRenderer()
-}
-
-/**
- * Create the fluent, composable {@link StylerInterface} — the consumer-facing styling
+ * Creates the fluent, composable {@link StylerInterface} — the consumer-facing styling
  * API. It builds a {@link import('./types.js').Style} under the hood and renders it
- * through a {@link RendererInterface} (the ANSI default), so `styler.red.bold('hi')`
- * yields styled text. Chains are immutable, so a base styler is freely reusable.
+ * through a {@link import('./types.js').RendererInterface} (the ANSI default), so
+ * `styler.red.bold('hi')` yields styled text. Chains are immutable, so a base styler is freely reusable.
  *
  * @param options - See {@link StylerOptions}
  * @returns A base {@link StylerInterface}
@@ -86,7 +50,7 @@ export function createStyler(options?: StylerOptions): StylerInterface {
 }
 
 /**
- * Create a {@link Theme} — the app-wide semantic style vocabulary, merged role by role over
+ * Creates a {@link Theme} — the app-wide semantic style vocabulary, merged role by role over
  * {@link DEFAULT_THEME}. Hand one theme to a logger / reporter / spinner / progress and every
  * surface speaks it; omit `options` for the defaults.
  *
@@ -115,7 +79,7 @@ export function createStyler(options?: StylerOptions): StylerInterface {
  */
 export function createTheme(options?: ThemeOptions): Theme {
 	const levels = { ...DEFAULT_THEME.levels }
-	for (const level of LEVELS) {
+	for (const level of LOG_LEVELS) {
 		levels[level] = freezeStyle(options?.levels?.[level] ?? DEFAULT_THEME.levels[level])
 	}
 	const statuses = { ...DEFAULT_THEME.statuses }
@@ -132,9 +96,9 @@ export function createTheme(options?: ThemeOptions): Theme {
 }
 
 /**
- * Create the default {@link SinkInterface} — a console sink that routes by level and writes
- * through the `console` methods snapshotted at creation. The default output target behind
- * {@link createLogger}.
+ * Creates the default {@link SinkInterface} — a console sink that routes by level and writes
+ * through the `console` methods snapshotted at creation. The default output target behind the
+ * {@link import('./Logger.js').Logger}.
  *
  * @returns A console {@link SinkInterface}
  *
@@ -170,199 +134,85 @@ export function createConsoleSink(): SinkInterface {
 	}
 }
 
+// Run `fn` under a fresh, scoped console capture — the ergonomic form of the `Capture` class. A
+// sync `fn` returning T yields { value, messages }; an async `fn` returning Promise<T> yields a
+// Promise of the same. The capture starts before `fn`, stops in a finally (so console is always
+// restored, even on throw), and is discarded — only the buffered messages are returned.
+export function createCaptureResult<T>(
+	fn: () => Promise<T>,
+	options?: CaptureOptions,
+): Promise<CaptureResult<T>>
+export function createCaptureResult<T>(fn: () => T, options?: CaptureOptions): CaptureResult<T>
 /**
- * Create an observable, leveled {@link LoggerInterface} — the entry point into structured
- * logging. Each `debug` / `info` / `warn` / `error` call builds a frozen
- * {@link import('./types.js').LogRecord}, gates it by severity, retains a bounded tail,
- * always emits it on `entry` (the transport seam), and — unless `silent` — writes a styled
- * line to its sink.
+ * Runs `fn` with the global `console.*` captured for its duration, returning the function's `value`
+ * plus the {@link import('./types.js').CapturedMessage}s it logged — the scoped, self-restoring
+ * ergonomic form of the {@link Capture} class.
  *
- * @param options - See {@link LoggerOptions}
- * @returns A {@link LoggerInterface}
+ * @param fn - The function to run under capture; may be sync (returns `T`) or async (returns
+ *   `Promise<T>`)
+ * @param options - See {@link CaptureOptions} (`levels` / `mirror` / `sink` / `limit` / `on` /
+ *   `error`); the capture is started for the duration of `fn` regardless
+ * @returns For a sync `fn`, a {@link CaptureResult}`<T>` (`{ value, messages }`); for an async
+ *   `fn`, a `Promise<CaptureResult<T>>` (awaited, then console restored)
  *
  * @remarks
- * - **Record + event = transport.** Subscribe `logger.emitter.on('entry', …)` to tee
- *   records to a file / JSON / remote transport; the event fires for every accepted record,
- *   even when `silent` (silence suppresses only the sink write).
- * - **Bounded retention.** `entries()` returns the recent records, capped at `options.limit`
- *   (default {@link DEFAULT_LOG_LIMIT}); never unbounded.
- * - **Sink + styler defaults.** `options.sink` defaults to {@link createConsoleSink} (the
- *   snapshotted, level-routing console sink); `options.styler` to {@link createStyler} (ANSI).
- *   Styling is orthogonal to level — a level only chooses a label color.
+ * - **Always restores.** `start()` runs before `fn`; `stop()` runs in a `finally`, so `console` is
+ *   restored even if `fn` throws / rejects (the throw / rejection still propagates). The capture
+ *   is local — created, used, and destroyed within the call.
+ * - **Sync vs async.** A `fn` returning a `Promise` is detected and awaited before `stop()`, so
+ *   captures during the async work are included; a plain `fn` stops synchronously. The return type
+ *   follows `fn`'s (overloaded).
+ * - **process-global caveat.** Like the {@link Capture} class, this patches the one global
+ *   `console`. Concurrent `createCaptureResult` calls (or one around other capturing code)
+ *   interleave — each captures every `console.*` call in flight, and the inner `stop()` restores
+ *   whatever the outer had installed. Use it for sequential, scoped capture, not overlapping captures.
  *
  * @example
  * ```ts
- * import { createLogger } from '@src/core'
+ * import { createCaptureResult } from '@src/core'
  *
- * const logger = createLogger({ name: 'http', level: 'info' })
- * logger.info('request', { method: 'GET', path: '/' })
- * logger.debug('verbose') // dropped — below the info threshold
+ * const { value, messages } = createCaptureResult(() => {
+ * 	console.log('working')
+ * 	return 42
+ * })
+ * value // 42
+ * messages.map((m) => m.text) // ['working']
+ *
+ * // Async — awaited before console is restored.
+ * const out = await createCaptureResult(async () => {
+ * 	console.warn('async noise')
+ * 	return 'done'
+ * })
+ * out.value // 'done'
  * ```
  */
-export function createLogger(options?: LoggerOptions): LoggerInterface {
-	return new Logger(options)
-}
-
-/**
- * Create an event-free {@link LoggerManagerInterface} — a registry of named loggers plus
- * a convenience fan-out. It mints + stores {@link LoggerInterface}s keyed by name (its
- * defaults flowing into each), looks them up, removes them, and broadcasts a one-off log to
- * every registered logger.
- *
- * @param options - See {@link LoggerManagerOptions}
- * @returns A {@link LoggerManagerInterface}
- *
- * @remarks
- * - **Defaults flow in.** `options.level` / `sink` / `styler` / `limit` / `silent` are the
- *   defaults flowed into every `register`ed logger unless that call's options override them.
- * - **Event-free.** The manager carries no emitter (each registered logger owns its own
- *   observable `emitter`) — it is a pure registry.
- *
- * @example
- * ```ts
- * import { createLoggerManager } from '@src/core'
- *
- * const loggers = createLoggerManager({ level: 'warn' })
- * loggers.register('http')
- * loggers.register('db', { level: 'debug' }) // overrides the default
- * loggers.warn('slow', { ms: 900 }) // fans out to both
- * ```
- */
-export function createLoggerManager(options?: LoggerManagerOptions): LoggerManagerInterface {
-	return new LoggerManager(options)
-}
-
-/**
- * Create a lean, event-free {@link ReporterInterface} — the entry point into narrative
- * reporting. Each verb (`section` / `step` / `timing` / `status` / `table` / `tree` / `box` /
- * `line` / `blank`) formats through the shared styler + the pure layout renderers and writes to
- * the sink — human / build-run narration over the same substrate the logger uses.
- *
- * @param options - See {@link ReporterOptions}
- * @returns A {@link ReporterInterface}
- *
- * @remarks
- * - **One styler, one sink.** `options.styler` defaults to {@link createStyler} (ANSI) and
- *   `options.sink` to {@link createConsoleSink} (the snapshotted, level-routing console sink) —
- *   no second colorizer. A `status('error', …)` routes to the sink's error stream.
- * - **Width-aware.** `options.width` (default {@link DEFAULT_WIDTH}) sizes `section` and a
- *   `box` with no explicit width; the renderers align on visible width so styled content keeps
- *   its columns.
- * - **Event-free.** The reporter carries no emitter — a pure formatting front-end, like
- *   the renderers and `Scheduler`. Reach for a {@link createLogger} when you need observable,
- *   leveled, transportable records instead.
- *
- * @example
- * ```ts
- * import { createReporter } from '@src/core'
- *
- * const reporter = createReporter()
- * reporter.section('Build')
- * reporter.step('bundling', { index: 2, total: 5 }) // [2/5] bundling
- * reporter.status('success', 'built in 1.2s') // ✔ built in 1.2s
- *
- * // Disable color (a non-TTY) — every line is plain.
- * const plain = createReporter({ styler: createStyler({ enabled: false }) })
- * ```
- */
-export function createReporter(options?: ReporterOptions): ReporterInterface {
-	return new Reporter(options)
-}
-
-/**
- * Create an observable {@link CaptureInterface} — console interception on the read side. While
- * `active`, every configured `console.*` call is captured as a frozen
- * {@link import('./types.js').CapturedMessage}, buffered (total + by level, bounded), emitted on
- * `capture`, and — per options — mirrored to the real console and/or forwarded to a
- * {@link SinkInterface}.
- *
- * @param options - See {@link CaptureOptions}
- * @returns A {@link CaptureInterface} (inactive until `start()`)
- *
- * @remarks
- * - **Snapshot-at-start — no capture loop.** `start()` snapshots the current `console[level]` per
- *   configured level, then patches; the mirror writes through that snapshot. Our own console sink
- *   output (the Logger / Reporter, which snapshot `console` at creation) is never recaptured —
- *   `Capture` catches third-party `console.*`, not our writes. Create your loggers first.
- * - **process-global + non-reentrant.** It patches the one global `console`, so at most one
- *   capture may be active at a time; two concurrent captures interleave and clobber each other's
- *   restore. Prefer {@link withCapture} for a scoped, self-restoring capture.
- * - **Bounded.** `options.limit` (default {@link import('./constants.js').DEFAULT_CAPTURE_LIMIT})
- *   caps both the total buffer and each by-level bucket; never unbounded.
- *
- * @example
- * ```ts
- * import { createCapture } from '@src/core'
- *
- * const capture = createCapture({ levels: ['warn', 'error'] })
- * capture.start()
- * console.error('boom') // captured, not mirrored (mirror defaults to false)
- * capture.messages('error') // [{ level: 'error', text: 'boom', time: … }]
- * capture.stop()
- * ```
- */
-export function createCapture(options?: CaptureOptions): CaptureInterface {
-	return new Capture(options)
-}
-
-/**
- * Create a self-driving, observable {@link SpinnerInterface} — a live activity spinner. `start()`
- * arms a periodic timer that advances a glyph cycle, writing each `\r` + frame line to its sink and
- * emitting it on `frame`; `success` / `failure` commit a final `✔` / `✖` line. The leading `\r` is the
- * sink's to redraw on — a TTY sink overwrites for a smooth animation, a plain sink
- * degrades to a fresh line.
- *
- * @param options - See {@link SpinnerOptions}
- * @returns A {@link SpinnerInterface} (inactive until `start()`)
- *
- * @remarks
- * - **Universal + leak-free.** Built on `setInterval` + the one styler + the one sink (no `node:*`,
- *   no `process.stdout`); the timer is always cleared on `success` / `failure` / `stop` / `destroy`, so
- *   it never leaks. `start()` is idempotent (no second timer while `active`).
- * - **Observable.** Subscribe `spinner.emitter.on('frame', …)` to mirror the animation without
- *   a terminal; `start` / `stop` bracket the timer lifecycle. `options.sink` defaults to
- *   {@link createConsoleSink}, `options.styler` to {@link createStyler} (ANSI).
- *
- * @example
- * ```ts
- * import { createSpinner } from '@src/core'
- *
- * const spinner = createSpinner({ message: 'building' })
- * spinner.start()
- * spinner.success('built in 1.2s') // ✔ built in 1.2s — timer cleared, line committed
- * ```
- */
-export function createSpinner(options?: SpinnerOptions): SpinnerInterface {
-	return new Spinner(options)
-}
-
-/**
- * Create an update-driven, observable {@link ProgressInterface} — a live progress bar. Each
- * `update(current)` recomputes the bar, writes `\r` + bar to its sink, and emits `{ current, total }`
- * on `update`; `complete` / `failure` commit a final line. The leading `\r` is the sink's to redraw on —
- * a TTY sink overwrites, a plain sink degrades to a fresh line. No self-timer — the caller
- * drives the bar.
- *
- * @param options - See {@link ProgressOptions} (`total` is required)
- * @returns A {@link ProgressInterface}
- *
- * @remarks
- * - **Universal + update-driven.** Built on the one styler + the one sink (no `node:*`, no
- *   `process.stdout`); progress advances only when the caller reports it. `current` is always clamped
- *   to `[0, total]`. `options.sink` defaults to {@link createConsoleSink}, `options.styler` to
- *   {@link createStyler} (ANSI).
- * - **Observable.** Subscribe `progress.emitter.on('update', …)` to mirror progress without a
- *   terminal; `complete` signals a successful finish.
- *
- * @example
- * ```ts
- * import { createProgress } from '@src/core'
- *
- * const progress = createProgress({ total: 100, message: 'downloading' })
- * progress.update(40)
- * progress.complete('done')
- * ```
- */
-export function createProgress(options: ProgressOptions): ProgressInterface {
-	return new Progress(options)
+export function createCaptureResult<T>(
+	fn: () => T | Promise<T>,
+	options?: CaptureOptions,
+): CaptureResult<T> | Promise<CaptureResult<T>> {
+	const capture = new Capture(options)
+	capture.start()
+	try {
+		const result = fn()
+		if (result instanceof Promise) {
+			return result.then(
+				(value) => {
+					const messages = capture.messages()
+					capture.destroy()
+					return { value, messages }
+				},
+				(error: unknown) => {
+					capture.destroy()
+					throw error
+				},
+			)
+		}
+		const messages = capture.messages()
+		capture.destroy()
+		return { value: result, messages }
+	} catch (error) {
+		// A sync throw — restore console before rethrowing (the async rejection path is handled above).
+		capture.destroy()
+		throw error
+	}
 }

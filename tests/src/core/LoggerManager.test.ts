@@ -1,12 +1,5 @@
 import type { LogLevel } from '@src/core'
-import {
-	createLoggerManager,
-	createStyler,
-	createTheme,
-	formatRecord,
-	LoggerManager,
-	strip,
-} from '@src/core'
+import { createStyler, createTheme, formatRecord, LoggerManager, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createRecordingSink } from '../../setup.js'
 
@@ -250,21 +243,6 @@ describe('LoggerManager', () => {
 		it('exposes no emitter — observability is per-logger', () => {
 			const { manager } = createTestManager()
 			expect('emitter' in manager).toBe(false)
-		})
-	})
-
-	describe('factory parity', () => {
-		it('createLoggerManager yields a working registry + fan-out', () => {
-			const sink = createRecordingSink()
-			const manager = createLoggerManager({
-				level: 'info',
-				sink,
-				styler: createStyler({ enabled: false }),
-			})
-			const logger = manager.register('svc')
-			manager.info('up')
-			expect(logger.entries().map((record) => record.message)).toEqual(['up'])
-			expect(sink.calls).toHaveLength(1)
 		})
 	})
 })

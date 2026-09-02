@@ -12,19 +12,12 @@ import type { StreamLevel } from './types.js'
 export const STREAM_LEVELS: readonly StreamLevel[] = Object.freeze(['stdout', 'stderr'])
 
 /**
- * The default set of {@link StreamLevel}s a process capture patches when `options.levels` is omitted
- * — both streams ({@link STREAM_LEVELS}). A consumer narrows it (e.g. just `['stderr']`) via
- * `options.levels`.
- */
-export const DEFAULT_CAPTURE_LEVELS: readonly StreamLevel[] = STREAM_LEVELS
-
-/**
  * The default bounded-buffer cap for a {@link import('./types.js').ProcessCaptureInterface} — at
  * most this many recent {@link import('./types.js').CapturedChunk}s are retained per buffer (the
  * total buffer and each per-stream bucket; oldest dropped first). Mirrors the core `Capture`'s
  * `DEFAULT_CAPTURE_LIMIT`; a consumer overrides it via `options.limit`.
  */
-export const DEFAULT_CAPTURE_LIMIT = 1000
+export const DEFAULT_STREAM_LIMIT = 1000
 
 /**
  * The terminal width {@link import('./factories.js').createServerSink} reports through

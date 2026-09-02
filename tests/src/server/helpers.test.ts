@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { columnsOf, decodeChunk, inferStyled } from '@src/server'
+import { decodeChunk, inferColumns, inferStyled } from '@src/server'
 
 describe('inferStyled', () => {
 	it('applies FORCE_COLOR, then non-empty NO_COLOR, then isTTY across the full matrix', () => {
@@ -36,18 +36,18 @@ describe('inferStyled', () => {
 	})
 })
 
-describe('columnsOf', () => {
+describe('inferColumns', () => {
 	it('returns a TTY stream live columns', () => {
-		expect(columnsOf({ write: () => true, isTTY: true, columns: 120 })).toBe(120)
+		expect(inferColumns({ write: () => true, isTTY: true, columns: 120 })).toBe(120)
 	})
 
 	it('falls back to 80 for a non-TTY / absent / invalid columns', () => {
-		expect(columnsOf({ write: () => true })).toBe(80)
-		expect(columnsOf({ write: () => true, isTTY: false })).toBe(80)
-		expect(columnsOf({ write: () => true, columns: 0 })).toBe(80)
-		expect(columnsOf({ write: () => true, columns: -5 })).toBe(80)
-		expect(columnsOf({ write: () => true, columns: Number.NaN })).toBe(80)
-		expect(columnsOf({ write: () => true, columns: Number.POSITIVE_INFINITY })).toBe(80)
+		expect(inferColumns({ write: () => true })).toBe(80)
+		expect(inferColumns({ write: () => true, isTTY: false })).toBe(80)
+		expect(inferColumns({ write: () => true, columns: 0 })).toBe(80)
+		expect(inferColumns({ write: () => true, columns: -5 })).toBe(80)
+		expect(inferColumns({ write: () => true, columns: Number.NaN })).toBe(80)
+		expect(inferColumns({ write: () => true, columns: Number.POSITIVE_INFINITY })).toBe(80)
 	})
 
 	it('re-reads columns on each call (a getter-backed resize is observed)', () => {
@@ -59,25 +59,25 @@ describe('columnsOf', () => {
 				return width
 			},
 		}
-		expect(columnsOf(target)).toBe(100)
+		expect(inferColumns(target)).toBe(100)
 		width = 160
-		expect(columnsOf(target)).toBe(160)
+		expect(inferColumns(target)).toBe(160)
 	})
 
 	it('accepts a positive columns regardless of isTTY (columns alone drives the width)', () => {
-		// columnsOf does not consult isTTY — a positive finite columns is taken even when isTTY is
+		// inferColumns does not consult isTTY — a positive finite columns is taken even when isTTY is
 		// false/absent (the sink's TTY decision is separate from the width probe).
-		expect(columnsOf({ write: () => true, columns: 132 })).toBe(132)
-		expect(columnsOf({ write: () => true, isTTY: false, columns: 132 })).toBe(132)
+		expect(inferColumns({ write: () => true, columns: 132 })).toBe(132)
+		expect(inferColumns({ write: () => true, isTTY: false, columns: 132 })).toBe(132)
 	})
 
 	it('treats a fractional positive columns as-is (it is finite and > 0)', () => {
 		// Only NaN / non-finite / <= 0 fall back; a fractional positive is finite and > 0, so kept.
-		expect(columnsOf({ write: () => true, columns: 100.5 })).toBe(100.5)
+		expect(inferColumns({ write: () => true, columns: 100.5 })).toBe(100.5)
 	})
 
 	it('falls back for negative infinity (non-finite) columns', () => {
-		expect(columnsOf({ write: () => true, columns: Number.NEGATIVE_INFINITY })).toBe(80)
+		expect(inferColumns({ write: () => true, columns: Number.NEGATIVE_INFINITY })).toBe(80)
 	})
 })
 

@@ -12,7 +12,7 @@ import type { SinkInterface } from '@src/core'
  * The minimal writable-stream shape the server sink and process capture address — exactly the
  * slice of a Node `tty.WriteStream` / `process.stdout` they touch, and no more. A
  * {@link ServerSinkOptions} target and a {@link ProcessCaptureInterface}'s patched streams are
- * narrowed to this via {@link import('./helpers.js').isStreamTarget} (narrow the
+ * narrowed to this via {@link import('./validators.js').isStreamTarget} (narrow the
  * boundary, never `as`), so a test can drive either with a hand-built fake stream that never
  * touches the real `process` streams.
  *
@@ -164,7 +164,7 @@ export type ProcessCaptureEventMap = {
  * - `on` — initial {@link ProcessCaptureEventMap} listeners, wired at construction (e.g.
  *   `{ capture: (c) => tee(c) }`).
  * - `error` — the listener-error handler forwarded to the entity's emitter.
- * - `levels` — which streams to intercept; defaults to {@link import('./constants.js').DEFAULT_CAPTURE_LEVELS}
+ * - `levels` — which streams to intercept; defaults to {@link import('./constants.js').STREAM_LEVELS}
  *   (both `stdout` and `stderr`). Narrow it (e.g. just `['stderr']`) to capture one stream.
  * - `mirror` — when `true`, each intercepted write is also replayed to the snapshot-original
  *   `write` (bound to its stream), so the output still reaches the terminal while being captured;
@@ -174,7 +174,7 @@ export type ProcessCaptureEventMap = {
  *   {@link import('./constants.js').STREAM_LEVEL_MAP}), to tee captured output into the logging
  *   pipeline / a file. Absent by default.
  * - `limit` — the bounded-buffer cap (total and each per-stream bucket); defaults to
- *   {@link import('./constants.js').DEFAULT_CAPTURE_LIMIT}. Retention is always bounded.
+ *   {@link import('./constants.js').DEFAULT_STREAM_LIMIT}. Retention is always bounded.
  */
 export interface ProcessCaptureOptions {
 	readonly on?: EmitterHooks<ProcessCaptureEventMap>

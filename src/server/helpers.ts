@@ -8,8 +8,8 @@ import { DEFAULT_COLUMNS } from './constants.js'
 import { isBufferEncoding } from './validators.js'
 
 /**
- * The width in character cells of a stream target — its live `columns` when it is a TTY, else the
- * non-interactive {@link DEFAULT_COLUMNS} fallback. The basis a {@link import('./types.js').ServerSinkInterface}
+ * Infers the width in character cells of a stream target — its live `columns` when it is a TTY, else
+ * the non-interactive {@link DEFAULT_COLUMNS} fallback. The basis a {@link import('./types.js').ServerSinkInterface}
  * reports through `columns` so a `Reporter` / `Progress` can size its layout to the terminal.
  *
  * @remarks
@@ -20,7 +20,7 @@ import { isBufferEncoding } from './validators.js'
  * @param target - The stream whose width to probe
  * @returns The terminal column count, or {@link DEFAULT_COLUMNS} when not a TTY
  */
-export function columnsOf(target: StreamTargetInterface): number {
+export function inferColumns(target: StreamTargetInterface): number {
 	const columns = target.columns
 	if (typeof columns === 'number' && Number.isFinite(columns) && columns > 0) return columns
 	return DEFAULT_COLUMNS
