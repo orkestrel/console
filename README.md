@@ -75,7 +75,7 @@ capture.start()
 
 ## Guide
 
-See [guides/src/console.md](./guides/src/console.md) for the full documented
+See [guides/console.md](./guides/console.md) for the full documented
 surface — styling, logging, reporting, capture, and animations.
 
 ## Package
