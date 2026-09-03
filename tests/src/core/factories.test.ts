@@ -271,10 +271,10 @@ describe('createConsoleSink', () => {
 
 	it('snapshots console at creation — a later console patch can NOT reach the sink (no capture loop)', () => {
 		const real: string[] = []
-		// The "real" console.log the sink should snapshot.
+		// The "real" console.log the sink snapshots.
 		console.log = (text: string) => real.push(text)
-		const sink = createConsoleSink() // snapshots the real console.log NOW
-		// Now PATCH console.log (as a Capture would) — the sink must still hit the snapshot.
+		const sink = createConsoleSink() // snapshots the real console.log at this call
+		// Then PATCH console.log (as a Capture would) — the sink must still hit the snapshot.
 		const captured: string[] = []
 		console.log = (text: string) => captured.push(text)
 		sink.write('after patch')
@@ -398,7 +398,7 @@ describe('createCaptureResult', () => {
 			expect(messages).toEqual([])
 		})
 
-		it('returns the messages buffer as a copy independent of the (now destroyed) capture', () => {
+		it('returns the messages buffer as a copy independent of the destroyed capture', () => {
 			const { messages } = createCaptureResult(() => {
 				console.log('a')
 				console.log('b')

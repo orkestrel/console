@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createRecordingSink, normalizeVisible } from './setup.js'
+import { createRecordingSink, createStubWriter, normalizeVisible } from './setup.js'
 
 // The control sequence introducer and the SGR reset, declared here rather than imported from the
 // source under test, so each expectation below compares against a sequence this file owns.
@@ -60,6 +60,19 @@ describe('normalizeVisible', () => {
 
 	it('drops only the first carriage return and the final newline', () => {
 		expect(normalizeVisible('\r\rtwo\n\n')).toBe('\rtwo\n')
+	})
+})
+
+describe('createStubWriter', () => {
+	it('returns a function producing the given label', () => {
+		const writer = createStubWriter('warn')
+		expect(writer()).toBe('warn')
+	})
+
+	it('gives each call its own distinct function reference', () => {
+		const first = createStubWriter('log')
+		const second = createStubWriter('log')
+		expect(first).not.toBe(second)
 	})
 })
 

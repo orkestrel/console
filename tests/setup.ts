@@ -52,3 +52,14 @@ export function createRecordingSink(): RecordingSinkInterface {
 export function normalizeVisible(text: string): string {
 	return strip(text).replace(/^\r/, '').replace(/\n$/, '')
 }
+
+/**
+ * A zero-argument stand-in returning `label` — a distinct, referentially stable function value for
+ * a test proving a lookup returns the identical reference it was given rather than a copy.
+ *
+ * @param label - The string the returned function produces
+ * @returns A function taking no arguments and returning `label`
+ */
+export function createStubWriter(label: string): () => string {
+	return () => label
+}

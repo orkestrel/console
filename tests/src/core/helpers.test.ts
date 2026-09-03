@@ -25,6 +25,7 @@ import {
 	width,
 } from '@src/core'
 import { describe, expect, it } from 'vitest'
+import { createStubWriter } from '../../setup.js'
 
 // strip / width — the pure, universal ANSI-aware string helpers. strip removes every
 // escape sequence; width is the visible code-point length (strip then count). Both must
@@ -357,7 +358,7 @@ describe('renderSeparator', () => {
 		expect(width(rule)).toBe(13)
 	})
 
-	it('yields just the gapped title when it fills (or overflows) the width', () => {
+	it('yields the gapped title when it fills (or overflows) the width', () => {
 		expect(renderSeparator({ title: 'wide', width: 4 })).toBe(' wide ')
 	})
 
@@ -1196,9 +1197,9 @@ describe('selectWriter', () => {
 	})
 
 	it('carries any member type, returning the identical reference', () => {
-		const log = (): string => 'log'
-		const warn = (): string => 'warn'
-		const error = (): string => 'error'
+		const log = createStubWriter('log')
+		const warn = createStubWriter('warn')
+		const error = createStubWriter('error')
 		expect(selectWriter('warn', { log, warn, error })).toBe(warn)
 		expect(selectWriter(undefined, { log, warn, error })).toBe(log)
 	})

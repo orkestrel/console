@@ -414,7 +414,7 @@ describe('Logger', () => {
 
 		it('a level call after destroy still gates + retains (a destroyed logger is not frozen)', () => {
 			// destroy() tears down the emitter + retention, but the logger object remains usable for
-			// the level methods (the emit simply has no live listeners). Documents the post-destroy shape.
+			// the level methods (the emit has no live listeners). Documents the post-destroy shape.
 			const { logger, sink } = createTestLogger()
 			logger.destroy()
 			expect(() => logger.info('after destroy')).not.toThrow()

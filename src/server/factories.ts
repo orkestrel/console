@@ -37,8 +37,8 @@ import { isStreamTarget } from './validators.js'
  *
  * @example
  * ```ts
- * import { createStyler, Logger, Reporter } from '@src/core'
- * import { createServerSink } from '@src/server'
+ * import { createStyler, Logger, Reporter } from '@orkestrel/console'
+ * import { createServerSink } from '@orkestrel/console/server'
  *
  * const sink = createServerSink()
  * const styler = createStyler({ enabled: sink.styled })

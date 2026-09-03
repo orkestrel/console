@@ -116,7 +116,7 @@ describe('ansiToConsole', () => {
 		expect(ansiToConsole('a\x1bb')).toEqual({ format: 'a\x1bb', styles: [] })
 	})
 
-	it('ignores an unrecognized SGR code (e.g. a 256-color extension) without styling', () => {
+	it('ignores an unrecognized SGR code (for example, a 256-color extension) without styling', () => {
 		// 38;5;200 is an extended-color sequence this layer does not map → no declarations.
 		const { format, styles } = ansiToConsole('\x1b[38;5;200mext\x1b[0m')
 		expect(format).toBe('%cext')
@@ -140,8 +140,8 @@ describe('ansiToConsole', () => {
 })
 
 // The %c-count === styles.length invariant under ADVERSARIAL input — the spine of the whole
-// translation. Every case drives `ansiToConsole` with a hostile string and asserts (via
-// `expectAligned`) that the real `%c` count matches `styles.length` AND that the call never threw
+// translation. Every case drives `ansiToConsole` with a hostile string and asserts, through
+// `expectAligned`, that the real `%c` count matches `styles.length` AND that the call never threw
 // (totality). These are the cases that would break the `console.log(format, ...styles)` spread if
 // the empty-run-drop / escape / unknown-code handling regressed.
 describe('ansiToConsole — adversarial %c/styles alignment', () => {
@@ -435,7 +435,7 @@ describe('scanParameters', () => {
 		expect(parsed[2]).toBe(4)
 	})
 
-	it('parses multi-digit codes (e.g. bright background 107)', () => {
+	it('parses multi-digit codes (for example, bright background 107)', () => {
 		expect(scanParameters('107')).toEqual([107])
 	})
 

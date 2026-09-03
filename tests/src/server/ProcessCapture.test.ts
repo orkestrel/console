@@ -3,59 +3,7 @@ import type { ProcessCaptureEventMap } from '@src/server'
 import { ProcessCapture } from '@src/server'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createRecorder, createRecorders } from '@orkestrel/test'
-import { createWriteProbe } from '../../setupServer.js'
-
-// The completion-callback shape a Node `process.*.write` accepts as its last argument.
-type WriteCallback = (error?: Error | null) => void
-
-// An OVERLOAD-AWARE recording stand-in for a raw `process.*.write`, beyond the chunk-only
-// `createWriteProbe`: it records each chunk's decoded text AND the encoding it was handed, and it
-// INVOKES the completion callback (in whichever Node overload position it arrives —
-// `write(chunk, cb)` or `write(chunk, encoding, cb)`). The ProcessCapture mirror forwards the live
-// stream write to this snapshot-original, so installing it as the current `process.stdout.write`
-// BEFORE `start()` lets a test prove the wrapper honors the encoding, fires the callback, and
-// propagates backpressure — the Node write-overload branching the chunk-only probe can't observe.
-// Kept LOCAL to this file (it exercises this module's patch mechanism specifically); see the report
-// note on generalizing `createWriteProbe` in setupServer if a sibling suite needs the same.
-interface OverloadProbeInterface {
-	readonly write: NodeJS.WriteStream['write']
-	readonly texts: readonly string[]
-	readonly encodings: ReadonlyArray<string | undefined>
-	readonly callbacks: number
-}
-
-function createOverloadProbe(backpressure = true): OverloadProbeInterface {
-	const texts: string[] = []
-	const encodings: Array<string | undefined> = []
-	let callbacks = 0
-	const write = (
-		chunk: string | Uint8Array,
-		encoding?: BufferEncoding | WriteCallback,
-		callback?: WriteCallback,
-	): boolean => {
-		texts.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'))
-		// The 2nd arg is the encoding only when it is a string; a function there is the callback.
-		encodings.push(typeof encoding === 'string' ? encoding : undefined)
-		const done = typeof encoding === 'function' ? encoding : callback
-		if (done !== undefined) {
-			callbacks += 1
-			done()
-		}
-		return backpressure
-	}
-	return {
-		write,
-		get texts() {
-			return texts
-		},
-		get encodings() {
-			return encodings
-		},
-		get callbacks() {
-			return callbacks
-		},
-	}
-}
+import { createOverloadProbe, createWriteProbe } from '../../setupServer.js'
 
 // The C-g process-stream capture (`src/server/console/ProcessCapture.ts`), exercised against the
 // REAL `process.stdout` / `process.stderr`. The pristine `write` of each stream is snapshotted in
@@ -139,7 +87,7 @@ describe('ProcessCapture — interception', () => {
 		capture.destroy()
 	})
 
-	it('buckets by stream via messages(level)', () => {
+	it('buckets by stream through messages(level)', () => {
 		process.stdout.write = createWriteProbe().write
 		process.stderr.write = createWriteProbe().write
 		const capture = new ProcessCapture()
@@ -416,7 +364,7 @@ describe('ProcessCapture — Node write-overload branching (encoding / callback 
 
 	it('capture-only STILL fires the caller completion callback, asynchronously (write(chunk, cb))', async () => {
 		// In mirror:false the wrapper returns true synchronously and never reaches the real write, but
-		// the caller's completion callback still fires — asynchronously, via queueMicrotask — matching
+		// the caller's completion callback still fires — asynchronously, through queueMicrotask — matching
 		// Node's own async completion semantics rather than silently dropping it (F3).
 		process.stdout.write = createWriteProbe().write
 		const capture = new ProcessCapture({ levels: ['stdout'], mirror: false })
@@ -425,7 +373,7 @@ describe('ProcessCapture — Node write-overload branching (encoding / callback 
 		const result = process.stdout.write('swallowed', () => {
 			fired = true
 		})
-		expect(fired).toBe(false) // not yet — fired via microtask, not synchronously
+		expect(fired).toBe(false) // not yet — fired through a microtask, not synchronously
 		expect(result).toBe(true)
 		await Promise.resolve() // flush the microtask queue
 		expect(fired).toBe(true)
@@ -480,7 +428,7 @@ describe('ProcessCapture — Node write-overload branching (encoding / callback 
 
 	it('a callback positioned as the encoding arg is ignored for decode (utf-8 default)', () => {
 		// write(chunk, cb): the 2nd arg is a function, so decodeChunk gets a function as "encoding" →
-		// isBufferEncoding false → utf-8. A buffer thus decodes utf-8, not via the (absent) encoding.
+		// isBufferEncoding false → utf-8. A buffer thus decodes utf-8, not through the (absent) encoding.
 		process.stdout.write = createOverloadProbe().write
 		const capture = new ProcessCapture({ levels: ['stdout'], mirror: true })
 		capture.start()
@@ -561,7 +509,7 @@ describe('ProcessCapture — bounded buffers', () => {
 		process.stderr.write('e1')
 		process.stdout.write('o2')
 		process.stderr.write('e2')
-		process.stdout.write('o3') // bucket stdout now [o2, o3]; total now [e2, o3]
+		process.stdout.write('o3') // bucket stdout after the write [o2, o3]; total [e2, o3]
 		capture.stop()
 		expect(capture.messages().map((message) => message.text)).toEqual(['e2', 'o3']) // last 2 overall
 		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['o2', 'o3'])

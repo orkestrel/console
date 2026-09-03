@@ -2,13 +2,14 @@ import type { ProgressEventMap } from '@src/core'
 import { createStyler, createTheme, DEFAULT_THEME, Progress, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createRecorder, createRecorders } from '@orkestrel/test'
-import { createRecordingSink } from '../../setup.js'
+import { createRecordingSink, normalizeVisible } from '../../setup.js'
 
-// Progress — the update-driven, observable progress bar. update(current) recomputes the bar via
-// renderBar, writes `\r` + bar to its sink, and emits { current, total } on `update`; succeed/fail
-// commit a final line. NO self-timer (the caller drives it) — so these tests need no fake clock.
-// UNIVERSAL (the one styler + the one sink — no node:*). A disabled styler is used for content
-// assertions so the bar reads plainly; one case uses an enabled styler and asserts via strip().
+// Progress — the update-driven, observable progress bar. update(current) recomputes the bar
+// through renderBar, writes `\r` + bar to its sink, and emits { current, total } on `update`;
+// succeed/fail commit a final line. NO self-timer (the caller drives it) — so these tests need no
+// fake clock. UNIVERSAL (the one styler + the one sink — no node:*). A disabled styler is used for
+// content assertions so the bar reads plainly; one case uses an enabled styler and asserts by
+// stripping ANSI.
 
 // The bar lines a recording sink received, with the leading `\r` (and any trailing `\n`) stripped.
 function bars(sink: ReturnType<typeof createRecordingSink>): readonly string[] {
@@ -194,14 +195,14 @@ describe('Progress', () => {
 	})
 
 	describe('styling', () => {
-		it('colors the filled run through the styler (asserted via strip)', () => {
+		it('colors the filled run through the styler (asserted by stripping ANSI)', () => {
 			const sink = createRecordingSink()
 			const progress = new Progress({ total: 10, width: 10, sink, styler: createStyler() })
 			progress.update(5)
 			const [text] = sink.calls[0] ?? ['']
 			expect(strip(text)).not.toBe(text) // cyan escapes present on the filled run
-			// Strip ANSI via the framework helper; remove the leading \r.
-			expect(strip(text).replace(/^\r/, '')).toBe('█████░░░░░ 50% (5/10)')
+			// Strip ANSI through the framework helper; remove the leading \r.
+			expect(normalizeVisible(text)).toBe('█████░░░░░ 50% (5/10)')
 		})
 
 		it('uses custom fill and empty glyphs and the theme accent only on the filled run', () => {

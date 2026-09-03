@@ -80,3 +80,59 @@ export function createWriteProbe(backpressure = true): {
 		texts,
 	}
 }
+
+// The completion-callback shape a Node `process.*.write` accepts as its last argument.
+export type WriteCallback = (error?: Error | null) => void
+
+/**
+ * An OVERLOAD-AWARE recording stand-in for a raw `process.*.write`, beyond the chunk-only
+ * `createWriteProbe`: it records each chunk's decoded text AND the encoding it was handed, and it
+ * INVOKES the completion callback (in whichever Node overload position it arrives —
+ * `write(chunk, cb)` or `write(chunk, encoding, cb)`). A `ProcessCapture` test installs it as the
+ * current `process.stdout.write` / `process.stderr.write` BEFORE `start()` so the capture's
+ * snapshot-original (and any mirror replay) lands here — proving the wrapper honors the encoding,
+ * fires the callback, and propagates backpressure, the Node write-overload branching the
+ * chunk-only probe cannot observe.
+ *
+ * @param backpressure - The boolean each `write` returns (default `true` — buffer not full).
+ * @returns The `write` (assign it to a process stream), `texts` (each chunk decoded to a string, in
+ *   order), `encodings` (the encoding argument recorded per call, `undefined` where the 2nd
+ *   argument was the callback instead), and `callbacks` (the tally of completion callbacks
+ *   invoked).
+ */
+export function createOverloadProbe(backpressure = true): {
+	readonly write: NodeJS.WriteStream['write']
+	readonly texts: readonly string[]
+	readonly encodings: ReadonlyArray<string | undefined>
+	readonly callbacks: number
+} {
+	const texts: string[] = []
+	const encodings: Array<string | undefined> = []
+	let callbacks = 0
+	return {
+		write(
+			chunk: string | Uint8Array,
+			encoding?: BufferEncoding | WriteCallback,
+			callback?: WriteCallback,
+		): boolean {
+			texts.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'))
+			// The 2nd arg is the encoding only when it is a string; a function there is the callback.
+			encodings.push(typeof encoding === 'string' ? encoding : undefined)
+			const done = typeof encoding === 'function' ? encoding : callback
+			if (done !== undefined) {
+				callbacks += 1
+				done()
+			}
+			return backpressure
+		},
+		get texts() {
+			return texts
+		},
+		get encodings() {
+			return encodings
+		},
+		get callbacks() {
+			return callbacks
+		},
+	}
+}

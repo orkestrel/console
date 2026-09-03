@@ -34,7 +34,7 @@ function base(): Styler {
 
 describe('Styler', () => {
 	describe('rendering a single token', () => {
-		it('applies a foreground color via the ANSI default', () => {
+		it('applies a foreground color through the ANSI default', () => {
 			const styler = base().surface
 			expect(styler.red('x')).toBe(`${ESC}31mx${RESET}`)
 		})
@@ -60,7 +60,7 @@ describe('Styler', () => {
 		it('composes either direction — nesting equals chaining', () => {
 			const styler = base().surface
 			// styler.red(styler.bold(text)) nests two styled runs; styler.red.bold(text) is one.
-			// Both render bold+red around the text — assert via strip that the content survives,
+			// Both render bold+red around the text — strip and assert that the content survives,
 			// and that the chained form is the single combined sequence.
 			expect(strip(styler.red(styler.bold('x')))).toBe('x')
 			expect(styler.red.bold('x')).toBe(`${ESC}1;31mx${RESET}`)

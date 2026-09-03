@@ -3,7 +3,7 @@ import type { RecordingSinkInterface } from '../../setup.js'
 import { createStyler, createTheme, DEFAULT_THEME, SPINNER_FRAMES, Spinner, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createRecorder, createRecorders, waitForCondition, waitForDelay } from '@orkestrel/test'
-import { createRecordingSink } from '../../setup.js'
+import { createRecordingSink, normalizeVisible } from '../../setup.js'
 
 // Spinner — the self-driving, observable activity spinner. start() arms a setInterval that advances
 // a glyph cycle, writing each `\r` + frame line to its sink and emitting it on `frame`; succeed/fail
@@ -14,7 +14,7 @@ import { createRecordingSink } from '../../setup.js'
 // every test that arms the timer closes with the leak guard — wait several periods and assert the
 // recording sink received nothing further, which is what a still-armed interval would contradict. A
 // disabled styler is used for content assertions so the glyph reads plainly; one case uses an enabled
-// styler and asserts via strip().
+// styler and asserts by stripping ANSI.
 
 const PLAIN = createStyler({ enabled: false })
 
@@ -77,7 +77,7 @@ describe('Spinner', () => {
 			expect(frames(sink)).toEqual(['*'])
 		})
 
-		it('colors the glyph through the styler (asserted via strip)', () => {
+		it('colors the glyph through the styler (asserted by stripping ANSI)', () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ message: 'go', frames: ['*'], sink, styler: createStyler() })
 
@@ -86,7 +86,7 @@ describe('Spinner', () => {
 			const [text] = sink.calls[0] ?? ['']
 			// The raw write carries ANSI escapes around the glyph…
 			expect(strip(text)).not.toBe(text)
-			// …but the visible content (escapes stripped via the framework helper) is the plain frame
+			// …but the visible content (escapes stripped through the framework helper) is the plain frame
 			// line, with the leading \r removed.
 			expect(strip(text).replace(/^\r/, '')).toBe('* go')
 		})
@@ -133,7 +133,7 @@ describe('Spinner', () => {
 				styler: PLAIN,
 			})
 			// start / update / stop run in one synchronous block, so no interval fires between them.
-			spinner.start() // paints frame 0 ('x a') immediately, index now at 'y'
+			spinner.start() // paints frame 0 ('x a') immediately, index at 'y' after the paint
 			spinner.update('b') // re-renders the CURRENT frame ('y') — update does not advance
 			spinner.stop()
 
@@ -305,14 +305,14 @@ describe('Spinner', () => {
 			expect(frames(sink)).toEqual(['✔ ok'])
 		})
 
-		it('colors the icon + message through the styler (asserted via strip)', () => {
+		it('colors the icon + message through the styler (asserted by stripping ANSI)', () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ frames: ['*'], sink, styler: createStyler() })
 			spinner.succeed('green')
 			const [text] = sink.calls.at(-1) ?? ['']
 			expect(strip(text)).not.toBe(text) // escapes present
-			// Strip ANSI via the framework helper; remove the leading \r + trailing newline.
-			expect(strip(text).replace(/^\r/, '').replace(/\n$/, '')).toBe('✔ green')
+			// Strip ANSI through the framework helper; remove the leading \r + trailing newline.
+			expect(normalizeVisible(text)).toBe('✔ green')
 		})
 
 		it('pins the exact default-theme bytes for a success outcome line', () => {

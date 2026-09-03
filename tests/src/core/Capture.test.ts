@@ -6,8 +6,8 @@ import { createRecordingSink } from '../../setup.js'
 
 // Capture — the observable console interceptor. While active it snapshots the configured
 // console.* methods, replaces them with wrappers that buffer each call (total + by level,
-// bounded), emit `capture`, and — per options — mirror to the snapshot-original console and/or
-// forward to a sink. It is PROCESS-GLOBAL: every test snapshots the five console methods in
+// bounded), emit `capture`, and — per options — mirror to the snapshot-original console, forward
+// to a sink, or both. It is PROCESS-GLOBAL: every test snapshots the console methods in
 // `beforeEach` and restores them in `afterEach`, so a patched console NEVER leaks into the vitest
 // reporter (or a sibling test), regardless of whether the test itself calls stop().
 
@@ -40,7 +40,7 @@ describe('Capture', () => {
 			const before = { log: console.log, warn: console.warn }
 			const capture = new Capture({ levels: ['log', 'warn'] })
 			capture.start()
-			// The methods are now the wrappers, not the originals.
+			// After `start`, the methods are the wrappers, not the originals.
 			expect(console.log).not.toBe(before.log)
 			expect(console.warn).not.toBe(before.warn)
 			capture.stop()
@@ -249,7 +249,7 @@ describe('Capture', () => {
 			const real: string[] = []
 			console.log = (text: string) => real.push(text)
 			const capture = new Capture({ levels: ['log'], mirror: true })
-			capture.start() // snapshots the `real` log NOW; console.log is now the wrapper
+			capture.start() // snapshots the `real` log at this call; after it, console.log is the wrapper
 			// The wrapper must call the snapshot original, not console.log (itself) — proven by the
 			// fact that one call produces exactly one `real` entry, not infinite recursion.
 			console.log('echo')
@@ -356,7 +356,7 @@ describe('Capture', () => {
 			expect(text).toContain('[Circular]')
 		})
 
-		it('captures a BigInt / symbol / function argument via String fallback, never throwing', () => {
+		it('captures a BigInt / symbol / function argument through String fallback, never throwing', () => {
 			const capture = new Capture({ levels: ['log'] })
 			capture.start()
 			expect(() => console.log({ big: 10n }, Symbol('s'), function named() {})).not.toThrow()
@@ -377,7 +377,7 @@ describe('Capture', () => {
 			expect(capture.messages('error').map((m) => m.text)).toEqual(['TypeError: boom'])
 		})
 
-		it('captures a throwing-toJSON argument via String fallback, never propagating the throw', () => {
+		it('captures a throwing-toJSON argument through String fallback, never propagating the throw', () => {
 			const capture = new Capture({ levels: ['log'] })
 			capture.start()
 			const hostile = {
@@ -472,7 +472,7 @@ describe('Capture', () => {
 			const real: string[] = []
 			console.log = (text: string) => real.push(text)
 			console.info = (text: string) => real.push(text)
-			// Logger built FIRST — its console sink snapshots the real console.log now.
+			// Logger built FIRST — its console sink snapshots the real console.log at construction.
 			const logger = new Logger({ level: 'info', styler: createStyler({ enabled: false }) })
 			const capture = new Capture()
 			capture.start() // patches console AFTER the logger snapshotted it

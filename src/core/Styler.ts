@@ -99,7 +99,7 @@ export class Styler {
 	 *
 	 * @example
 	 * ```ts
-	 * import { createStyler, DEFAULT_THEME } from '@src/core'
+	 * import { createStyler, DEFAULT_THEME } from '@orkestrel/console'
 	 *
 	 * const styler = createStyler()
 	 * styler.render(DEFAULT_THEME.levels.warn, 'WARN') // yellow

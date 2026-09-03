@@ -100,7 +100,7 @@ describe('decodeChunk', () => {
 		expect(decodeChunk(Buffer.from([0x68, 0x69]), 'hex')).toBe('6869')
 	})
 
-	it('decodes a bare Uint8Array via TextDecoder (utf-8)', () => {
+	it('decodes a bare Uint8Array through TextDecoder (utf-8)', () => {
 		expect(decodeChunk(new Uint8Array([104, 105]))).toBe('hi')
 	})
 
@@ -117,12 +117,12 @@ describe('decodeChunk', () => {
 	})
 
 	it('accepts case-insensitive / hyphenated encoding spellings (utf-8, UTF8)', () => {
-		// Buffer.isEncoding is lenient on case/hyphen; decodeChunk should honor those spellings too.
+		// Buffer.isEncoding is lenient on case/hyphen; decodeChunk honors those spellings too.
 		expect(decodeChunk(Buffer.from('hi', 'utf8'), 'utf-8')).toBe('hi')
 		expect(decodeChunk(Buffer.from('hi', 'utf8'), 'UTF8')).toBe('hi')
 	})
 
-	it('IGNORES the encoding argument for a bare Uint8Array (always utf-8 via TextDecoder)', () => {
+	it('IGNORES the encoding argument for a bare Uint8Array (always utf-8 through TextDecoder)', () => {
 		// Only a Buffer routes encoding through toString; a plain Uint8Array decodes utf-8 regardless,
 		// so an unrecognized / non-utf8 encoding cannot change a Uint8Array decode.
 		expect(decodeChunk(new Uint8Array([104, 105]), 'hex')).toBe('hi')
@@ -141,7 +141,7 @@ describe('decodeChunk', () => {
 		expect(decodeChunk(null)).toBe('null')
 	})
 
-	it('is total for exotic non-buffer args (object / bigint / symbol / boolean) via String()', () => {
+	it('is total for exotic non-buffer args (object / bigint / symbol / boolean) through String()', () => {
 		// The runtime can hand the patched stream write anything; decodeChunk must coerce, never throw.
 		expect(decodeChunk({})).toBe('[object Object]')
 		expect(decodeChunk(10n)).toBe('10')

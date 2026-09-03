@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+	createOverloadProbe,
 	createStreamTarget,
 	createWriteProbe,
 	fileExists,
@@ -78,6 +79,44 @@ describe('createWriteProbe', () => {
 
 	it('returns the configured backpressure value', () => {
 		const probe = createWriteProbe(false)
+		expect(probe.write('chunk')).toBe(false)
+	})
+})
+
+describe('createOverloadProbe', () => {
+	it('defaults to backpressure true, decodes chunks, and records no callback with none supplied', () => {
+		const probe = createOverloadProbe()
+		const accepted = probe.write('plain chunk')
+		expect(accepted).toBe(true)
+		expect(probe.texts).toEqual(['plain chunk'])
+		expect(probe.encodings).toEqual([undefined])
+		expect(probe.callbacks).toBe(0)
+	})
+
+	it('records a string encoding at the 2nd argument and invokes a 3rd-argument callback', () => {
+		const probe = createOverloadProbe()
+		let invoked = false
+		probe.write('chunk', 'utf8', () => {
+			invoked = true
+		})
+		expect(probe.encodings).toEqual(['utf8'])
+		expect(invoked).toBe(true)
+		expect(probe.callbacks).toBe(1)
+	})
+
+	it('invokes a callback passed as the 2nd argument, recording no encoding', () => {
+		const probe = createOverloadProbe()
+		let invoked = false
+		probe.write('chunk', () => {
+			invoked = true
+		})
+		expect(probe.encodings).toEqual([undefined])
+		expect(invoked).toBe(true)
+		expect(probe.callbacks).toBe(1)
+	})
+
+	it('returns the configured backpressure value', () => {
+		const probe = createOverloadProbe(false)
 		expect(probe.write('chunk')).toBe(false)
 	})
 })

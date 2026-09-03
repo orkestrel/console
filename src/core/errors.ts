@@ -10,7 +10,7 @@ import type { ConsoleErrorCode } from './types.js'
  * @remarks
  * Carries a {@link ConsoleErrorCode} and an optional `context` bag. Thrown for: an
  * internal invariant violated at a defensive, structurally-unreachable guard
- * (`INVARIANT`) — the one throw site in this codebase today.
+ * (`INVARIANT`).
  */
 export class ConsoleError extends Error {
 	readonly code: ConsoleErrorCode

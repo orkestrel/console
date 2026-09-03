@@ -328,7 +328,7 @@ describe('Reporter', () => {
 			expect(new Set(widths).size).toBe(1)
 		})
 
-		it('status colors only via the styler — a disabled styler yields a plain icon + message', () => {
+		it('status colors only through the styler — a disabled styler yields a plain icon + message', () => {
 			// A disabled styler paints nothing, so the icon + message come through plain.
 			const { reporter, sink } = createTestReporter()
 			reporter.status('warn', 'plain warn')

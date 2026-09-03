@@ -1,7 +1,8 @@
 # @orkestrel/console
 
 A unified output-control system for the `@orkestrel` line — one
-environment-agnostic engine composing five concerns over a shared substrate:
+environment-agnostic engine composing style, logging, reporting, capture, and
+animation over a shared substrate:
 a **style engine** (`Styler` + `ANSIRenderer`, style as data), **structured
 logging** (`Logger`, `LoggerManager`), **narrative reporting** (`Reporter`),
 **console & stream capture** (`Capture`, `ProcessCapture`), and **live
@@ -64,7 +65,7 @@ capture.stop()
 ```
 
 On the server, `ProcessCapture` takes over the whole `process` output surface
-(direct `process.stdout`/`stderr` writes, not just `console.*`):
+(direct `process.stdout`/`stderr` writes, not `console.*`):
 
 ```ts
 import { ProcessCapture } from '@orkestrel/console/server'
@@ -80,8 +81,9 @@ surface — styling, logging, reporting, capture, and animations.
 
 ## Package
 
-Published as three environment-scoped entry points per the `exports` field
-in `package.json`: `.` (the shared, environment-agnostic core engine, the
+Published as the `.`, `./server`, and `./browser` environment-scoped entry
+points per the `exports` field in `package.json`: `.` (the shared,
+environment-agnostic core engine, the
 default ANSI renderer, and the console sink), `./server` (adds the server
 sink and `ProcessCapture`), and `./browser` (adds the browser sink
 translating ANSI to `console.log('%c…', css)`). Core and `./server` ship

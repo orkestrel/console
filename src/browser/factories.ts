@@ -41,15 +41,15 @@ import { ansiToConsole } from './helpers.js'
  *
  * @example
  * ```ts
- * import { Logger } from '@src/core'
- * import { createBrowserSink } from '@src/browser'
+ * import { Logger } from '@orkestrel/console'
+ * import { createBrowserSink } from '@orkestrel/console/browser'
  *
  * const logger = new Logger({ name: 'app', sink: createBrowserSink() })
  * logger.error('boom') // → console.error('%c…', 'color:#cd0000;…') in DevTools
  * ```
  */
 export function createBrowserSink(options?: BrowserSinkOptions): SinkInterface {
-	// Snapshot the three console writers now — bound to their `console` receiver — so a later patch of
+	// Snapshot the console writers at construction — bound to their `console` receiver — so a later patch of
 	// `console.*` (by Capture) can never reach this sink's output (no capture loop), exactly as core's
 	// `createConsoleSink` does.
 	const log = console.log.bind(console)

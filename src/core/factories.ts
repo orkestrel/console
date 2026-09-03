@@ -32,7 +32,7 @@ import { Styler } from './Styler.js'
  *
  * @example
  * ```ts
- * import { createStyler } from '@src/core'
+ * import { createStyler } from '@orkestrel/console'
  *
  * const style = createStyler()
  * style.red.bold('error') // bold red
@@ -67,7 +67,7 @@ export function createStyler(options?: StylerOptions): StylerInterface {
  *
  * @example
  * ```ts
- * import { createStyler, createTheme } from '@src/core'
+ * import { createStyler, createTheme } from '@orkestrel/console'
  *
  * const styler = createStyler()
  * const theme = createTheme({
@@ -115,14 +115,14 @@ export function createTheme(options?: ThemeOptions): Theme {
  *
  * @example
  * ```ts
- * import { createConsoleSink } from '@src/core'
+ * import { createConsoleSink } from '@orkestrel/console'
  *
- * const sink = createConsoleSink() // snapshots console.* now
+ * const sink = createConsoleSink() // snapshots console.* at construction
  * sink.write('boom', 'error') // → the real console.error, even after a later console patch
  * ```
  */
 export function createConsoleSink(): SinkInterface {
-	// Snapshot the three console writers now — bound to their `console` receiver — so a later
+	// Snapshot the console writers at construction — bound to their `console` receiver — so a later
 	// patch of `console.*` (by Capture) can never reach this sink's output (no capture loop).
 	const log = console.log.bind(console)
 	const warn = console.warn.bind(console)
