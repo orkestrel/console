@@ -43,8 +43,8 @@ export interface BrowserSinkOptions {
  *   verbatim with no `%c` and an empty `styles` (still `%`-escaped).
  * - `styles` — one CSS declaration string per `%c` in `format`, in order: the browser applies
  *   `styles[n]` from the n-th `%c` onward. Each entry is the accumulated style for that run
- *   (an SGR reset clears it back to `''`). `format`'s `%c` count always equals `styles.length`,
- *   so the spread `console.log(format, ...styles)` lines up exactly.
+ *   (an SGR reset clears it back to the empty declaration string). `format`'s `%c` count always
+ *   equals `styles.length`, so the spread `console.log(format, ...styles)` lines up exactly.
  */
 export interface ConsoleOutput {
 	readonly format: string
@@ -55,20 +55,20 @@ export interface ConsoleOutput {
  * Represents the immutable accumulator {@link import('./helpers.js').ansiToConsole} carries across a run while
  * translating SGR codes to CSS — a single `foreground` and `background` declaration (each channel
  * replaceable by a later color of the same channel) plus an ordered, de-duplicated list of attribute
- * declarations. An SGR reset empties all three; {@link import('./helpers.js').ansiToConsole} folds
- * it into the `;`-joined CSS string a run emits.
+ * declarations. An SGR reset drops both channels and empties the list;
+ * {@link import('./helpers.js').ansiToConsole} folds it into the `;`-joined CSS string a run emits.
  *
  * @remarks
  * Each SGR sequence produces a new frozen value; earlier run snapshots never drift when a later
  * sequence changes a channel. A channel holds the full CSS declaration (`'color:#cd0000'`, not a
- * bare hex), or `''` when unset.
- * - `foreground` — the current `color:<hex>` declaration, or `''` (unset / post-reset).
- * - `background` — the current `background:<hex>` declaration, or `''`.
+ * bare hex), and is absent when unset.
+ * - `foreground` — the current `color:<hex>` declaration; absent when unset or after a reset.
+ * - `background` — the current `background:<hex>` declaration; absent on the same terms.
  * - `attributes` — the active text-effect declarations in insertion order (`'font-weight:bold'`, …),
  *   each present at most once.
  */
 export interface StyleAccumulator {
-	readonly foreground: string
-	readonly background: string
+	readonly foreground?: string
+	readonly background?: string
 	readonly attributes: readonly string[]
 }

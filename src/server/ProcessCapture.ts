@@ -20,8 +20,8 @@ import { isBufferEncoding } from './validators.js'
  * Implements an observable interceptor of the raw process output streams — it takes control of
  * `process.stdout.write` / `process.stderr.write` on the write side. While `active`, every write to
  * a configured {@link StreamLevel} is captured as a frozen {@link CapturedChunk}, buffered (total +
- * per-stream, bounded), emitted on `capture`, and — per options — mirrored to the real stream and/or
- * forwarded to a {@link SinkInterface}.
+ * per-stream, bounded), emitted on `capture`, and — per options — mirrored to the real stream,
+ * forwarded to a {@link SinkInterface}, or both.
  *
  * @remarks
  * Where the core `Capture` patches `console.*` (the high-level read side), this patches the

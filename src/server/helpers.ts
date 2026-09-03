@@ -27,7 +27,7 @@ export function inferColumns(target: StreamTargetInterface): number {
 }
 
 /**
- * Infers whether one stream target should receive styled output. The result is a construction-time
+ * Infers whether one stream target receives styled output. The result is a construction-time
  * target fact for {@link import('./factories.js').createServerSink}; this helper is pure and never
  * reads process globals itself.
  *
@@ -67,7 +67,7 @@ export function inferStyled(
  *   and `process.stdout.write('text')` all pass a string).
  * - A `Buffer` chunk is decoded with the supplied `encoding` when it is a recognized
  *   {@link BufferEncoding} (`process` write supports `'utf8'` / `'hex'` / `'base64'` / …), defaulting
- *   to `'utf8'`; a bare `Uint8Array` is decoded via `TextDecoder` (always utf-8 — the `encoding`
+ *   to `'utf8'`; a bare `Uint8Array` is decoded through `TextDecoder` (always utf-8 — the `encoding`
  *   argument applies only to a `Buffer`, never a plain `Uint8Array`).
  * - Anything else is coerced with `String(chunk)` (a number / object / bigint / symbol a misbehaving
  *   writer hands the stream). The coercion is itself guarded: a value whose `toString` /

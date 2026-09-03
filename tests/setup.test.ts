@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { createRecordingSink } from './setup.js'
+import { createRecordingSink, normalizeVisible } from './setup.js'
+
+// The control sequence introducer and the SGR reset, declared here rather than imported from the
+// source under test, so each expectation below compares against a sequence this file owns.
+const ESC = '\x1b['
+const RESET = '\x1b[0m'
 
 describe('createRecordingSink', () => {
 	it('records each write as a (text, level) pair, in call order', () => {
@@ -29,6 +34,32 @@ describe('createRecordingSink', () => {
 		first.write('only on first', 'info')
 		expect(first.calls).toEqual([['only on first', 'info']])
 		expect(second.calls).toEqual([])
+	})
+})
+
+describe('normalizeVisible', () => {
+	it('strips the ANSI escapes a styled write carries', () => {
+		expect(normalizeVisible(`${ESC}31mred${RESET}`)).toBe('red')
+	})
+
+	it('drops the leading carriage return of an animation frame', () => {
+		expect(normalizeVisible('\r⠋ deploying')).toBe('⠋ deploying')
+	})
+
+	it('drops the trailing newline of a committed line', () => {
+		expect(normalizeVisible('✔ connected\n')).toBe('✔ connected')
+	})
+
+	it('removes the frame carriage return, the escapes, and the newline together', () => {
+		expect(normalizeVisible(`\r${ESC}32m✔ deployed${RESET}\n`)).toBe('✔ deployed')
+	})
+
+	it('returns plain unframed text unchanged', () => {
+		expect(normalizeVisible('[1/3] uploading')).toBe('[1/3] uploading')
+	})
+
+	it('drops only the first carriage return and the final newline', () => {
+		expect(normalizeVisible('\r\rtwo\n\n')).toBe('\rtwo\n')
 	})
 })
 

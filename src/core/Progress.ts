@@ -14,7 +14,7 @@ import { createConsoleSink, createStyler } from './factories.js'
 import { renderBar } from './helpers.js'
 
 /**
- * Implements an update-driven, observable progress bar — {@link update} recomputes the bar via
+ * Implements an update-driven, observable progress bar — {@link update} recomputes the bar through
  * {@link renderBar}, writes `\r` + bar to its {@link SinkInterface}, and emits the `{ current, total }`
  * on `update`. The leading `\r` is what an overwrite-capable sink (the TTY sink) redraws on; a
  * plain sink degrades to a fresh, non-overwriting line — the line-overwrite is the sink's job.
@@ -23,14 +23,14 @@ import { renderBar } from './helpers.js'
  *
  * @remarks
  * - **Update-driven.** Each {@link update} clamps `current` to `[0, total]`, renders the bar (filled
- *   to `current / total`, with the trailing `percent (current/total)` + message) via {@link renderBar},
+ *   to `current / total`, with the trailing `percent (current/total)` + message) through {@link renderBar},
  *   emits `update`, and writes `'\r' + bar`. Progress advances only when the caller reports it.
- * - **Outcome lines.** {@link complete} renders a full bar (`current = total`) + message, terminated by
- *   a newline, emits a final `update` then `complete`, and marks `completed`. {@link fail} renders the
- *   bar at its current fill + message + newline and routes to the sink's error stream (no `complete` —
+ * - **Outcome lines.** {@link succeed} renders a full bar (`current = total`) + message, terminated by
+ *   a newline, emits a final `update` then `succeed`, and marks `succeeded`. {@link fail} renders the
+ *   bar at its current fill + message + newline and routes to the sink's error stream (no `succeed` —
  *   the work did not finish). Both are terminal: a later {@link update} is ignored once `active` is false.
- * - **Bounded.** `current` is always clamped to `[0, total]`; {@link completed} reports whether
- *   {@link complete} has run; {@link active} is `true` until a {@link complete} / {@link fail}.
+ * - **Bounded.** `current` is always clamped to `[0, total]`; {@link succeeded} reports whether
+ *   {@link succeed} has run; {@link active} is `true` until a {@link succeed} / {@link fail}.
  * - **Lifecycle.** {@link destroy} destroys the emitter (there is no timer to clear).
  *
  * @example
@@ -38,7 +38,7 @@ import { renderBar } from './helpers.js'
  * const progress = new Progress({ total: 100, message: 'downloading' })
  * progress.update(40) // ████████████░░░░░░░░░░░░░░░░░░ 40% (40/100) downloading
  * progress.update(80, 'almost there')
- * progress.complete('done') // a full bar, committed with a newline
+ * progress.succeed('done') // a full bar, committed with a newline
  * ```
  */
 export class Progress implements ProgressInterface {
@@ -55,7 +55,7 @@ export class Progress implements ProgressInterface {
 	#message: string
 	#current = 0
 	#active = true
-	#completed = false
+	#succeeded = false
 
 	constructor(options: ProgressOptions) {
 		this.#emitter = new Emitter<ProgressEventMap>({
@@ -80,8 +80,8 @@ export class Progress implements ProgressInterface {
 		return this.#active
 	}
 
-	get completed(): boolean {
-		return this.#completed
+	get succeeded(): boolean {
+		return this.#succeeded
 	}
 
 	get current(): number {
@@ -93,26 +93,26 @@ export class Progress implements ProgressInterface {
 	}
 
 	update(current: number, message?: string): void {
-		// Terminal bars ignore further updates — a complete()/fail() has committed the final line.
+		// Terminal bars ignore further updates — a succeed()/fail() has committed the final line.
 		if (!this.#active) return
 		this.#advance(current, message)
 		this.#paint(false)
 	}
 
-	complete(message?: string): void {
+	succeed(message?: string): void {
 		if (!this.#active) return
-		// Finish full — drive to `total`, commit the line, then signal completion.
+		// Finish full — drive to `total`, commit the line, then signal the successful outcome.
 		this.#advance(this.#total, message)
 		this.#active = false
-		this.#completed = true
+		this.#succeeded = true
 		this.#paint(true)
-		this.#emitter.emit('complete')
+		this.#emitter.emit('succeed')
 	}
 
 	fail(message?: string): void {
 		if (!this.#active) return
-		// Finish at the current fill (the work stopped short) — commit to the error stream, no complete.
-		// #advance emits a final `update` at the current fill (identical current/total), same as complete().
+		// Finish at the current fill (the work stopped short) — commit to the error stream, no succeed.
+		// #advance emits a final `update` at the current fill (identical current/total), same as succeed().
 		this.#advance(this.#current, message)
 		this.#active = false
 		this.#paint(true, 'error')
@@ -123,7 +123,7 @@ export class Progress implements ProgressInterface {
 	}
 
 	// Clamp `current` into [0, total], adopt the optional message, and emit the `update` progress —
-	// the shared state-advance behind update()/complete(). The clamp keeps `current`
+	// the shared state-advance behind update()/succeed(). The clamp keeps `current`
 	// bounded regardless of the value the caller reports (an overrun saturates, a negative floors).
 	#advance(current: number, message?: string): void {
 		this.#current = Math.max(0, Math.min(this.#total, current))
@@ -135,7 +135,7 @@ export class Progress implements ProgressInterface {
 	// Render the bar at the current state and write `\r` + bar to the sink — the leading `\r` an
 	// overwrite-capable sink redraws on. `final` appends a newline that commits the line (a finished
 	// bar is not overwritten); `level` routes a fail() write to the error stream. The single render
-	// path shared by update()/complete()/fail().
+	// path shared by update()/succeed()/fail().
 	#paint(final: boolean, level?: 'error'): void {
 		const bar = renderBar({
 			current: this.#current,

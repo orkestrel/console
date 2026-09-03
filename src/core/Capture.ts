@@ -18,7 +18,7 @@ import { Retention } from './Retention.js'
  * Implements an observable console interceptor — it takes control of the global `console.*` on
  * the read side. While `active`, every configured `console.x` call is captured as a frozen
  * {@link CapturedMessage}, buffered (total + by level, bounded), emitted on `capture`, and — per
- * options — mirrored to the real console and/or forwarded to a {@link SinkInterface}.
+ * options — mirrored to the real console, forwarded to a {@link SinkInterface}, or both.
  *
  * @remarks
  * - **Snapshot-at-start (the no-capture-loop principle).** `start()` snapshots the current

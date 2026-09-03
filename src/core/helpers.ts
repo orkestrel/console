@@ -1,9 +1,9 @@
 import type {
 	Alignment,
+	BarOptions,
 	BoxOptions,
 	LogLevel,
 	LogRecord,
-	ProgressBarOptions,
 	SeparatorOptions,
 	Style,
 	StylerInterface,
@@ -124,8 +124,8 @@ export function freezeStyle(style: Style): Style {
 }
 
 /**
- * Checks whether a record at `level` passes a logger gated at `threshold` — i.e. its severity is
- * at or above the threshold's.
+ * Checks whether a record at `level` passes a logger gated at `threshold` — that is, its severity
+ * is at or above the threshold's.
  *
  * @remarks
  * The level gate (the comparison lives here, not inlined in the logger). Reads
@@ -164,9 +164,10 @@ export function meetsLevel(threshold: LogLevel, level: LogLevel): boolean {
  *
  * @example
  * ```ts
- * selectWriter('error', { log: 'out', warn: 'out', error: 'err' }) // 'err'
- * selectWriter('debug', { log: 'out', warn: 'out', error: 'err' }) // 'out'
- * selectWriter(undefined, { log: 'out', warn: 'out', error: 'err' }) // 'out'
+ * selectWriter('error', { log: 'stdout', warn: 'stderr', error: 'stderr' }) // 'stderr'
+ * selectWriter('warn', { log: 'stdout', warn: 'stderr', error: 'stderr' }) // 'stderr'
+ * selectWriter('debug', { log: 'stdout', warn: 'stderr', error: 'stderr' }) // 'stdout'
+ * selectWriter(undefined, { log: 'stdout', warn: 'stderr', error: 'stderr' }) // 'stdout'
  * ```
  */
 export function selectWriter<T>(level: LogLevel | undefined, writers: WriterSet<T>): T {
@@ -179,7 +180,7 @@ export function selectWriter<T>(level: LogLevel | undefined, writers: WriterSet<
  * Formats a {@link LogRecord}'s `time` (epoch milliseconds) as an ISO-8601 timestamp string.
  *
  * @remarks
- * Deterministic and serializable — `new Date(time).toISOString()`, e.g.
+ * Deterministic and serializable — `new Date(time).toISOString()`, for example
  * `1716900000000 → '2024-05-28T12:40:00.000Z'`. The timestamp portion of the formatted log
  * line; kept a pure helper so the line layout and the logger stay decoupled.
  *
@@ -231,21 +232,21 @@ export function formatRecord(record: LogRecord, styler: StylerInterface, theme: 
 }
 
 /**
- * Pads (or, when over budget, truncates) `text` to exactly `target` visible columns, positioning
+ * Pads (or, when over budget, truncates) `text` to exactly `columns` visible columns, positioning
  * it by `alignment`. The width primitive the box / table renderers align every cell with.
  *
  * @remarks
  * Measures with {@link width} (visible code points, ANSI-aware), so a styled string aligns by
- * its visible content, not its escape codes. When `width(text) < target`, the deficit is added
+ * its visible content, not its escape codes. When `width(text) < columns`, the deficit is added
  * as spaces — all trailing (`left`), all leading (`right`), or split with the extra space on
- * the right (`center`). When `width(text) > target`, the visible characters are sliced to
- * `target` (a defensive guard — the renderers size columns to fit, so this is rarely hit; it
+ * the right (`center`). When `width(text) > columns`, the visible characters are sliced to
+ * `columns` (a defensive guard — the renderers size columns to fit, so this is rarely hit; it
  * slices the stripped text, so it never bisects an escape sequence into a broken half).
  *
  * @param text - The cell content (may be styled)
- * @param target - The visible column count to fit `text` into
- * @param alignment - Where to position `text` within the width; defaults to `left`
- * @returns `text` fitted to exactly `target` visible columns
+ * @param columns - The visible column count to fit `text` into
+ * @param alignment - Where to position `text` within that budget; defaults to `left`
+ * @returns `text` fitted to exactly `columns` visible columns
  *
  * @example
  * ```ts
@@ -254,10 +255,10 @@ export function formatRecord(record: LogRecord, styler: StylerInterface, theme: 
  * align('hi', 5, 'center') // ' hi  '
  * ```
  */
-export function align(text: string, target: number, alignment: Alignment = DEFAULT_ALIGN): string {
+export function align(text: string, columns: number, alignment: Alignment = DEFAULT_ALIGN): string {
 	const visible = width(text)
-	if (visible > target) return [...strip(text)].slice(0, target).join('')
-	const deficit = target - visible
+	if (visible > columns) return [...strip(text)].slice(0, columns).join('')
+	const deficit = columns - visible
 	if (alignment === 'right') return `${' '.repeat(deficit)}${text}`
 	if (alignment === 'center') {
 		const left = Math.floor(deficit / 2)
@@ -305,17 +306,17 @@ export function paint(styler: StylerInterface | undefined, text: string, style?:
 }
 
 /**
- * Repeats `unit` until it fills exactly `count` visible columns, trimming a trailing partial
+ * Repeats `unit` until it fills exactly `columns` visible columns, trimming a trailing partial
  * unit so the run is never over-wide — the fill primitive the separator + box edges draw with.
  *
  * @remarks
  * Counts in code points ({@link width}-consistent), so a multi-cell or astral `unit` is laid
- * down whole and the result is sliced to exactly `count` visible columns. `count <= 0` (or an
+ * down whole and the result is sliced to exactly `columns` visible columns. `columns <= 0` (or an
  * empty / zero-width `unit`) yields `''`.
  *
  * @param unit - The (possibly multi-character) fill unit
- * @param count - The visible column count to fill
- * @returns `unit` tiled to exactly `count` visible columns
+ * @param columns - The visible column count to fill
+ * @returns `unit` tiled to exactly `columns` visible columns
  *
  * @example
  * ```ts
@@ -323,12 +324,12 @@ export function paint(styler: StylerInterface | undefined, text: string, style?:
  * repeatTo('=-', 5) // '=-=-='
  * ```
  */
-export function repeatTo(unit: string, count: number): string {
-	if (count <= 0) return ''
+export function repeatTo(unit: string, columns: number): string {
+	if (columns <= 0) return ''
 	const per = width(unit)
 	if (per === 0) return ''
-	const built = unit.repeat(Math.ceil(count / per))
-	return [...built].slice(0, count).join('')
+	const built = unit.repeat(Math.ceil(columns / per))
+	return [...built].slice(0, columns).join('')
 }
 
 /**
@@ -354,10 +355,10 @@ export function cellAt(row: readonly string[], index: number): string {
  *   side) in the line, splitting the remaining fill between the two sides (the extra column,
  *   when the remainder is odd, goes to the right). The visible width stays exactly `width`,
  *   even when the title is styled (the title's escape codes don't count toward the budget) —
- *   a title at least as wide as `width` yields just the gapped title (no fill).
+ *   a title at least as wide as `width` yields only the gapped title (no fill).
  * - **Styling.** When `options.styler` is given, the fill runs (and the embedded title) are
  *   colored through it; the layout is identical with or without color, since width is measured
- *   on the visible content (width-aware via {@link width}).
+ *   on the visible content (width-aware through {@link width}).
  *
  * @param options - See {@link SeparatorOptions}
  * @returns The rule line (no trailing newline)
@@ -471,7 +472,7 @@ export function renderBox(options: BoxOptions): string {
  * - **Ragged rows.** A row shorter than the column count is padded with empty cells; a longer
  *   row is truncated to the column count — a ragged input never throws.
  * - **Alignment.** Each cell is positioned by its column's {@link ColumnSpec.align} (default
- *   {@link DEFAULT_ALIGN}) via {@link align}.
+ *   {@link DEFAULT_ALIGN}) through {@link align}.
  * - **Frame.** The {@link BorderStyle} (`options.border`, default {@link DEFAULT_BORDER})
  *   draws the outer frame, the header rule (a `teeRight … cross … teeLeft` line), and the
  *   `vertical` column separators; `options.styler` colors the frame + header labels when
@@ -611,9 +612,10 @@ export function renderTreeChildren(
  * - **Total + never throws.** Like a guard, this never throws on adversarial input — a value
  *   carrying a circular reference, a `BigInt`, or a throwing `toJSON` is rendered, not raised. The
  *   `JSON.stringify` runs with a circular-guard replacer (a seen-set drops a back-reference as
- *   `'[Circular]'`); should `JSON.stringify` still throw (e.g. a `BigInt`), the value falls back to
- *   `String(value)`. So a `Capture` can never crash the program whose `console.*` it intercepts.
- * - **`Error` first.** An `Error` renders as `name: message` (e.g. `TypeError: bad`) — the useful
+ *   `'[Circular]'`); if `JSON.stringify` still throws (for example on a `BigInt`), the value falls
+ *   back to `String(value)`. So a `Capture` can never crash the program whose `console.*` it
+ *   intercepts.
+ * - **`Error` first.** An `Error` renders as `name: message` (for example `TypeError: bad`) — the useful
  *   one-line form, since `JSON.stringify(error)` is `{}` (its fields are non-enumerable).
  * - **Objects → JSON.** A non-null `object` (including an array) is `JSON.stringify`d; a primitive
  *   (or `null` / `undefined` / `function` / `symbol`) goes through `String`.
@@ -635,7 +637,7 @@ export function stringifyValue(value: unknown): string {
 	if (value instanceof Error) return `${value.name}: ${value.message}`
 	if (value === null || typeof value !== 'object') return String(value)
 	// A circular-safe replacer — a seen-set drops any back-reference so a cyclic graph serializes
-	// instead of throwing (total, like a guard). A residual throw (e.g. a BigInt field) falls
+	// instead of throwing (total, like a guard). A residual throw (for example a BigInt field) falls
 	// back to String(value), so this helper is total on every input.
 	const seen = new WeakSet<object>()
 	try {
@@ -676,7 +678,7 @@ export function formatArgs(args: readonly unknown[]): string {
 
 /**
  * Renders a determinate progress bar string — a filled / empty glyph track followed by the percentage
- * and the `(current/total)` count (`█████░░░░░ 50% (5/10)`). Pure: same {@link ProgressBarOptions} →
+ * and the `(current/total)` count (`█████░░░░░ 50% (5/10)`). Pure: same {@link BarOptions} →
  * same string. The animation-layer sibling of the `render*` renderers (box / table / tree /
  * separator), shared so a {@link import('./types.js').ProgressInterface} and any direct caller draw
  * the one bar — never a second, hand-rolled one.
@@ -686,15 +688,15 @@ export function formatArgs(args: readonly unknown[]): string {
  *   `current` clamped to `[0, total]`, so an overrun never over-fills and a negative never under-fills.
  *   A `total <= 0` renders a full track (there is nothing to fill toward — the work is trivially done).
  * - **Width-aware track.** The filled run is `fill` tiled to the filled cell count and the empty run
- *   `empty` tiled to the remainder, each via {@link repeatTo} — so the track is exactly `width` visible
+ *   `empty` tiled to the remainder, each through {@link repeatTo} — so the track is exactly `width` visible
  *   columns even for a multi-cell glyph (its escape codes / extra cells never break the width).
  * - **Styling.** `options.styler` colors the filled run only (the empty run + the trailing
  *   `percent (count)` label stay plain), through {@link paint}; the layout is identical with or
  *   without color, since the track is measured on visible width.
- * - **Label.** The percentage is the rounded `current / total` (e.g. `50%`); the count is the clamped
+ * - **Label.** The percentage is the rounded `current / total` (for example `50%`); the count is the clamped
  *   `current` over `total` (`(5/10)`), a single space separating the track, the percent, and the count.
  *
- * @param options - See {@link ProgressBarOptions}
+ * @param options - See {@link BarOptions}
  * @returns The rendered bar line (no trailing newline)
  *
  * @example
@@ -703,7 +705,7 @@ export function formatArgs(args: readonly unknown[]): string {
  * renderBar({ current: 10, total: 10, width: 4 }) // '████ 100% (10/10)'
  * ```
  */
-export function renderBar(options: ProgressBarOptions): string {
+export function renderBar(options: BarOptions): string {
 	const track = options.width ?? DEFAULT_BAR_WIDTH
 	const fill = options.fill ?? BAR_FILL
 	const empty = options.empty ?? BAR_EMPTY

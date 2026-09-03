@@ -16,9 +16,8 @@ export type ConsoleMethod = (...args: unknown[]) => void
  * Names a machine-readable error code for a {@link import('./errors.js').ConsoleError}.
  *
  * @remarks
- * `INVARIANT` — an internal invariant / unreachable-guard was violated (a defensive
- * check that should be structurally impossible to trip). The sole code today; a richer
- * taxonomy waits for a second throw site.
+ * `INVARIANT` — an internal invariant or unreachable guard was violated (a defensive check that is
+ * structurally impossible to trip). It is the only code the package throws.
  */
 export type ConsoleErrorCode = 'INVARIANT'
 
@@ -60,7 +59,7 @@ export type Color =
 	| 'default'
 
 /**
- * Names a text-style attribute — the six standard SGR text effects.
+ * Names a text-style attribute — the standard SGR text effects.
  *
  * @remarks
  * Style as data: an `Attribute` is a name. The ANSI renderer maps each to its SGR
@@ -241,7 +240,7 @@ export interface Theme {
  * @remarks
  * Every key is optional and merges per role, never per theme: an omitted role keeps its
  * default, and `levels` / `statuses` merge per entry, so `{ levels: { warn: … } }` restyles
- * the `warn` label and leaves the other three alone. A status override supplies its whole
+ * the `warn` label and leaves `debug`, `info`, and `error` alone. A status override supplies its whole
  * `{ icon, style }` record; {@link createTheme} snapshots and freezes that record and every
  * style leaf it receives.
  */
@@ -306,7 +305,7 @@ export interface LogRecord {
  *
  * @remarks
  * - **`write(text)` is the whole contract.** A custom sink (file / buffer / recorder)
- *   implements just `write(text)` and ignores the rest — the optional `level` exists only so
+ *   implements only `write(text)` and ignores the rest — the optional `level` exists only so
  *   a stream-aware sink can route. The logger passes the originating record's {@link LogLevel}.
  * - **The default {@link import('./factories.js').createConsoleSink} routes by level** —
  *   `error` → `console.error`, `warn` → `console.warn`, everything else → `console.log` — and
@@ -318,12 +317,12 @@ export interface LogRecord {
 export interface SinkInterface {
 	/**
 	 * Writes one already-formatted chunk of output. `text` receives one line without its
-	 * terminator — the sink's target supplies it (e.g. `console.log`; the server TTY sink
+	 * terminator — the sink's target supplies it (for example `console.log`; the server TTY sink
 	 * appends one) — unless `text` begins with `\r`: that is an in-place redraw frame (the
 	 * Spinner / Progress animation protocol), written verbatim. A tick frame carries no
 	 * terminator; a final frame carries its own.
 	 * `level` is the originating record's {@link LogLevel} — supplied so a stream-aware sink
-	 * can route (e.g. `error` to `stderr`); a plain sink ignores it.
+	 * can route (for example `error` to `stderr`); a plain sink ignores it.
 	 */
 	write(text: string, level?: LogLevel): void
 }
@@ -383,11 +382,11 @@ export type LoggerEventMap = {
 export type LogFormatFunction = (record: LogRecord, styler: StylerInterface, theme: Theme) => string
 
 /**
- * Configures the {@link import('./Logger.js').Logger} constructor.
+ * Configures the {@link import('./loggers/Logger.js').Logger} constructor.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
- *   {@link LoggerEventMap}, wired at construction (e.g. `{ entry: (r) => sink2.write(...) }`).
+ *   {@link LoggerEventMap}, wired at construction (for example `{ entry: (r) => sink2.write(...) }`).
  * - `error` — the emitter's listener-error handler; a listener throw routes here.
  * - `level` — the severity threshold; records below it are dropped. Defaults to `info`.
  * - `name` — the logger's name, stamped onto every {@link LogRecord} (`record.name`) and
@@ -457,7 +456,7 @@ export interface LoggerInterface {
 }
 
 /**
- * Configures the {@link import('./LoggerManager.js').LoggerManager} constructor.
+ * Configures the {@link import('./loggers/LoggerManager.js').LoggerManager} constructor.
  *
  * @remarks
  * The manager is an event-free registry — it carries no emitter of its own (each
@@ -488,7 +487,8 @@ export interface LoggerManagerOptions {
  *   (a re-`register` of the same name overwrites — last write wins), and returns it.
  *   `logger(name)` looks one up; `loggers()` lists them in insertion order; `count` is the size.
  * - **Removal.** `remove()` clears all, `remove(name)` drops one, `remove(names)` drops
- *   a batch (`true` when any was removed).
+ *   a batch (`true` only when every name was present; an empty list succeeds vacuously).
+ *   Every listed name is attempted whatever the result.
  * - **Fan-out.** `debug` / `info` / `warn` / `error(message, data?)` forward the call to every
  *   registered logger (each gates / emits / writes per its own `level` and `sink`).
  * - **Event-free.** No emitter, no events — each logger carries its own observability; the
@@ -573,7 +573,7 @@ export interface BorderChars {
  * carrying a centered title.
  *
  * @remarks
- * - `title` — text to embed in the rule (e.g. a section heading). Omitted ⇒ an unbroken line.
+ * - `title` — text to embed in the rule (for example a section heading). Omitted ⇒ an unbroken line.
  * - `width` — the visible column count of the whole rule; defaults to {@link DEFAULT_WIDTH}.
  * - `fill` — the single character the rule is drawn with; defaults to {@link SEPARATOR_FILL}
  *   (`─`). The visible width of the rule is `width` regardless of the fill's escape codes.
@@ -838,7 +838,7 @@ export interface CapturedMessage {
  * - `start` / `stop` — the lifecycle signals: `start` fires when interception is installed (the
  *   first `start()` on an inactive capture), `stop` when it is torn down (a `stop()` on an active
  *   capture, and from `destroy()`); both are pure signals (empty tuples) so a consumer can mirror
- *   the global-patch lifecycle (e.g. log that capture is engaged). They earn their place by
+ *   the global-patch lifecycle (for example log that capture is engaged). They earn their place by
  *   bracketing the process-global side effect a consumer needs to observe.
  *
  * Listener isolation is the emitter's: a listener throw routes to the emitter's `error`
@@ -861,17 +861,17 @@ export type CaptureEventMap = {
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
- *   {@link CaptureEventMap}, wired at construction (e.g. `{ capture: (m) => tee(m) }`).
+ *   {@link CaptureEventMap}, wired at construction (for example `{ capture: (m) => tee(m) }`).
  * - `error` — the emitter's listener-error handler; a listener throw routes here.
- * - `levels` — which `console.*` methods to intercept; defaults to {@link CAPTURE_LEVELS}
- *   (all five). Only the listed methods are patched — an unlisted method is left untouched and
- *   its calls pass through normally.
+ * - `levels` — which `console.*` methods to intercept; defaults to {@link CAPTURE_LEVELS}. Only the
+ *   listed methods are patched — an unlisted method is left untouched and its calls pass through
+ *   normally.
  * - `mirror` — when `true`, each intercepted call is also forwarded to the snapshot-original
  *   `console` method, so the program's own console output still appears while being captured;
  *   defaults to `false` (capture silently). Mirrors through the method snapshotted at `start()`,
  *   never the live (re-patched) one — no echo loop.
  * - `sink` — an optional {@link SinkInterface} each intercepted call is also written to
- *   (`sink.write(text, level)` with the {@link CaptureLevel} mapped to a {@link LogLevel} via
+ *   (`sink.write(text, level)` with the {@link CaptureLevel} mapped to a {@link LogLevel} through
  *   {@link CAPTURE_LEVEL_MAP}), to tee captured output into the logging pipeline / a file. Absent
  *   ⇒ no forward.
  * - `limit` — the bounded buffer cap: at most this many recent messages are retained per buffer
@@ -892,7 +892,7 @@ export interface CaptureOptions {
  * Declares an observable console interceptor — it takes control of the global `console.*` on
  * the read side: while `active`, every configured `console.x` call is captured as a frozen
  * {@link CapturedMessage}, buffered (total + by level, bounded), emitted on `capture`, and —
- * per options — mirrored to the real console and/or forwarded to a {@link SinkInterface}.
+ * per options — mirrored to the real console, forwarded to a {@link SinkInterface}, or both.
  *
  * @remarks
  * - **Snapshot-at-start.** `start()` snapshots the current `console[level]` for each configured
@@ -912,7 +912,7 @@ export interface CaptureOptions {
  */
 export interface CaptureInterface {
 	readonly emitter: EmitterInterface<CaptureEventMap>
-	/** Reports whether interception is currently installed (between `start()` and `stop()`). */
+	/** Reports whether interception is installed (between `start()` and `stop()`). */
 	readonly active: boolean
 	/** Snapshots the configured `console.*` and installs the interceptors — a no-op when already `active`. */
 	start(): void
@@ -950,7 +950,7 @@ export interface CaptureResult<T> {
 // `\r` to the start of a fresh, non-overwriting line (the locked decision). Universal — `Sink` + a
 // timer + the styler, no `node:*`, no `process.stdout`. The bar string itself is rendered by the
 // pure {@link import('./helpers.js').renderBar} (a sibling of the `render*` renderers). Both are
-// observable: a spinner's frames + lifecycle, a progress's updates + completion.
+// observable: a spinner's frames + lifecycle, a progress's updates + its final outcome.
 
 /**
  * Configures the pure {@link import('./helpers.js').renderBar} renderer — a determinate progress
@@ -969,7 +969,7 @@ export interface CaptureResult<T> {
  *   the layout is identical with or without color, since the track is measured on visible width.
  * - `style` — an optional by-value style rendered through `styler` for the filled run.
  */
-export interface ProgressBarOptions {
+export interface BarOptions {
 	readonly current: number
 	readonly total: number
 	readonly width?: number
@@ -1014,12 +1014,12 @@ export type SpinnerEventMap = {
  *   {@link SpinnerEventMap}, wired at construction.
  * - `error` — the emitter's listener-error handler; a listener throw routes here.
  * - `message` — the text shown beside the spinner glyph; defaults to `''` (a bare glyph). Changed
- *   live via `update(message)` and overridden by a `succeed` / `fail` argument.
+ *   live through `update(message)` and overridden by a `succeed` / `fail` argument.
  * - `frames` — the cycle of glyph frames the spinner advances through; defaults to
  *   {@link SPINNER_FRAMES} (the braille set `⠋⠙⠹…`). Each `tick()` advances to the next, wrapping.
  * - `interval` — the timer period in milliseconds between frames; defaults to
  *   {@link DEFAULT_SPINNER_INTERVAL}. The timer is always cleared on `succeed` / `fail` / `stop` /
- *   `destroy`, so it never leaks; tests drive frames deterministically via `tick()` (no real clock).
+ *   `destroy`, so it never leaks; tests drive frames deterministically through `tick()` (no real clock).
  * - `sink` — where each `\r` + frame line is written; defaults to
  *   {@link import('./factories.js').createConsoleSink}. A TTY sink overwrites on the `\r`.
  * - `styler` — the {@link StylerInterface} the glyph is colored through; defaults to
@@ -1052,7 +1052,7 @@ export interface SpinnerOptions {
  *   with fake timers — the timer is always cleared on `succeed` / `fail` / `stop` / `destroy`, so it
  *   never leaks.
  * - **Idempotent `start`.** A `start()` while already `active` is a no-op (it never arms a second
- *   timer). `active` reflects whether the timer is currently armed.
+ *   timer). `active` reflects whether the timer is armed.
  * - **Outcome lines.** `succeed(message?)` / `fail(message?)` clear the timer, then write + emit a
  *   final line — the theme's success / error status icon + style (`✔` / `✖` by default) + the
  *   message — terminated by a newline (the activity is over; the line is committed, not overwritten).
@@ -1063,7 +1063,7 @@ export interface SpinnerOptions {
  */
 export interface SpinnerInterface {
 	readonly emitter: EmitterInterface<SpinnerEventMap>
-	/** Reports whether the internal timer is currently armed (between `start()` and `stop` / `succeed` / `fail`). */
+	/** Reports whether the internal timer is armed (between `start()` and `stop` / `succeed` / `fail`). */
 	readonly active: boolean
 	/** Holds the current message shown beside the glyph. */
 	readonly message: string
@@ -1114,7 +1114,7 @@ export interface RetentionInterface<T extends { readonly level: string }> {
  * @remarks
  * `current` is always the value after clamping into `[0, total]`, so a listener never sees an
  * overrun or a negative. `total` is the bar's fixed target, repeated on every report so a listener
- * needs no reference to the bar itself. The same record is emitted from `update`, `complete`, and
+ * needs no reference to the bar itself. The same record is emitted from `update`, `succeed`, and
  * `fail`.
  */
 export interface ProgressReport {
@@ -1126,23 +1126,23 @@ export interface ProgressReport {
  * Declares the observable events a {@link ProgressInterface} emits.
  *
  * @remarks
- * - `update` — the core event: fires on every `update(current)` (and on `complete` / `fail`),
+ * - `update` — the core event: fires on every `update(current)` (and on `succeed` / `fail`),
  *   carrying the `{ current, total }` progress (the clamped `current`). The hook a non-sink consumer
  *   rides to observe progress without a terminal.
- * - `complete` — the terminal signal: fires once from `complete()` (a successful finish), a pure
+ * - `succeed` — the terminal signal: fires once from `succeed()` (a successful finish), a pure
  *   signal (empty tuple) so a consumer can observe the bar reaching its end. (`fail()` emits a final
- *   `update` and routes its line to the error stream, but is not a `complete` — completion means the
- *   work finished successfully.)
+ *   `update` and routes its line to the error stream, but is not a `succeed` — the bar's positive
+ *   outcome is the same word the spinner and the reporter use.)
  *
  * Listener isolation is the emitter's. Declared as a `type` alias (not
  * `interface extends EventMap`): a type-literal satisfies the `EventMap` constraint
  * structurally, whereas an interface lacks the index signature.
  */
 export type ProgressEventMap = {
-	/** Reports progress advancing — the clamped `{ current, total }` (fires on `update` and on `complete` / `fail`). */
+	/** Reports progress advancing — the clamped `{ current, total }` (fires on `update` and on `succeed` / `fail`). */
 	readonly update: readonly [progress: ProgressReport]
-	/** Fires after the bar reached its end via `complete()` (a successful finish). */
-	readonly complete: readonly []
+	/** Fires after the bar reached its end through `succeed()` (a successful finish). */
+	readonly succeed: readonly []
 }
 
 /**
@@ -1154,7 +1154,7 @@ export type ProgressEventMap = {
  * - `error` — the emitter's listener-error handler; a listener throw routes here.
  * - `total` — the value `current` advances toward (the `100%` point); the only required option.
  * - `message` — text shown after the bar; defaults to `''`. Overridden per-`update` and by a
- *   `complete` / `fail` argument.
+ *   `succeed` / `fail` argument.
  * - `width` — the bar track's visible cell count, handed to {@link import('./helpers.js').renderBar};
  *   defaults to {@link DEFAULT_BAR_WIDTH}.
  * - `fill` / `empty` — the filled and empty track glyphs handed to
@@ -1180,7 +1180,7 @@ export interface ProgressOptions {
 }
 
 /**
- * Declares an update-driven, observable progress bar — `update(current)` recomputes the bar via
+ * Declares an update-driven, observable progress bar — `update(current)` recomputes the bar through
  * {@link import('./helpers.js').renderBar}, writes `\r` + bar to its {@link SinkInterface}, and emits
  * the `{ current, total }` on `update`. The line-overwrite is the sink's job (a TTY sink overwrites
  * on the `\r`; a plain sink degrades to a fresh line). No self-timer — the caller drives it.
@@ -1190,29 +1190,29 @@ export interface ProgressOptions {
  *   the bar (filled to `current / total`, with the trailing `percent (current/total)` + message),
  *   emits `update`, and writes `'\r' + bar`. There is no internal timer (unlike {@link
  *   SpinnerInterface}) — progress advances only when the caller reports it.
- * - **Outcome lines.** `complete(message?)` renders a full bar (`current = total`) + message,
- *   terminated by a newline, emits a final `update` then `complete`, and marks `completed`.
+ * - **Outcome lines.** `succeed(message?)` renders a full bar (`current = total`) + message,
+ *   terminated by a newline, emits a final `update` then `succeed`, and marks `succeeded`.
  *   `fail(message?)` renders the bar at its current fill + message + newline and routes to the sink's
- *   error stream (no `complete` — the work did not finish). Both are terminal: a later `update` after
- *   a `complete` / `fail` is ignored (`active` is `false`).
- * - **Bounded.** `current` is always clamped to `[0, total]`; `completed` reports whether
- *   `complete()` has run; `active` is `true` until a `complete` / `fail`.
+ *   error stream (no `succeed` — the work did not finish). Both are terminal: a later `update` after
+ *   a `succeed` / `fail` is ignored (`active` is `false`).
+ * - **Bounded.** `current` is always clamped to `[0, total]`; `succeeded` reports whether
+ *   `succeed()` has run; `active` is `true` until a `succeed` / `fail`.
  */
 export interface ProgressInterface {
 	readonly emitter: EmitterInterface<ProgressEventMap>
-	/** Reports whether the bar is still advancing (before any `complete()` / `fail()`). */
+	/** Reports whether the bar is still advancing (before any `succeed()` / `fail()`). */
 	readonly active: boolean
-	/** Reports whether `complete()` has run (the bar finished successfully). */
-	readonly completed: boolean
+	/** Reports whether `succeed()` has run (the bar finished successfully). */
+	readonly succeeded: boolean
 	/** Holds the current value, clamped to `[0, total]`. */
 	readonly current: number
 	/** Holds the target value the bar fills toward. */
 	readonly total: number
 	/** Reports progress: clamps `current`, re-renders the bar, emits `update`, writes `\r` + bar. Ignored once terminal. */
 	update(current: number, message?: string): void
-	/** Finishes successfully — renders a full bar + newline, emits a final `update` then `complete`. */
-	complete(message?: string): void
-	/** Finishes unsuccessfully — renders the bar at its current fill + newline to the error stream (no `complete`). */
+	/** Finishes successfully — renders a full bar + newline, emits a final `update` then `succeed`. */
+	succeed(message?: string): void
+	/** Finishes unsuccessfully — renders the bar at its current fill + newline to the error stream (no `succeed`). */
 	fail(message?: string): void
 	/** Tears down — destroys the emitter. */
 	destroy(): void

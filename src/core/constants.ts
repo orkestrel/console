@@ -144,7 +144,7 @@ export const RESET = `${CSI}${RESET_CODE}m`
  * Matches any ANSI/VT escape sequence — CSI (SGR color/style plus cursor/erase/scroll,
  * including colon-parameterized SGR), OSC / DCS / PM / APC / SOS string sequences
  * (titles, hyperlinks, device strings), the `nF` charset-select family, and the
- * two-byte `Fp` / `Fe` / `Fs` sequences (e.g. `ESC 7`, `ESC D`, `ESC c` RIS). Global, so
+ * two-byte `Fp` / `Fe` / `Fs` sequences (for example `ESC 7`, `ESC D`, `ESC c` RIS). Global, so
  * `strip` removes every occurrence.
  *
  * @remarks
@@ -224,7 +224,7 @@ export const LEVEL_COLORS: Readonly<Record<LogLevel, Exclude<Color, 'default'>>>
 /**
  * Sets the default bounded-retention cap for a {@link import('./types.js').LoggerInterface} — at
  * most this many recent records are kept (oldest dropped first). Retention is always bounded — the
- * oldest record is dropped once the cap is reached; a consumer overrides it via `options.limit`.
+ * oldest record is dropped after the cap is reached; a consumer overrides it through `options.limit`.
  */
 export const DEFAULT_LOG_LIMIT = 1000
 
@@ -349,7 +349,7 @@ export const STATUS_LEVELS: readonly StatusLevel[] = Object.freeze([
 /**
  * Sets the default visible column width for the width-aware renderers — the separator rule and a
  * {@link import('./helpers.js').renderBox} with no explicit `width`, and the reporter's
- * `section` rule. A sane terminal default (80 columns); a caller overrides it per-call or via
+ * `section` rule. A sane terminal default (80 columns); a caller overrides it per-call or through
  * {@link import('./types.js').ReporterOptions}`.width`.
  */
 export const DEFAULT_WIDTH = 80
@@ -404,7 +404,7 @@ export const CAPTURE_LEVELS: readonly CaptureLevel[] = Object.freeze([
  * many recent {@link CapturedMessage}s are retained per buffer (the total buffer and each by-level
  * bucket; oldest dropped first). Capture retention is always bounded so a long-running capture can
  * never grow without bound (the same retention precedent as {@link DEFAULT_LOG_LIMIT}); a consumer
- * overrides it via `options.limit`.
+ * overrides it through `options.limit`.
  */
 export const DEFAULT_CAPTURE_LIMIT = 1000
 
@@ -434,7 +434,7 @@ export const CAPTURE_LEVEL_MAP: Readonly<Record<CaptureLevel, LogLevel>> = Objec
 /**
  * Holds the default spinner frame cycle a {@link import('./types.js').SpinnerInterface} advances through —
  * the ten braille-pattern glyphs (U+2800 block) that read as a smoothly rotating dot, the universal
- * terminal-spinner convention. Frozen; a consumer swaps the whole cycle via `options.frames`.
+ * terminal-spinner convention. Frozen; a consumer swaps the whole cycle through `options.frames`.
  *
  * @remarks
  * Braille glyphs are single visible cells, so every frame occupies one column — the spinner glyph
@@ -457,28 +457,28 @@ export const SPINNER_FRAMES: readonly string[] = Object.freeze([
  * Sets the default timer period in milliseconds between a {@link import('./types.js').SpinnerInterface}'s
  * frames — the `setInterval` interval `start()` arms. Eighty milliseconds (≈12.5 frames/second) is
  * the conventional spinner cadence: fast enough to read as motion, slow enough not to thrash a
- * terminal. A consumer overrides it via `options.interval`.
+ * terminal. A consumer overrides it through `options.interval`.
  */
 export const DEFAULT_SPINNER_INTERVAL = 80
 
 /**
  * Holds the default filled-cell glyph {@link import('./helpers.js').renderBar} draws the completed run of a
- * progress bar with — the full block `█` (U+2588). A single visible cell; a consumer overrides it via
- * {@link import('./types.js').ProgressBarOptions}`.fill`.
+ * progress bar with — the full block `█` (U+2588). A single visible cell; a consumer overrides it
+ * through {@link import('./types.js').BarOptions}`.fill`.
  */
 export const BAR_FILL = '█'
 
 /**
  * Holds the default empty-cell glyph {@link import('./helpers.js').renderBar} draws the remaining run of a
  * progress bar with — the light-shade block `░` (U+2591). A single visible cell; a consumer overrides
- * it via {@link import('./types.js').ProgressBarOptions}`.empty`.
+ * it through {@link import('./types.js').BarOptions}`.empty`.
  */
 export const BAR_EMPTY = '░'
 
 /**
  * Sets the default visible cell count of a progress-bar track — the glyph run {@link
  * import('./helpers.js').renderBar} fills (and a {@link import('./types.js').ProgressInterface} sizes
- * its bar to). Thirty cells is a compact, terminal-friendly default; a consumer overrides it via
+ * its bar to). Thirty cells is a compact, terminal-friendly default; a consumer overrides it through
  * `options.width`. Distinct from {@link DEFAULT_WIDTH} (the renderers' 80-column line width) — a bar
  * track is one inline element, not a full-width rule.
  */

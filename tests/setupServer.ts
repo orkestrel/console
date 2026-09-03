@@ -1,7 +1,7 @@
 // Server-test setup — node-only helpers, loaded after `setup.ts` for the node
 // `src:server` / `app:server` test projects. `node:fs` / `node:path` imports belong
 // here, never in `setup.ts`, which browser projects also load. Anchor every path to
-// `WORKSPACE_ROOT` so the runner's cwd never matters (AGENTS §16.1).
+// `WORKSPACE_ROOT` so the runner's cwd never matters.
 
 import type { StreamTargetInterface } from '@src/server'
 import type { RecorderInterface } from '@orkestrel/test'
@@ -27,15 +27,15 @@ export function fileExists(relativePath: string): boolean {
 /**
  * A fake {@link StreamTargetInterface} for the server console — a stand-in `process.stdout` /
  * `process.stderr` with a recorded `write`, so a `createServerSink` test drives the isTTY /
- * strip / routing paths WITHOUT touching the real process streams (AGENTS §16.1 — a reusable
- * server fixture lives in setup). The recorder captures every written string; `isTTY` and
+ * strip / routing paths WITHOUT touching the real process streams — a reusable server fixture
+ * lives in setup. The recorder captures every written string; `isTTY` and
  * `columns` are fixed at construction so a test can exercise the TTY (ANSI verbatim) and
  * non-TTY (ANSI stripped) branches deterministically.
  *
  * @param options - `isTTY` (default `false` — a piped stream) and `columns` (a TTY width, omitted
  *   when not a TTY). `write` always returns `true` (no simulated backpressure unless overridden by
  *   a caller building its own target).
- * @returns The `target` (pass as `out` / `err` / a process-stream stand-in) plus its `writes`
+ * @returns The `target` (pass as `stdout` / `stderr` / a process-stream stand-in) plus its `writes`
  *   recorder (`writes.calls` is the list of `[text]` tuples written, `writes.count` the tally).
  */
 export function createStreamTarget(options?: { isTTY?: boolean; columns?: number }): {
@@ -60,7 +60,7 @@ export function createStreamTarget(options?: { isTTY?: boolean; columns?: number
  * with no `as`) that records each chunk as text and returns a configurable backpressure boolean.
  * The `ProcessCapture` test installs one as the "current" write BEFORE starting the capture, so
  * the capture's snapshot-original (and any mirror replay) lands HERE instead of the real terminal —
- * keeping the suite output-clean and the mirror assertion deterministic (AGENTS §16.1).
+ * keeping the suite output-clean and the mirror assertion deterministic.
  *
  * @param backpressure - The boolean each `write` returns (default `true` — buffer not full); set
  *   `false` to drive the capture's backpressure-passthrough assertion.
@@ -72,9 +72,11 @@ export function createWriteProbe(backpressure = true): {
 	readonly texts: readonly string[]
 } {
 	const texts: string[] = []
-	const write = (chunk: string | Uint8Array): boolean => {
-		texts.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'))
-		return backpressure
+	return {
+		write(chunk: string | Uint8Array): boolean {
+			texts.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'))
+			return backpressure
+		},
+		texts,
 	}
-	return { write, texts }
 }

@@ -1,12 +1,6 @@
 import type { LogLevel } from '@src/core'
-import type {
-	ProcessCaptureInterface,
-	ProcessCaptureOptions,
-	ServerSinkInterface,
-	ServerSinkOptions,
-} from './types.js'
+import type { ServerSinkInterface, ServerSinkOptions } from './types.js'
 import { selectWriter, strip, stripControls } from '@src/core'
-import { ProcessCapture } from './ProcessCapture.js'
 import { inferColumns, inferStyled } from './helpers.js'
 import { isStreamTarget } from './validators.js'
 
@@ -23,19 +17,20 @@ import { isStreamTarget } from './validators.js'
  *
  * @remarks
  * - **Routes by level.** `error` / `warn` → the error stream (`process.stderr` by default), every
- *   other level (and an omitted level) → the out stream (`process.stdout`) — the same routing as
- *   core's `createConsoleSink`, so a logger's `error` reaches `stderr`. Both call the one
+ *   other level (and an omitted level) → the `stdout` stream (`process.stdout`) — the same routing
+ *   as core's `createConsoleSink`, so a logger's `error` reaches `stderr`. Both call the one
  *   {@link import('@src/core').selectWriter} leaf, which is what keeps them identical.
  * - **Per-target styled facts.** At construction, each target uses `options.styled` when supplied;
  *   otherwise {@link inferStyled} applies the injected `environment` (default `process.env`) and
  *   then that target's `isTTY`.
- *   Writes use those stored facts, so `styled` and the out target's strip decision never disagree;
- *   the err target keeps its own fact internally.
- * - **Width.** `columns` reflects the live `out.columns` (so it tracks a terminal resize), falling
- *   back to {@link import('./constants.js').DEFAULT_COLUMNS} when the out stream is not a TTY — or a
- *   fixed value when `options.columns` is supplied. Feed it to a `Reporter` / `Progress` `width`.
- * - **Injectable + guard-narrowed.** `options.out` / `options.err` default to `process.stdout` /
- *   `process.stderr` but accept any {@link import('./types.js').StreamTargetInterface}, resolved
+ *   Writes use those stored facts, so `styled` and the `stdout` target's strip decision never
+ *   disagree; the `stderr` target keeps its own fact internally.
+ * - **Width.** `columns` reflects the live `stdout.columns` (so it tracks a terminal resize),
+ *   falling back to {@link import('./constants.js').DEFAULT_COLUMNS} when the `stdout` stream is not
+ *   a TTY — or a fixed value when `options.columns` is supplied. Feed it to a `Reporter` /
+ *   `Progress` `width`.
+ * - **Injectable + guard-narrowed.** `options.stdout` / `options.stderr` default to `process.stdout`
+ *   / `process.stderr` but accept any {@link import('./types.js').StreamTargetInterface}, resolved
  *   through {@link isStreamTarget} (narrow the boundary, never `as`), so a test drives
  *   the sink (and the isTTY-strip path) with a fake stream that never touches the real process
  *   streams.
@@ -55,9 +50,9 @@ import { isStreamTarget } from './validators.js'
 export function createServerSink(options?: ServerSinkOptions): ServerSinkInterface {
 	// Resolve each target through the guard: a present, well-shaped injected stream is used as
 	// is; otherwise the real process stream — no `as`, and an `undefined` option falls through to the
-	// default. `out` carries info/debug, `err` carries error/warn.
-	const out = isStreamTarget(options?.out) ? options.out : process.stdout
-	const err = isStreamTarget(options?.err) ? options.err : process.stderr
+	// default. `stdout` carries info/debug, `stderr` carries error/warn.
+	const out = isStreamTarget(options?.stdout) ? options.stdout : process.stdout
+	const err = isStreamTarget(options?.stderr) ? options.stderr : process.stderr
 	const styled = options?.styled
 	const environment = options?.environment ?? process.env
 	const outStyled = styled ?? inferStyled(out, environment)
@@ -79,41 +74,9 @@ export function createServerSink(options?: ServerSinkOptions): ServerSinkInterfa
 			target.write(keep ? line : stripControls(strip(line)))
 		},
 		get columns(): number {
-			// A fixed override wins; otherwise the live out-stream width (tracks a resize), with the
+			// A fixed override wins; otherwise the live stdout-stream width (tracks a resize), with the
 			// non-TTY fallback inside inferColumns.
 			return typeof fixed === 'number' ? fixed : inferColumns(out)
 		},
 	})
-}
-
-/**
- * Creates an observable {@link ProcessCaptureInterface} — the server "own all output" capture. It
- * intercepts the raw `process.stdout.write` / `process.stderr.write` (not just `console.*`, which is
- * the core `Capture`), so it catches direct `process` writes, library output, and child-process
- * pipes. Each intercepted write becomes a frozen {@link import('./types.js').CapturedChunk},
- * buffered (bounded, per-stream) and emitted on `capture`; per options it is mirrored back to the
- * real stream and/or forwarded to a {@link import('@src/core').SinkInterface}.
- *
- * @param options - See {@link ProcessCaptureOptions}
- * @returns A {@link ProcessCaptureInterface}
- *
- * @remarks
- * - **The wrapper never throws and passes backpressure through** — a throw in `process.stdout.write`
- *   would crash the host, so chunks are decoded totally and the original's `boolean` is returned.
- * - **Snapshot-at-start + non-reentrant + process-global** — `start()` snapshots and swaps the
- *   pristine `write`; `stop()` restores the exact original. At most one may be active at a time.
- *   Create any server sink before installing a capture so the mirror's replay is not re-captured.
- *
- * @example
- * ```ts
- * import { createProcessCapture } from '@src/server'
- *
- * const capture = createProcessCapture({ levels: ['stderr'], mirror: true })
- * capture.start()
- * process.stderr.write('a library diagnostic\n') // captured and still shown
- * capture.stop()
- * ```
- */
-export function createProcessCapture(options?: ProcessCaptureOptions): ProcessCaptureInterface {
-	return new ProcessCapture(options)
 }

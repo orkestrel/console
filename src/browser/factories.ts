@@ -5,7 +5,7 @@ import { ansiToConsole } from './helpers.js'
 
 // The browser `%c` console sink (the browser branch) — the platform-bound backend that satisfies core's
 // `SinkInterface` in a browser DevTools console. The core styler / Logger / Reporter emit ANSI-styled
-// strings; a DevTools console can't render ANSI but can style via `console.log('%ctext', 'css')`, so
+// strings; a DevTools console can't render ANSI but can style through `console.log('%ctext', 'css')`, so
 // this sink translates the incoming ANSI runs into a `%c` call at the output boundary (the env-split
 // rule: core owns the contract + universal logic, the browser provides the platform backend). A thin
 // stateless adapter, so a frozen-object factory — like core's `createConsoleSink` — not a class.
@@ -14,7 +14,7 @@ import { ansiToConsole } from './helpers.js'
 /**
  * Creates the browser `%c` {@link SinkInterface} — the browser output backend. `write(text, level?)`
  * translates the ANSI-styled `text` into a browser `console` call (`console[method](format, ...styles)`)
- * via {@link ansiToConsole}, so a DevTools console renders the same styling a terminal does. Drop it in
+ * through {@link ansiToConsole}, so a DevTools console renders the same styling a terminal does. Drop it in
  * as a logger / reporter / spinner sink (`new Logger({ sink: createBrowserSink() })`) to retarget the
  * core output to the browser console with no change to the core.
  *

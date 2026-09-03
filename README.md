@@ -67,9 +67,9 @@ On the server, `ProcessCapture` takes over the whole `process` output surface
 (direct `process.stdout`/`stderr` writes, not just `console.*`):
 
 ```ts
-import { createProcessCapture } from '@orkestrel/console/server'
+import { ProcessCapture } from '@orkestrel/console/server'
 
-const capture = createProcessCapture({ levels: ['stderr'], mirror: true })
+const capture = new ProcessCapture({ levels: ['stderr'], mirror: true })
 capture.start()
 ```
 

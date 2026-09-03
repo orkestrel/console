@@ -161,7 +161,7 @@ describe('Capture', () => {
 		})
 	})
 
-	describe('the capture event — the observation seam (§13)', () => {
+	describe('the capture event — the observation seam', () => {
 		it('emits the frozen message for every intercepted call', () => {
 			const capture = new Capture()
 			const events = createRecorders<CaptureEventMap, 'capture'>(capture.emitter, ['capture'])

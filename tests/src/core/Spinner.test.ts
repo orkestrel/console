@@ -2,7 +2,7 @@ import type { SpinnerEventMap } from '@src/core'
 import type { RecordingSinkInterface } from '../../setup.js'
 import { createStyler, createTheme, DEFAULT_THEME, SPINNER_FRAMES, Spinner, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createRecorder, createRecorders, waitForDelay } from '@orkestrel/test'
+import { createRecorder, createRecorders, waitForCondition, waitForDelay } from '@orkestrel/test'
 import { createRecordingSink } from '../../setup.js'
 
 // Spinner — the self-driving, observable activity spinner. start() arms a setInterval that advances
@@ -36,13 +36,9 @@ function frames(sink: RecordingSinkInterface): readonly string[] {
 	return sink.calls.map(([text]) => text.replace(/^\r/, '').replace(/\n$/, ''))
 }
 
-// Wait until `sink` has recorded at least `count` writes, or until the deadline passes. The real
-// clock decides when each frame lands, so a test that needs a running timer waits for the frames it
-// needs rather than for a fixed span a loaded host can miss.
-async function waitForFrames(sink: RecordingSinkInterface, count: number): Promise<void> {
-	const deadline = performance.now() + FRAME_DEADLINE
-	while (sink.calls.length < count && performance.now() < deadline) await waitForDelay(PERIOD)
-}
+// A test that needs a running timer waits for the frames it needs — through `waitForCondition` from
+// `@orkestrel/test`, which polls inside `FRAME_DEADLINE` and fails with the condition's own
+// description when the budget expires — rather than for a fixed span a loaded host can miss.
 
 describe('Spinner', () => {
 	describe('tick — frame content + the leading \\r (redraw deferred to the sink)', () => {
@@ -188,7 +184,10 @@ describe('Spinner', () => {
 
 			// The host clock decides how many further frames land before stop(), so the assertion pins
 			// the property that must hold at every length: each frame is the next glyph in the cycle.
-			await waitForFrames(sink, 3)
+			await waitForCondition('the spinner wrote 3 frames', () => sink.calls.length >= 3, {
+				budget: FRAME_DEADLINE,
+				interval: PERIOD,
+			})
 			spinner.stop()
 
 			const painted = frames(sink)
@@ -206,7 +205,11 @@ describe('Spinner', () => {
 			const spinner = new Spinner({ frames: ['a', 'b'], interval: PERIOD, sink, styler: PLAIN })
 
 			spinner.start()
-			await waitForFrames(sink, 2) // the interval is genuinely firing before it is stopped
+			// The interval is genuinely firing before it is stopped.
+			await waitForCondition('the spinner wrote 2 frames', () => sink.calls.length >= 2, {
+				budget: FRAME_DEADLINE,
+				interval: PERIOD,
+			})
 			spinner.stop()
 			const after = sink.calls.length
 
@@ -222,7 +225,10 @@ describe('Spinner', () => {
 			spinner.start() // no-op — must not arm a second interval
 			expect(spinner.active).toBe(true)
 
-			await waitForFrames(sink, 2)
+			await waitForCondition('the spinner wrote 2 frames', () => sink.calls.length >= 2, {
+				budget: FRAME_DEADLINE,
+				interval: PERIOD,
+			})
 			// One stop() clears one handle. A second armed interval would have orphaned the first and
 			// kept painting past this stop, so silence across the window proves only one was ever armed.
 			spinner.stop()
@@ -348,7 +354,7 @@ describe('Spinner', () => {
 		})
 	})
 
-	describe('the frame / start / stop events — the observation seam (§13)', () => {
+	describe('the frame / start / stop events — the observation seam', () => {
 		it('emits a frame per tick and a final frame on succeed', () => {
 			const sink = createRecordingSink()
 			const spinner = new Spinner({ message: 'm', frames: ['a', 'b'], sink, styler: PLAIN })

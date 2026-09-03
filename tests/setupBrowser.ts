@@ -4,7 +4,7 @@ import { createRecorder } from '@orkestrel/test'
 // ── Console capture (swap + restore the three console methods) ────────────────
 
 /** The three captured console methods plus the restore — a real call-recording
- *  swap (AGENTS §16.1), not a framework spy. */
+ *  swap, not a framework spy. */
 export interface ConsoleCaptureInterface {
 	/** `console.log`'s recorded `(format, ...styles)` calls. */
 	readonly log: RecorderInterface<readonly [format: string, ...styles: string[]]>
@@ -18,7 +18,7 @@ export interface ConsoleCaptureInterface {
 
 /**
  * Swap `console.log` / `warn` / `error` for recording callbacks and return them plus
- * a `restore` — a real call-recording capture (AGENTS §16.1), not a framework mock,
+ * a `restore` — a real call-recording capture, not a framework mock,
  * so a console sink test can assert the exact `(format, ...styles)` tuples each
  * method received. Call `restore()` in an `afterEach` so no swap leaks.
  *
@@ -36,10 +36,14 @@ export function captureConsole(): ConsoleCaptureInterface {
 	console.log = log.handler
 	console.warn = warn.handler
 	console.error = error.handler
-	const restore = (): void => {
-		console.log = original.log
-		console.warn = original.warn
-		console.error = original.error
+	return {
+		log,
+		warn,
+		error,
+		restore(): void {
+			console.log = original.log
+			console.warn = original.warn
+			console.error = original.error
+		},
 	}
-	return { log, warn, error, restore }
 }

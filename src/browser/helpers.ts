@@ -11,11 +11,11 @@ import { ATTRIBUTE_CSS, COLOR_HEX, DIRECTIVE, SGR_PATTERN } from './constants.js
 
 // The pure, browser-only translation behind the `%c` console sink (the browser branch). The core
 // styler / Logger / Reporter emit ANSI-styled strings; a DevTools console can't render ANSI but
-// can style via `console.log('%ctext', 'css')`, so `ansiToConsole` parses the SGR runs in the
+// can style through `console.log('%ctext', 'css')`, so `ansiToConsole` parses the SGR runs in the
 // incoming text and re-emits them as a `%c`-ready format string + parallel CSS array — the
 // translation happens at the output boundary, leaving the core unchanged. Pure + total + `%`-safe.
 // `ansiToConsole` carries immutable style snapshots while its local arrays assemble the final
-// `%c` output; only the standalone, reusable `escapePercent` / `parseParameters` utilities are
+// `%c` output; only the standalone, reusable `escapePercent` / `scanParameters` utilities are
 // exported alongside it.
 
 /**
@@ -57,12 +57,9 @@ export function ansiToConsole(text: string, palette?: BrowserPalette): ConsoleOu
 	const scanner = new RegExp(SGR_PATTERN.source, SGR_PATTERN.flags)
 	// The accumulated active style across a run — a separate foreground / background declaration
 	// (each channel replaceable) plus an ordered, de-duplicated list of attribute declarations. An
-	// SGR reset empties all three. Serialized to a `;`-joined CSS string per emitted run.
-	let active: StyleAccumulator = Object.freeze({
-		foreground: '',
-		background: '',
-		attributes: Object.freeze([]),
-	})
+	// SGR reset drops both channels and empties the list. Serialized to a `;`-joined CSS string per
+	// emitted run.
+	let active: StyleAccumulator = Object.freeze({ attributes: Object.freeze([]) })
 	const segments: string[] = []
 	const styles: string[] = []
 	let cursor = 0
@@ -77,8 +74,8 @@ export function ansiToConsole(text: string, palette?: BrowserPalette): ConsoleOu
 		if (pending !== '') {
 			segments.push(`${DIRECTIVE}${pending}`)
 			const declarations = [...active.attributes]
-			if (active.foreground !== '') declarations.push(active.foreground)
-			if (active.background !== '') declarations.push(active.background)
+			if (active.foreground !== undefined) declarations.push(active.foreground)
+			if (active.background !== undefined) declarations.push(active.background)
 			styles.push(declarations.join(';'))
 			pending = ''
 		}
@@ -86,13 +83,9 @@ export function ansiToConsole(text: string, palette?: BrowserPalette): ConsoleOu
 
 		// Apply one SGR sequence by replacing the readonly accumulator. A reset clears every channel;
 		// colors replace their channel; attributes accumulate once; unknown extensions are ignored.
-		for (const code of parseParameters(match[1] ?? '')) {
+		for (const code of scanParameters(match[1] ?? '')) {
 			if (code === RESET_CODE) {
-				active = Object.freeze({
-					foreground: '',
-					background: '',
-					attributes: Object.freeze([]),
-				})
+				active = Object.freeze({ attributes: Object.freeze([]) })
 				continue
 			}
 			const foreground = COLORS.find((color) => FOREGROUND_CODES[color] === code)
@@ -125,7 +118,7 @@ export function ansiToConsole(text: string, palette?: BrowserPalette): ConsoleOu
 
 /**
  * Doubles every literal `%` in `text` to `%%` — the `%`-escape that keeps a browser console from
- * reading a stray `%` (e.g. in `50%` or `%s`) as a format directive. The single escape the
+ * reading a stray `%` (for example in `50%` or `%s`) as a format directive. The single escape the
  * {@link ansiToConsole} translation applies to every text segment before assembling the format
  * string (so only the `%c`s it inserts are real directives).
  *
@@ -142,21 +135,22 @@ export function escapePercent(text: string): string {
 }
 
 /**
- * Parses an SGR parameter list (the `;`-separated numeric string captured by {@link SGR_PATTERN})
- * into its numeric codes — `'1;31'` → `[1, 31]`. An empty list (a bare `ESC[m`) yields `[0]`, since
- * the SGR spec treats a parameterless sequence as a reset; an empty field within a list (`'1;;4'`)
- * likewise counts as a `0` reset, matching the spec.
+ * Walks an SGR parameter list (the `;`-separated numeric string captured by {@link SGR_PATTERN})
+ * and returns its numeric codes — `'1;31'` → `[1, 31]`. It is total: every input yields a code
+ * list. An empty list (a bare `ESC[m`) yields `[0]`, because the SGR spec treats a parameterless
+ * sequence as a reset; an empty field within a list (`'1;;4'`) likewise counts as a `0` reset,
+ * matching the spec, and a non-numeric field yields `NaN`, which the caller then ignores.
  *
  * @param parameters - The raw `;`-separated parameter string (the regex capture)
- * @returns The parsed SGR codes (a parameterless / empty field becoming `0`)
+ * @returns The SGR codes found (a parameterless / empty field becoming `0`)
  *
  * @example
  * ```ts
- * parseParameters('1;31') // [1, 31]
- * parseParameters('') // [0]
+ * scanParameters('1;31') // [1, 31]
+ * scanParameters('') // [0]
  * ```
  */
-export function parseParameters(parameters: string): readonly number[] {
+export function scanParameters(parameters: string): readonly number[] {
 	if (parameters === '') return [RESET_CODE]
 	return parameters.split(';').map((field) => (field === '' ? RESET_CODE : Number(field)))
 }

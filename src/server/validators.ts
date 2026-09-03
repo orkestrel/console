@@ -14,7 +14,7 @@ import type { StreamTargetInterface } from './types.js'
  * @remarks
  * Only `write` is required (the irreducible output method); `isTTY` and `columns` are optional on
  * {@link StreamTargetInterface}, so their absence does not disqualify a target — a piped stream
- * (no `isTTY`) is still a valid write target, just a non-terminal one.
+ * (no `isTTY`) is still a valid write target, only a non-terminal one.
  *
  * @param value - Any value crossing the boundary (a process stream, an injected fake, `unknown`)
  * @returns True if `value` has a callable `write`; false otherwise

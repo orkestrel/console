@@ -1,7 +1,7 @@
 # Guides
 
 A dual-axis index into this repository's guides — by concept, and by
-directory (AGENTS §22).
+directory.
 
 ## By concept
 
@@ -39,6 +39,13 @@ surface (`Guide` / `Source`, the manifest and comparison helpers), not anything
 sourced in this repo; it is kept here so a reader of the parity suite can see
 the primitives it is built from without leaving this guide set.
 
+[`probe.md`](probe.md) is a byte-identical mirror of the guide for
+`@orkestrel/probe` — the devDependency this repo's typecheck probes run
+through. It documents **that package's** surface (the `prove` tool and the
+stages behind it), not anything sourced in this repo; it is kept here so a
+reader of a typecheck claim can see the instrument it was proved with without
+leaving this guide set.
+
 [`scaffold.md`](scaffold.md) is a byte-identical mirror of the guide for
 `@orkestrel/scaffold` — the devDependency supplying this repo's shared file set
 and toolchain. It documents **that package's** surface (the registry, the
@@ -46,6 +53,13 @@ catalog, and the file passes), not anything sourced in this repo; it is kept
 here so a reader of this repo's configuration can see the tooling that generates
 it without leaving this guide set.
 
+[`test.md`](test.md) is a byte-identical mirror of the guide for
+`@orkestrel/test` — the devDependency supplying this repo's shared test
+infrastructure. It documents **that package's** surface (the call recorder, the
+waits, the collectors, and the owned scratch directory), not anything sourced in
+this repo; it is kept here so a reader of this repo's suites can see the helpers
+they are built from without leaving this guide set.
+
 ## See also
 
-- [`AGENTS.md`](../AGENTS.md) — the rules; §22 documentation-as-contracts.
+- [`AGENTS.md`](../AGENTS.md) — the rules; see § Documentation contract.

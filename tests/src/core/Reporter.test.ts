@@ -337,7 +337,7 @@ describe('Reporter', () => {
 		})
 	})
 
-	describe('event-free (AGENTS §13)', () => {
+	describe('event-free — the reporter carries no emitter', () => {
 		it('carries no emitter — it is a pure formatting front-end', () => {
 			const { reporter } = createTestReporter()
 			expect('emitter' in reporter).toBe(false)

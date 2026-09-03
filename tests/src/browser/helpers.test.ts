@@ -3,7 +3,7 @@ import {
 	ATTRIBUTE_CSS,
 	COLOR_HEX,
 	escapePercent,
-	parseParameters,
+	scanParameters,
 } from '@src/browser'
 import {
 	ATTRIBUTE_CODES,
@@ -22,7 +22,7 @@ import { describe, expect, it } from 'vitest'
 // headless Chromium. `ansiToConsole` parses the SGR runs a real `@src/core` styler emits and
 // re-emits them as a `%c` format string + parallel CSS array; its scan glue (apply / serialize /
 // flush) lives as local closures inside it, so the runs through `ansiToConsole` ARE its coverage.
-// The standalone `escapePercent` / `parseParameters` utilities are exercised directly. We drive the
+// The standalone `escapePercent` / `scanParameters` utilities are exercised directly. We drive the
 // translation with GENUINE ANSI from `createStyler()` (not hand-built escapes), so the test verifies
 // the real terminal→browser contract. No console spying here — these are pure functions; the sink's
 // console routing is covered in factories.test.ts.
@@ -32,7 +32,7 @@ import { describe, expect, it } from 'vitest'
 // to `%%`, so a real directive is a `%c` whose `%` is NOT part of an even run of preceding `%`s —
 // counting `%c` after collapsing `%%` to nothing isolates the inserted directives from escaped
 // literals. Asserting this for every adversarial input is the spine of the suite, so it is one
-// inline helper every edge case routes through (AGENTS §16.1).
+// inline helper every edge case routes through.
 function expectAligned(text: string): {
 	readonly format: string
 	readonly styles: readonly string[]
@@ -240,9 +240,9 @@ describe('ansiToConsole — adversarial %c/styles alignment', () => {
 		const styler = createStyler()
 		const chunk = styler.red('x') + 'y'.repeat(20)
 		const text = chunk.repeat(5000)
-		const started = Date.now()
+		const started = performance.now()
 		const result = expectAligned(text)
-		const elapsed = Date.now() - started
+		const elapsed = performance.now() - started
 		expect(result.styles.length).toBe(10000)
 		// Generous ceiling — a linear scan finishes in well under a second even in Chromium.
 		expect(elapsed).toBeLessThan(2000)
@@ -401,45 +401,45 @@ describe('escapePercent', () => {
 	})
 })
 
-describe('parseParameters', () => {
+describe('scanParameters', () => {
 	it('splits a ;-separated list into numbers', () => {
-		expect(parseParameters('1;31')).toEqual([1, 31])
+		expect(scanParameters('1;31')).toEqual([1, 31])
 	})
 
 	it('treats an empty parameter list (bare ESC[m) as a reset [0]', () => {
-		expect(parseParameters('')).toEqual([0])
+		expect(scanParameters('')).toEqual([0])
 	})
 
 	it('treats an empty field within a list as a 0 reset', () => {
-		expect(parseParameters('1;;4')).toEqual([1, 0, 4])
+		expect(scanParameters('1;;4')).toEqual([1, 0, 4])
 	})
 
 	it('parses a single zero as [0] (an explicit reset code)', () => {
-		expect(parseParameters('0')).toEqual([0])
+		expect(scanParameters('0')).toEqual([0])
 	})
 
 	it('parses a trailing empty field as a 0 reset', () => {
-		expect(parseParameters('1;')).toEqual([1, 0])
+		expect(scanParameters('1;')).toEqual([1, 0])
 	})
 
 	it('parses a leading empty field as a 0 reset', () => {
-		expect(parseParameters(';1')).toEqual([0, 1])
+		expect(scanParameters(';1')).toEqual([0, 1])
 	})
 
 	it('yields NaN for a non-numeric field (which the scanner then ignores)', () => {
 		// The SGR scanner never feeds non-digits here (its capture is [0-9;]*), but the parser is
 		// total: a stray non-number coerces to NaN, which downstream maps to no CSS → ignored.
-		const parsed = parseParameters('1;zz;4')
+		const parsed = scanParameters('1;zz;4')
 		expect(parsed[0]).toBe(1)
 		expect(Number.isNaN(parsed[1])).toBe(true)
 		expect(parsed[2]).toBe(4)
 	})
 
 	it('parses multi-digit codes (e.g. bright background 107)', () => {
-		expect(parseParameters('107')).toEqual([107])
+		expect(scanParameters('107')).toEqual([107])
 	})
 
 	it('parses an extended-color triplet verbatim (38;5;200)', () => {
-		expect(parseParameters('38;5;200')).toEqual([38, 5, 200])
+		expect(scanParameters('38;5;200')).toEqual([38, 5, 200])
 	})
 })

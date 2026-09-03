@@ -15,13 +15,13 @@ export const STREAM_LEVELS: readonly StreamLevel[] = Object.freeze(['stdout', 's
  * Sets the default bounded-buffer cap for a {@link import('./types.js').ProcessCaptureInterface} — at
  * most this many recent {@link import('./types.js').CapturedChunk}s are retained per buffer (the
  * total buffer and each per-stream bucket; oldest dropped first). Mirrors the core `Capture`'s
- * `DEFAULT_CAPTURE_LIMIT`; a consumer overrides it via `options.limit`.
+ * `DEFAULT_CAPTURE_LIMIT`; a consumer overrides it through `options.limit`.
  */
 export const DEFAULT_STREAM_LIMIT = 1000
 
 /**
  * Sets the terminal width {@link import('./factories.js').createServerSink} reports through
- * {@link import('./types.js').ServerSinkInterface.columns} when the out stream is not a TTY (so
+ * {@link import('./types.js').ServerSinkInterface.columns} when the `stdout` stream is not a TTY (so
  * `.columns` is `undefined`) and no explicit `options.columns` was supplied — the conventional
  * 80-column default a non-interactive context (a pipe, a CI log) assumes.
  */

@@ -24,7 +24,7 @@ import { formatDuration, renderBox, renderSeparator, renderTable, renderTree } f
  * @remarks
  * - **A small set, not a grab-bag.** `section` / `step` / `timing` / `status` / `table` /
  *   `tree` / `box` / `line` / `blank`. No spinner / bar (the animation chunk), no buffering /
- *   capture (the capture chunk), no level retention (the logger). Just format + write.
+ *   capture (the capture chunk), no level retention (the logger). Format and write, nothing more.
  * - **`status` is a narrative outcome, not a log level.** Its {@link StatusLevel} (`success` /
  *   `error` / `warn` / `info`) is distinct from {@link import('./types.js').LogLevel}: an icon
  *   supplied theme status icon + style, with `error` routed to the sink's

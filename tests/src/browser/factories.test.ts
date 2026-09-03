@@ -6,7 +6,7 @@ import { createRecorder } from '@orkestrel/test'
 import { captureConsole } from '../../setupBrowser.js'
 
 // The browser `%c` console sink (`src/browser/console/factories.ts`), exercised against the REAL
-// headless-Chromium console. `captureConsole()` (setupBrowser, §16.1) swaps `console.log` / `warn`
+// headless-Chromium console. `captureConsole()` (from setupBrowser) swaps `console.log` / `warn`
 // / `error` for recorders (a real call-recording callback, not a framework mock) and restores them,
 // so no spy leaks. We assert: ANSI runs become a `console[method](format, ...styles)` call with the
 // right CSS; the level routes to the matching console method; a leading `\r` (animation redraw)

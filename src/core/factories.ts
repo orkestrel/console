@@ -8,7 +8,7 @@ import type {
 	Theme,
 	ThemeOptions,
 } from './types.js'
-import { ANSIRenderer } from './ANSIRenderer.js'
+import { ANSIRenderer } from './renderers/ANSIRenderer.js'
 import { Capture } from './Capture.js'
 import { DEFAULT_THEME, EMPTY_STYLE, LOG_LEVELS, STATUS_LEVELS } from './constants.js'
 import { freezeStyle, selectWriter } from './helpers.js'
@@ -98,7 +98,7 @@ export function createTheme(options?: ThemeOptions): Theme {
 /**
  * Creates the default {@link SinkInterface} — a console sink that routes by level and writes
  * through the `console` methods snapshotted at creation. The default output target behind the
- * {@link import('./Logger.js').Logger}.
+ * {@link import('./loggers/Logger.js').Logger}.
  *
  * @returns A console {@link SinkInterface}
  *
@@ -134,27 +134,15 @@ export function createConsoleSink(): SinkInterface {
 	}
 }
 
-// Run `fn` under a fresh, scoped console capture — the ergonomic form of the `Capture` class. A
-// sync `fn` returning T yields { value, messages }; an async `fn` returning Promise<T> yields a
-// Promise of the same. The capture starts before `fn`, and `destroy()` runs on every path — sync
-// success, sync throw, and each async handler — stopping the capture so console is always
-// restored, and the capture is discarded — only the buffered messages are returned.
-export function createCaptureResult<T>(
-	fn: () => Promise<T>,
-	options?: CaptureOptions,
-): Promise<CaptureResult<T>>
-export function createCaptureResult<T>(fn: () => T, options?: CaptureOptions): CaptureResult<T>
 /**
  * Runs `fn` with the global `console.*` captured for its duration, returning the function's `value`
  * plus the {@link import('./types.js').CapturedMessage}s it logged — the scoped, self-restoring
  * ergonomic form of the {@link Capture} class.
  *
- * @param fn - The function to run under capture; may be sync (returns `T`) or async (returns
- *   `Promise<T>`)
+ * @param fn - The async function to run under capture (returns `Promise<T>`)
  * @param options - See {@link CaptureOptions} (`levels` / `mirror` / `sink` / `limit` / `on` /
  *   `error`); the capture is started for the duration of `fn` regardless
- * @returns For a sync `fn`, a {@link CaptureResult}`<T>` (`{ value, messages }`); for an async
- *   `fn`, a `Promise<CaptureResult<T>>` (awaited, then console restored)
+ * @returns A `Promise<CaptureResult<T>>` — awaited, then `console` restored
  *
  * @remarks
  * - **Always restores.** `start()` runs before `fn`; `destroy()` (which calls `stop()`) runs on
@@ -171,23 +159,46 @@ export function createCaptureResult<T>(fn: () => T, options?: CaptureOptions): C
  *
  * @example
  * ```ts
- * import { createCaptureResult } from '@src/core'
+ * import { createCaptureResult } from '@orkestrel/console'
  *
+ * // The async call is awaited before `console` is restored, so the capture covers the async work.
+ * const out = await createCaptureResult(async () => {
+ * 	console.warn('async noise')
+ * 	return 'done'
+ * })
+ * out.value // 'done'
+ * out.messages.map((m) => m.text) // ['async noise']
+ * ```
+ */
+export function createCaptureResult<T>(
+	fn: () => Promise<T>,
+	options?: CaptureOptions,
+): Promise<CaptureResult<T>>
+/**
+ * Runs `fn` with the global `console.*` captured for its duration, returning the function's `value`
+ * plus the {@link import('./types.js').CapturedMessage}s it logged, synchronously.
+ *
+ * @param fn - The synchronous function to run under capture (returns `T`)
+ * @param options - See {@link CaptureOptions}
+ * @returns A {@link CaptureResult}`<T>` — `{ value, messages }`, with `console` already restored
+ *
+ * @example
+ * ```ts
+ * import { createCaptureResult } from '@orkestrel/console'
+ *
+ * // The sync call returns the result directly — no `await`, `console` already restored.
  * const { value, messages } = createCaptureResult(() => {
  * 	console.log('working')
  * 	return 42
  * })
  * value // 42
  * messages.map((m) => m.text) // ['working']
- *
- * // Async — awaited before console is restored.
- * const out = await createCaptureResult(async () => {
- * 	console.warn('async noise')
- * 	return 'done'
- * })
- * out.value // 'done'
  * ```
  */
+export function createCaptureResult<T>(fn: () => T, options?: CaptureOptions): CaptureResult<T>
+// The one implementation behind both overloads: start the capture, run `fn`, and destroy the
+// capture on every path — sync success, sync throw, and each async handler — so `console` is always
+// restored and only the buffered messages are returned.
 export function createCaptureResult<T>(
 	fn: () => T | Promise<T>,
 	options?: CaptureOptions,
