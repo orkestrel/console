@@ -703,7 +703,7 @@ describe('renderBar', () => {
 // strip must remove EVERY ANSI escape and NOTHING else; width counts CODE POINTS after the
 // strip (its documented basis — NOT terminal cells). These cases pin the CURRENT behavior
 // across the whole Unicode + escape spectrum, so any future change (for example teaching width
-// east-asian double-width) is caught by a failureing assertion rather than passing silently.
+// east-asian double-width) is caught by a failing assertion rather than passing silently.
 
 // Build escapes from char codes (the source idiom) — no raw control char in the test file.
 const ESC_CHAR = String.fromCharCode(27)

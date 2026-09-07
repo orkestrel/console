@@ -70,7 +70,7 @@ const MODULES = Object.freeze({
  *
  * A class that one-class-per-file evicted from its single consumer cannot become a
  * local, so it stays exported without being public. Naming it here is what makes that
- * intentional rather than forgotten — and the second assertion below fails when a name
+ * intentional rather than forgotten — and the assertion that follows it fails when a name
  * here stops being stranded, so the list cannot rot.
  */
 const INTERNAL: readonly string[] = Object.freeze(['class Styler'])
@@ -249,19 +249,19 @@ for (const entry of manifest) {
 		for (const group of guide.methods()) {
 			const entity = group.interface.replace(/Interface$/, '')
 			const documented = group.methods.map((method) => method.name)
+			const examples =
+				entity === group.interface
+					? source.examples(group.interface).map((example) => example.name)
+					: source
+							.examples(group.interface)
+							.map((example) => example.name)
+							.concat(source.examples(entity).map((example) => example.name))
 			describe(`${group.interface} examples`, () => {
 				it('documents an example for every method', () => {
 					const fences = guide
 						.fences()
 						.filter((fence) => fence.language === EXAMPLE_LANGUAGE)
 						.map((fence) => fence.code)
-					const examples =
-						entity === group.interface
-							? source.examples(group.interface).map((example) => example.name)
-							: source
-									.examples(group.interface)
-									.map((example) => example.name)
-									.concat(source.examples(entity).map((example) => example.name))
 					expect(findUnexampled(documented, fences, examples)).toEqual([])
 				})
 			})
@@ -442,6 +442,9 @@ describe('flagship fences', () => {
 	})
 
 	it('carries the retention fence lines the transcription copies', () => {
+		expect(guideText).toContain(
+			'// The console capture and the process capture buffer through this one engine, so their retention semantics cannot drift apart.',
+		)
 		expect(guideText).toContain('retention.records().length // 2 — the whole buffer, oldest first')
 		expect(guideText).toContain(
 			"retention.records('warn') // [{ level: 'warn', text: 'first' }] — only that bucket",

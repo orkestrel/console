@@ -8,9 +8,10 @@ import { DEFAULT_COLUMNS } from './constants.js'
 import { isBufferEncoding } from './validators.js'
 
 /**
- * Infers the width in character cells of a stream target — its live `columns` when it is a TTY, else
- * the non-interactive {@link DEFAULT_COLUMNS} fallback. The basis a `ServerSinkInterface`
- * reports through `columns` so a `Reporter` / `Progress` can size its layout to the terminal.
+ * Infers the width in character cells of a stream target — its live `columns` when it is a TTY,
+ * else the non-interactive {@link DEFAULT_COLUMNS} fallback. The basis a
+ * {@link import('./types.js').ServerSinkInterface} reports through `columns` so a `Reporter` /
+ * `Progress` can size its layout to the terminal.
  *
  * @remarks
  * Reads `target.columns` on each call (so a getter-backed real stream reflects a live resize) and
@@ -31,7 +32,8 @@ export function inferColumns(target: StreamTargetInterface): number {
  * non-empty `NO_COLOR`, then `target.isTTY === true`.
  *
  * @remarks
- * The result is a construction-time target fact for `createServerSink`; this helper is pure and
+ * The result is a construction-time target fact for
+ * {@link import('./factories.js').createServerSink}; this helper is pure and
  * never reads process globals itself. Under `FORCE_COLOR` only the exact value `'0'` disables
  * styling.
  *

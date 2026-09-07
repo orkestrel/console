@@ -21,18 +21,18 @@ export interface BrowserPalette {
 }
 
 /**
- * Configures `createBrowserSink` — the optional `palette` partially overriding the browser's
- * named color and attribute CSS mappings.
+ * Configures {@link import('./factories.js').createBrowserSink} — the optional `palette` partially
+ * overriding the browser's named color and attribute CSS mappings.
  */
 export interface BrowserSinkOptions {
 	readonly palette?: BrowserPalette
 }
 
 /**
- * Represents the `console.log`-ready output `ansiToConsole` produces from
- * an ANSI-styled string — a format string of `%c`-prefixed segments and the parallel array
- * of CSS declarations, ready to spread into a browser `console` call as
- * `console.log(format, ...styles)`.
+ * Represents the `console.log`-ready output {@link import('./helpers.js').ansiToConsole} produces
+ * from an ANSI-styled string — a format string of `%c`-prefixed segments and the parallel array of
+ * CSS declarations, ready to spread into a browser `console` call as `console.log(format,
+ * ...styles)`.
  *
  * @remarks
  * - `format` — the text with each styled run prefixed by one `%c` directive (the directive
@@ -50,13 +50,14 @@ export interface ConsoleOutput {
 }
 
 /**
- * Represents the immutable scan state `ansiToConsole` replaces while translating SGR codes to
- * CSS — an optional `foreground` and `background` declaration plus a readonly list of attribute
- * declarations.
+ * Represents the immutable scan state {@link import('./helpers.js').ansiToConsole} replaces while
+ * translating SGR codes to CSS — an optional `foreground` and `background` declaration plus a
+ * readonly list of attribute declarations.
  *
  * @remarks
  * A later color of the same channel replaces that channel; an SGR reset drops both channels and
- * empties the list; `ansiToConsole` folds the state into the `;`-joined CSS string a run emits.
+ * empties the list; {@link import('./helpers.js').ansiToConsole} folds the state into the
+ * `;`-joined CSS string a run emits.
  *
  * Each SGR sequence produces a new frozen value; earlier run snapshots never drift when a later
  * sequence changes a channel. A channel holds the full CSS declaration (`'color:#cd0000'`, not a

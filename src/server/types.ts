@@ -9,13 +9,13 @@ import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkes
 import type { SinkInterface } from '@src/core'
 
 /**
- * Declares the minimal writable-stream shape the server sink and process capture address —
- * `write(text)` plus an optional `isTTY` and `columns`, exactly the slice of a Node
- * `tty.WriteStream` / `process.stdout` they touch and no more.
+ * Declares the minimal writable-stream shape the server sink and process capture address — exactly
+ * the slice of a Node `tty.WriteStream` / `process.stdout` they touch and no more.
  *
  * @remarks
  * A {@link ServerSinkOptions} target and a {@link ProcessCaptureInterface}'s patched streams are
- * narrowed to this through `isStreamTarget` (narrow the boundary, never `as`), so a test can
+ * narrowed to this through {@link import('./validators.js').isStreamTarget} (narrow the boundary,
+ * never `as`), so a test can
  * drive either with a hand-built fake stream that never touches the real `process` streams.
  *
  * - `write(text)` — the one required method: push a chunk to the stream, returning the host's
@@ -36,9 +36,10 @@ export interface StreamTargetInterface {
 }
 
 /**
- * Holds the options for `createServerSink` — the `stdout` and `stderr` targets, the `styled`
- * override, the `environment` inference reads, and an explicit `columns` width. All are
- * optional, so a bare `createServerSink()` writes to the real process streams.
+ * Holds the options for {@link import('./factories.js').createServerSink} — the `stdout` and
+ * `stderr` targets, the `styled` override, the `environment` inference reads, and an explicit
+ * `columns` width. All are optional, so a bare `createServerSink()` writes to the real process
+ * streams.
  *
  * @remarks
  * - `stdout` — the stream `info` / `debug` (and an omitted level) are written to; defaults to
@@ -64,7 +65,7 @@ export interface ServerSinkOptions {
 /**
  * Declares a {@link SinkInterface} that also exposes the `stdout` target's construction-time
  * `styled` fact and the terminal's live or fixed {@link columns} width — the shape
- * `createServerSink` returns.
+ * {@link import('./factories.js').createServerSink} returns.
  *
  * @remarks
  * It is a drop-in {@link SinkInterface} (so a `Logger` / `Reporter` / `Spinner` / `Progress`
@@ -98,7 +99,7 @@ export type StreamLevel = 'stdout' | 'stderr'
 /**
  * Names the process-stream `write` method a {@link ProcessCaptureInterface} snapshots and swaps
  * at the patch boundary — `NodeJS.WriteStream['write']` verbatim, the write-side analogue of
- * `ConsoleMethod`.
+ * {@link import('@src/core').ConsoleMethod}.
  *
  * @remarks
  * The type is the overloaded
@@ -122,9 +123,9 @@ export type StreamWriteFunction = NodeJS.WriteStream['write']
 export type StreamWriteCallback = (error?: Error | null) => void
 
 /**
- * Represents one intercepted process-stream write — the immutable, serializable
- * `{ level, text, time }` record a {@link ProcessCaptureInterface} buffers and emits, the server
- * analogue of the core `CapturedMessage`.
+ * Represents one intercepted process-stream write — the immutable, serializable record a
+ * {@link ProcessCaptureInterface} buffers and emits, the server analogue of the core
+ * `CapturedMessage`.
  *
  * @remarks
  * - `level` — the {@link StreamLevel} naming which stream (`stdout` / `stderr`) was written.
@@ -170,10 +171,10 @@ export type ProcessCaptureEventMap = {
 }
 
 /**
- * Holds the options for the `ProcessCapture` constructor — the `on` / `error` emitter keys, the
- * `levels` intercepted, the `mirror` pass-through, the `sink` forward, and the buffer `limit`.
- * Every field is optional, so a bare `new ProcessCapture()` buffers both streams without
- * mirroring or forwarding.
+ * Holds the options for the {@link import('./ProcessCapture.js').ProcessCapture} constructor — the
+ * `on` / `error` emitter keys, the `levels` intercepted, the `mirror` pass-through, the `sink`
+ * forward, and the buffer `limit`. Every field is optional, so a bare `new ProcessCapture()`
+ * buffers both streams without mirroring or forwarding.
  *
  * @remarks
  * - `on` — initial {@link ProcessCaptureEventMap} listeners, wired at construction (for example

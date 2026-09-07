@@ -62,15 +62,15 @@ export const ATTRIBUTE_CSS: Readonly<Record<number, string>> = Object.freeze({
 })
 
 /**
- * Names the browser console directive that switches the active style — one `%c` prefixes every styled run
- * in the `ConsoleOutput` format string, consuming the next entry of the
- * parallel CSS array. The single source of truth for the directive token.
+ * Names the browser console directive that switches the active style — one `%c` prefixes every
+ * styled run in the {@link import('./types.js').ConsoleOutput} format string, consuming the next
+ * entry of the parallel CSS array. The single source of truth for the directive token.
  */
 export const DIRECTIVE = '%c'
 
 /**
  * Matches one SGR sequence (`ESC[ <params> m`) and captures its `;`-separated numeric parameters —
- * the subset of ANSI `strip` cares about that carries style (color /
+ * the subset of ANSI {@link import('@src/core').strip} cares about that carries style (color /
  * attribute / reset), as opposed to cursor / erase / OSC sequences. Global, so the scanner walks
  * every SGR run in a string; built from core's {@link ESC} so no control-character literal appears
  * in source (the codebase idiom). The capture group is the parameter list (`''` for a bare `ESC[m`,

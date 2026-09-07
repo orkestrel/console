@@ -195,7 +195,7 @@ export function formatTime(time: number): string {
 
 /**
  * Formats a {@link LogRecord} into a single styled line — the default human line layout a
- * `LoggerInterface` writes to its sink.
+ * {@link import('./types.js').LoggerInterface} writes to its sink.
  *
  * @remarks
  * Layout: `{time} {LEVEL} {[name]} {message}{ data}` — the ISO timestamp (dimmed), the
@@ -272,7 +272,7 @@ export function align(text: string, columns: number, alignment: Alignment = DEFA
 /**
  * Formats a millisecond duration as a compact human string — `…ms` below one second, `…s`
  * (seconds to 2 decimal places) at or above one second. The timing rendering behind
- * `ReporterInterface.timing`.
+ * {@link import('./types.js').ReporterInterface.timing}.
  *
  * @remarks
  * `999 → '999ms'`, `1000 → '1.00s'`, `1230 → '1.23s'` (the threshold is {@link SECOND_MS}).
@@ -689,7 +689,8 @@ export function formatArgs(args: readonly unknown[]): string {
  *
  * @remarks
  * It is the animation-layer sibling of the `render*` renderers (box / table / tree / separator),
- * shared so a `ProgressInterface` and any direct caller draw the one bar — never a second,
+ * shared so a {@link import('./types.js').ProgressInterface} and any direct caller draw the one
+ * bar — never a second,
  * hand-rolled one.
  *
  * - **Fill fraction, clamped.** The filled cell count is `round((current / total) · width)` with

@@ -15,8 +15,9 @@ import { renderBar } from './helpers.js'
 
 /**
  * Implements an update-driven, observable progress bar — {@link update} recomputes the bar through
- * {@link renderBar}, writes `\r` + bar to its {@link SinkInterface}, and emits the `{ current, total }`
- * on `update`. No self-timer, unlike `Spinner` — the caller drives it.
+ * {@link renderBar}, writes `\r` + bar to its {@link SinkInterface}, and emits the `{ current,
+ * total }` on `update`. No self-timer, unlike {@link import('./Spinner.js').Spinner} — the caller
+ * drives it.
  *
  * @remarks
  * The leading `\r` is what an overwrite-capable sink (the TTY sink) redraws on; a plain sink

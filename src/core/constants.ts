@@ -222,8 +222,8 @@ export const LEVEL_COLORS: Readonly<Record<LogLevel, Exclude<Color, 'default'>>>
 })
 
 /**
- * Sets the default bounded-retention cap for a `LoggerInterface` — `1000`, so at most that many
- * recent records are kept and retention is always bounded.
+ * Sets the default bounded-retention cap for a {@link import('./types.js').LoggerInterface} —
+ * `1000`, so at most that many recent records are kept and retention is always bounded.
  *
  * @remarks
  * The oldest record is dropped after the cap is reached; a consumer overrides the cap through
@@ -252,8 +252,9 @@ export const LOG_LEVELS: readonly LogLevel[] = Object.freeze(['debug', 'info', '
  * Unicode box-drawing glyphs at each line weight, deeply frozen.
  *
  * @remarks
- * The renderers (`renderBox` / `renderTable`) look the style up here, so no glyph literal lives
- * in a renderer.
+ * The renderers ({@link import('./helpers.js').renderBox} /
+ * {@link import('./helpers.js').renderTable}) look the style up here, so no glyph literal lives in
+ * a renderer.
  *
  * @remarks
  * `round` shares `single`'s edges and tees — only its corners differ (the rounded `╭╮╰╯`).
@@ -353,22 +354,22 @@ export const STATUS_LEVELS: readonly StatusLevel[] = Object.freeze([
 
 /**
  * Sets the default visible column width for the width-aware renderers — the separator rule and a
- * `renderBox` with no explicit `width`, and the reporter's
+ * {@link import('./helpers.js').renderBox} with no explicit `width`, and the reporter's
  * `section` rule. A sane terminal default (80 columns); a caller overrides it per-call or through
- * `ReporterOptions.width`.
+ * {@link import('./types.js').ReporterOptions.width}.
  */
 export const DEFAULT_WIDTH = 80
 
-/** Sets the default horizontal padding inside a box's edges (`renderBox`) — one cell. */
+/** Sets the default horizontal padding inside a box's edges ({@link import('./helpers.js').renderBox}) — one cell. */
 export const DEFAULT_PADDING = 1
 
 /** Sets the default {@link BorderStyle} the box / table renderers frame with when none is given — `single`. */
 export const DEFAULT_BORDER: BorderStyle = 'single'
 
-/** Sets the default cell {@link Alignment} a `ColumnSpec` uses when none is given — `left`. */
+/** Sets the default cell {@link Alignment} a {@link import('./types.js').ColumnSpec} uses when none is given — `left`. */
 export const DEFAULT_ALIGN: Alignment = 'left'
 
-/** Holds the default fill character `renderSeparator` draws its rule with — `─`. */
+/** Holds the default fill character {@link import('./helpers.js').renderSeparator} draws its rule with — `─`. */
 export const SEPARATOR_FILL = '─'
 
 /**
@@ -378,9 +379,9 @@ export const SEPARATOR_FILL = '─'
 export const SEPARATOR_TITLE_GAP = ' '
 
 /**
- * Sets the millisecond threshold at or above which `formatDuration` (and so `Reporter.timing`)
- * switches from a `…ms` rendering to a `…s` (seconds, 2 d.p.) rendering — `1000`, exactly one
- * second.
+ * Sets the millisecond threshold at or above which {@link import('./helpers.js').formatDuration}
+ * (and so `Reporter.timing`) switches from a `…ms` rendering to a `…s` (seconds, 2 d.p.) rendering
+ * — `1000`, exactly one second.
  */
 export const SECOND_MS = 1000
 
@@ -405,9 +406,9 @@ export const CAPTURE_LEVELS: readonly CaptureLevel[] = Object.freeze([
 ])
 
 /**
- * Sets the default bounded-buffer cap for a `CaptureInterface` — `1000`, so at most that many
- * recent {@link CapturedMessage}s are retained per buffer (the total buffer and each by-level
- * bucket; oldest dropped first) and retention is always bounded.
+ * Sets the default bounded-buffer cap for a {@link import('./types.js').CaptureInterface} — `1000`,
+ * so at most that many recent {@link CapturedMessage}s are retained per buffer (the total buffer
+ * and each by-level bucket; oldest dropped first) and retention is always bounded.
  *
  * @remarks
  * A long-running capture can never grow without bound (the same retention precedent as
@@ -440,8 +441,9 @@ export const CAPTURE_LEVEL_MAP: Readonly<Record<CaptureLevel, LogLevel>> = Objec
 // one bar glyph pair; a caller overrides either through options rather than declaring a second.
 
 /**
- * Holds the default spinner frame cycle a `SpinnerInterface` advances through — the
- * braille-pattern glyphs (`⠋⠙⠹…`, the U+2800 block) that read as a smoothly rotating dot.
+ * Holds the default spinner frame cycle a {@link import('./types.js').SpinnerInterface} advances
+ * through — the braille-pattern glyphs (`⠋⠙⠹…`, the U+2800 block) that read as a smoothly rotating
+ * dot.
  *
  * @remarks
  * The cycle is the universal terminal-spinner convention. Frozen; a consumer swaps the whole
@@ -464,8 +466,8 @@ export const SPINNER_FRAMES: readonly string[] = Object.freeze([
 ])
 
 /**
- * Sets the default timer period between a `SpinnerInterface`'s frames — the `setInterval`
- * interval `start()` arms, `80` ms (≈12.5 frames/second).
+ * Sets the default timer period between a {@link import('./types.js').SpinnerInterface}'s frames —
+ * the `setInterval` interval `start()` arms, `80` ms (≈12.5 frames/second).
  *
  * @remarks
  * That is the conventional spinner cadence: fast enough to read as motion, slow enough not to
@@ -474,22 +476,23 @@ export const SPINNER_FRAMES: readonly string[] = Object.freeze([
 export const DEFAULT_SPINNER_INTERVAL = 80
 
 /**
- * Holds the default filled-cell glyph `renderBar` draws the completed run of a
- * progress bar with — the full block `█` (U+2588). A single visible cell; a consumer overrides it
- * through `BarOptions.fill`.
+ * Holds the default filled-cell glyph {@link import('./helpers.js').renderBar} draws the completed
+ * run of a progress bar with — the full block `█` (U+2588). A single visible cell; a consumer
+ * overrides it through {@link import('./types.js').BarOptions.fill}.
  */
 export const BAR_FILL = '█'
 
 /**
- * Holds the default empty-cell glyph `renderBar` draws the remaining run of a
- * progress bar with — the light-shade block `░` (U+2591). A single visible cell; a consumer overrides
- * it through `BarOptions.empty`.
+ * Holds the default empty-cell glyph {@link import('./helpers.js').renderBar} draws the remaining
+ * run of a progress bar with — the light-shade block `░` (U+2591). A single visible cell; a
+ * consumer overrides it through {@link import('./types.js').BarOptions.empty}.
  */
 export const BAR_EMPTY = '░'
 
 /**
- * Sets the default visible cell count of a progress-bar track — the glyph run `renderBar` fills,
- * and the width a `ProgressInterface` sizes its bar to. `30` cells.
+ * Sets the default visible cell count of a progress-bar track — the glyph run
+ * {@link import('./helpers.js').renderBar} fills, and the width a
+ * {@link import('./types.js').ProgressInterface} sizes its bar to. `30` cells.
  *
  * @remarks
  * Thirty cells is a compact, terminal-friendly default; a consumer overrides it through
@@ -509,8 +512,8 @@ export const DEFAULT_BAR_WIDTH = 30
  * {@link LEVEL_COLORS}, {@link STATUS_ICONS}, and {@link STATUS_COLORS} and deeply frozen.
  *
  * @remarks
- * It is the base `createTheme` merges over, and the theme every entity uses when none is
- * supplied.
+ * It is the base {@link import('./factories.js').createTheme} merges over, and the theme every
+ * entity uses when none is supplied.
  *
  * @remarks
  * - `levels` — each {@link LogLevel} label in its {@link LEVEL_COLORS} color, no attributes.

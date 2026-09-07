@@ -19,9 +19,9 @@ import { Styler } from './Styler.js'
  * `renderer` and stripped of color by `enabled: false`.
  *
  * @remarks
- * It builds a `Style` under the hood and renders it through a `RendererInterface`, so
- * `styler.red.bold('hi')` yields styled text. Chains are immutable, so a base styler is freely
- * reusable.
+ * It builds a {@link import('./types.js').Style} under the hood and renders it through a
+ * {@link import('./types.js').RendererInterface}, so `styler.red.bold('hi')` yields styled text.
+ * Chains are immutable, so a base styler is freely reusable.
  *
  * @param options - See {@link StylerOptions}
  * @returns A base {@link StylerInterface}
@@ -101,7 +101,7 @@ export function createTheme(options?: ThemeOptions): Theme {
 /**
  * Creates the default {@link SinkInterface} — a console sink that routes by level and writes
  * through the `console` methods snapshotted at creation. The default output target behind the
- * `Logger`.
+ * {@link import('./loggers/Logger.js').Logger}.
  *
  * @returns A console {@link SinkInterface}
  *
@@ -139,7 +139,7 @@ export function createConsoleSink(): SinkInterface {
 
 /**
  * Runs `fn` with the global `console.*` captured for its duration, returning the function's `value`
- * plus the `CapturedMessage`s it logged — the scoped, self-restoring
+ * plus the {@link import('./types.js').CapturedMessage}s it logged — the scoped, self-restoring
  * ergonomic form of the {@link Capture} class.
  *
  * @param fn - The async function to run under capture (returns `Promise<T>`)
@@ -179,7 +179,7 @@ export function createCaptureResult<T>(
 ): Promise<CaptureResult<T>>
 /**
  * Runs `fn` with the global `console.*` captured for its duration, returning the function's `value`
- * plus the `CapturedMessage`s it logged, synchronously.
+ * plus the {@link import('./types.js').CapturedMessage}s it logged, synchronously.
  *
  * @param fn - The synchronous function to run under capture (returns `T`)
  * @param options - See {@link CaptureOptions}

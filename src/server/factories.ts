@@ -8,7 +8,7 @@ import { isStreamTarget } from './validators.js'
  * Creates the server TTY {@link ServerSinkInterface} — the server output backend, whose
  * `write(text, level?)` routes by level to the process streams and uses construction-time styled
  * facts: it sends ANSI straight to a styled target (with a leading `\r` overwriting a terminal
- * line natively) but `strip`s ANSI to clean text for a plain target.
+ * line natively) but {@link import('@src/core').strip}s ANSI to clean text for a plain target.
  *
  * @param options - See {@link ServerSinkOptions}
  * @returns A {@link ServerSinkInterface} — a {@link import('@src/core').SinkInterface} that also
