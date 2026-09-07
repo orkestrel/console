@@ -7,8 +7,8 @@ import { createRecorder } from '@orkestrel/test'
 import { strip } from '@src/core'
 
 /**
- * A recording {@link import('@src/core').SinkInterface} — a real `SinkInterface` whose `write`
- * records each `(text, level)` it receives, exposed as the `calls` tuple list. The shared form of
+ * Records each `(text, level)` a real {@link import('@src/core').SinkInterface}'s `write`
+ * receives, exposed as the `calls` tuple list. The shared form of
  * the per-file copy the console tests (`Logger` / `Spinner` / `Reporter` / `LoggerManager` /
  * `Progress` / `Capture`) each drove their sink-seam through: a real sink, NOT a
  * behaviour mock, so an assertion reads the genuine writes. `SinkInterface` / `LogLevel` are pure
@@ -20,7 +20,7 @@ export interface RecordingSinkInterface extends SinkInterface {
 }
 
 /**
- * Create a {@link RecordingSinkInterface} — a real `SinkInterface` built on {@link createRecorder}
+ * Creates a {@link RecordingSinkInterface} — a real `SinkInterface` built on {@link createRecorder}
  * whose `write(text, level?)` records the pair into `calls`, for asserting exactly what a console
  * entity wrote to its sink (and at which level) without a behaviour mock.
  *
@@ -54,8 +54,9 @@ export function normalizeVisible(text: string): string {
 }
 
 /**
- * A zero-argument stand-in returning `label` — a distinct, referentially stable function value for
- * a test proving a lookup returns the identical reference it was given rather than a copy.
+ * Returns a zero-argument stand-in producing `label` — a distinct, referentially stable function
+ * value for a test proving a lookup returns the identical reference it was given rather than a
+ * copy.
  *
  * @param label - The string the returned function produces
  * @returns A function taking no arguments and returning `label`

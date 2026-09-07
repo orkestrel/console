@@ -25,7 +25,7 @@ export function fileExists(relativePath: string): boolean {
 }
 
 /**
- * A fake {@link StreamTargetInterface} for the server console — a stand-in `process.stdout` /
+ * Fakes a {@link StreamTargetInterface} for the server console — a stand-in `process.stdout` /
  * `process.stderr` with a recorded `write`, so a `createServerSink` test drives the isTTY /
  * strip / routing paths WITHOUT touching the real process streams — a reusable server fixture
  * lives in setup. The recorder captures every written string; `isTTY` and
@@ -55,9 +55,9 @@ export function createStreamTarget(options?: { isTTY?: boolean; columns?: number
 }
 
 /**
- * A recording stand-in for a raw `process.stdout.write` / `process.stderr.write` — a function
- * assignable to the Node stream `write` slot (so a test can `process.stdout.write = probe.write`
- * with no `as`) that records each chunk as text and returns a configurable backpressure boolean.
+ * Records each raw `process.stdout.write` / `process.stderr.write` chunk as text and returns a
+ * configurable backpressure boolean — a function assignable to the Node stream `write` slot (so a
+ * test can `process.stdout.write = probe.write` with no `as`).
  * The `ProcessCapture` test installs one as the "current" write BEFORE starting the capture, so
  * the capture's snapshot-original (and any mirror replay) lands HERE instead of the real terminal —
  * keeping the suite output-clean and the mirror assertion deterministic.
@@ -85,11 +85,11 @@ export function createWriteProbe(backpressure = true): {
 export type WriteCallback = (error?: Error | null) => void
 
 /**
- * An OVERLOAD-AWARE recording stand-in for a raw `process.*.write`, beyond the chunk-only
- * `createWriteProbe`: it records each chunk's decoded text AND the encoding it was handed, and it
- * INVOKES the completion callback (in whichever Node overload position it arrives —
- * `write(chunk, cb)` or `write(chunk, encoding, cb)`). A `ProcessCapture` test installs it as the
- * current `process.stdout.write` / `process.stderr.write` BEFORE `start()` so the capture's
+ * Records each chunk's decoded text AND the encoding it was handed, and INVOKES the completion
+ * callback (in whichever Node overload position it arrives —
+ * `write(chunk, cb)` or `write(chunk, encoding, cb)`) — an OVERLOAD-AWARE recording stand-in for a
+ * raw `process.*.write`, beyond the chunk-only `createWriteProbe`. A `ProcessCapture` test installs
+ * it as the current `process.stdout.write` / `process.stderr.write` BEFORE `start()` so the capture's
  * snapshot-original (and any mirror replay) lands here — proving the wrapper honors the encoding,
  * fires the callback, and propagates backpressure, the Node write-overload branching the
  * chunk-only probe cannot observe.

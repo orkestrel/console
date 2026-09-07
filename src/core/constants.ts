@@ -126,12 +126,12 @@ export const ATTRIBUTES: readonly Attribute[] = Object.freeze([
 export const RESET_CODE = 0
 
 /**
- * Holds the ESC control character (`U+001B`) that begins every ANSI escape sequence. Built
+ * Holds the escape control character (`U+001B`) that begins every ANSI escape sequence. Built
  * with `String.fromCharCode` so no raw control character appears in source.
  */
 export const ESC = String.fromCharCode(27)
 
-/** Holds the BEL control character (`U+0007`) that can terminate an OSC sequence. */
+/** Holds the bell control character (`U+0007`) that can terminate an OSC sequence. */
 export const BEL = String.fromCharCode(7)
 
 /** Holds the Control Sequence Introducer (`ESC[`) that opens every SGR sequence. */
@@ -411,7 +411,8 @@ export const DEFAULT_CAPTURE_LIMIT = 1000
 /**
  * Maps each {@link CaptureLevel} to its {@link LogLevel} for the optional sink forward — the projection the
  * Capture routes through when writing an intercepted call to a {@link
- * import('./types.js').SinkInterface} (`sink.write(text, CAPTURE_LEVEL_MAP[level])`). `warn` /
+ * import('./types.js').SinkInterface}. `sink.write(text, CAPTURE_LEVEL_MAP[level])` is the call
+ * this map backs. `warn` /
  * `error` / `debug` / `info` map to their matching {@link LogLevel}; `log` maps to `info` (a plain
  * console log is informational — the default stream), so a stream-aware sink routes `warn` / `error`
  * captures to the right stream. The source of truth for the capture-to-log projection.

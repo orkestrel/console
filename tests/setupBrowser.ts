@@ -3,7 +3,7 @@ import { createRecorder } from '@orkestrel/test'
 
 // ── Console capture (swap + restore the three console methods) ────────────────
 
-/** The three captured console methods plus the restore — a real call-recording
+/** Holds the three captured console methods plus the restore — a real call-recording
  *  swap, not a framework spy. */
 export interface ConsoleCaptureInterface {
 	/** `console.log`'s recorded `(format, ...styles)` calls. */
@@ -17,7 +17,7 @@ export interface ConsoleCaptureInterface {
 }
 
 /**
- * Swap `console.log` / `warn` / `error` for recording callbacks and return them plus
+ * Swaps `console.log` / `warn` / `error` for recording callbacks and returns them plus
  * a `restore` — a real call-recording capture, not a framework mock,
  * so a console sink test can assert the exact `(format, ...styles)` tuples each
  * method received. Call `restore()` in an `afterEach` so no swap leaks.

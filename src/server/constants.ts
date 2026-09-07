@@ -30,8 +30,8 @@ export const DEFAULT_COLUMNS = 80
 /**
  * Maps each {@link StreamLevel} to its {@link LogLevel} for the optional sink forward — the projection a
  * process capture routes through when writing an intercepted chunk to a
- * {@link import('@src/core').SinkInterface}
- * (`sink.write(text, STREAM_LEVEL_MAP[level])`). `stderr` is conventionally the error/diagnostic
+ * {@link import('@src/core').SinkInterface}. `sink.write(text, STREAM_LEVEL_MAP[level])` is the
+ * call this map backs. `stderr` is conventionally the error/diagnostic
  * stream → `error`; `stdout` is the normal output stream → `info`. The source of truth for the
  * stream-to-log projection (the server analogue of the core `CAPTURE_LEVEL_MAP`).
  */
