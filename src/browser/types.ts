@@ -7,8 +7,8 @@
 import type { Attribute, Color } from '@src/core'
 
 /**
- * Holds partial browser CSS overrides for the core color and attribute axes. Omitted entries retain the
- * built-in browser mappings, so one override changes only its named value.
+ * Holds partial browser CSS overrides for the core color and attribute axes — a named `color` or
+ * `attribute` entry replaces only that entry, and every omission keeps its default.
  *
  * @remarks
  * - `color` maps a named non-default {@link Color} to the CSS color value used for both foreground
@@ -21,17 +21,15 @@ export interface BrowserPalette {
 }
 
 /**
- * Configures {@link import('./factories.js').createBrowserSink}.
- *
- * @remarks
- * `palette` partially overrides the browser's default color and attribute CSS mappings.
+ * Configures `createBrowserSink` — the optional `palette` partially overriding the browser's
+ * named color and attribute CSS mappings.
  */
 export interface BrowserSinkOptions {
 	readonly palette?: BrowserPalette
 }
 
 /**
- * Represents the `console.log`-ready output {@link import('./helpers.js').ansiToConsole} produces from
+ * Represents the `console.log`-ready output `ansiToConsole` produces from
  * an ANSI-styled string — a format string of `%c`-prefixed segments and the parallel array
  * of CSS declarations, ready to spread into a browser `console` call as
  * `console.log(format, ...styles)`.
@@ -52,13 +50,14 @@ export interface ConsoleOutput {
 }
 
 /**
- * Represents the immutable accumulator {@link import('./helpers.js').ansiToConsole} carries across a run while
- * translating SGR codes to CSS — a single `foreground` and `background` declaration (each channel
- * replaceable by a later color of the same channel) plus an ordered, de-duplicated list of attribute
- * declarations. An SGR reset drops both channels and empties the list;
- * {@link import('./helpers.js').ansiToConsole} folds it into the `;`-joined CSS string a run emits.
+ * Represents the immutable scan state `ansiToConsole` replaces while translating SGR codes to
+ * CSS — an optional `foreground` and `background` declaration plus a readonly list of attribute
+ * declarations.
  *
  * @remarks
+ * A later color of the same channel replaces that channel; an SGR reset drops both channels and
+ * empties the list; `ansiToConsole` folds the state into the `;`-joined CSS string a run emits.
+ *
  * Each SGR sequence produces a new frozen value; earlier run snapshots never drift when a later
  * sequence changes a channel. A channel holds the full CSS declaration (`'color:#cd0000'`, not a
  * bare hex), and is absent when unset.

@@ -5,11 +5,10 @@ import { inferColumns, inferStyled } from './helpers.js'
 import { isStreamTarget } from './validators.js'
 
 /**
- * Creates the server TTY {@link ServerSinkInterface} — the server output backend, the
- * env-symmetric sibling of `createBrowserSink` / core's `createConsoleSink`. `write(text, level?)`
- * routes by level to the process streams and uses construction-time styled facts: it sends ANSI
- * straight to a styled target (with a leading `\r` overwriting a terminal line natively) but
- * {@link import('@src/core').strip}s ANSI to clean text for a plain target.
+ * Creates the server TTY {@link ServerSinkInterface} — the server output backend, whose
+ * `write(text, level?)` routes by level to the process streams and uses construction-time styled
+ * facts: it sends ANSI straight to a styled target (with a leading `\r` overwriting a terminal
+ * line natively) but `strip`s ANSI to clean text for a plain target.
  *
  * @param options - See {@link ServerSinkOptions}
  * @returns A {@link ServerSinkInterface} — a {@link import('@src/core').SinkInterface} that also
@@ -35,16 +34,29 @@ import { isStreamTarget } from './validators.js'
  *   the sink (and the isTTY-strip path) with a fake stream that never touches the real process
  *   streams.
  *
- * @example
+ * @example The server — a TTY sink and a process capture
  * ```ts
  * import { createStyler, Logger, Reporter } from '@orkestrel/console'
- * import { createServerSink } from '@orkestrel/console/server'
+ * import { createServerSink, ProcessCapture } from '@orkestrel/console/server'
  *
- * const sink = createServerSink()
- * const styler = createStyler({ enabled: sink.styled })
- * const logger = new Logger({ name: 'app', sink, styler })
- * logger.error('boom') // → process.stderr, ANSI rendered on a TTY / stripped to a pipe
- * const reporter = new Reporter({ sink, width: sink.columns })
+ * const sink = createServerSink() // FORCE_COLOR, then NO_COLOR, then isTTY — per target, at construction
+ * const styler = createStyler({ enabled: sink.styled }) // keep generated ANSI paired with the sink's stdout stripping
+ * const logger = new Logger({ name: 'server', sink, styler })
+ * logger.error('boom') // → process.stderr (the error stream)
+ * const reporter = new Reporter({ sink, width: sink.columns }) // size the layout to the live terminal
+ *
+ * // `styled` overrides the inference outright — for a CI log that renders ANSI off a TTY, say.
+ * const forced = createServerSink({ styled: true })
+ * forced.styled // true, whatever the environment and the streams say
+ *
+ * // Own every output path — a direct process.stdout.write, library output, child-process pipes:
+ * const capture = new ProcessCapture({ levels: ['stderr'], mirror: true })
+ * capture.start()
+ * process.stderr.write('a library diagnostic\n') // captured and still shown (mirror: true)
+ * capture.messages('stderr') // [{ level: 'stderr', text: 'a library diagnostic\n', time: … }]
+ * capture.clear() // drop buffered chunks; interception is unaffected
+ * capture.stop()
+ * capture.destroy() // stop() then tear down the emitter
  * ```
  */
 export function createServerSink(options?: ServerSinkOptions): ServerSinkInterface {

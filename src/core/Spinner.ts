@@ -14,12 +14,14 @@ import { createConsoleSink, createStyler } from './factories.js'
 /**
  * Implements a self-driving, observable activity spinner — a glyph cycle that advances on a
  * periodic timer, writing each `\r` + frame line to its {@link SinkInterface} and emitting it on
- * `frame`. The leading `\r` is what an overwrite-capable sink (the TTY sink) redraws on; a plain
- * sink degrades to a fresh, non-overwriting line — the line-overwrite is the sink's job, never
- * the spinner's. Universal — `setInterval` + the one {@link StylerInterface} + the one
- * {@link SinkInterface}, no `node:*`, no `process.stdout`.
+ * `frame`. The timer is always cleared on an outcome, so the spinner is leak-free.
  *
  * @remarks
+ * The leading `\r` is what an overwrite-capable sink (the TTY sink) redraws on; a plain sink
+ * degrades to a fresh, non-overwriting line — the line-overwrite is the sink's job, never the
+ * spinner's. Universal — `setInterval` + the one {@link StylerInterface} + the one
+ * {@link SinkInterface}, no `node:*`, no `process.stdout`.
+ *
  * - **Self-driving but deterministically testable.** `start()` arms a `setInterval` that calls
  *   {@link tick} each `interval`; each {@link tick} builds the styled `glyph + message` line for the
  *   current frame, emits it on `frame`, writes `'\r' + line` to the sink, then advances the frame

@@ -1,7 +1,8 @@
 import type { RetentionInterface } from './types.js'
 
 /**
- * Implements the bounded, level-keyed retention engine both captures buffer through — one capped total buffer
+ * Implements the bounded, level-keyed retention engine the console and process captures buffer
+ * through — one capped total buffer
  * plus one capped bucket per level, generic over the record type each capture carries.
  *
  * @remarks

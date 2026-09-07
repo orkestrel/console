@@ -5,12 +5,12 @@ import type { ConsoleErrorCode } from './types.js'
 // `error.code` instead of parsing the message.
 
 /**
- * Represents an error thrown by the console layer.
+ * Carries a {@link ConsoleErrorCode} and an optional `context` bag — the error the console layer
+ * throws for an internal invariant violated at a defensive guard.
  *
  * @remarks
- * Carries a {@link ConsoleErrorCode} and an optional `context` bag. Thrown for: an
- * internal invariant violated at a defensive, structurally-unreachable guard
- * (`INVARIANT`).
+ * `INVARIANT` is the code for a guard that is structurally unreachable, so a `catch` branches on
+ * `error.code` rather than parsing the message.
  */
 export class ConsoleError extends Error {
 	readonly code: ConsoleErrorCode
@@ -29,7 +29,7 @@ export class ConsoleError extends Error {
 }
 
 /**
- * Narrows an unknown caught value to a {@link ConsoleError}.
+ * Narrows an unknown caught value to a {@link ConsoleError} — the guard a `catch` branches on.
  *
  * @param value - The value to test (typically a `catch` binding)
  * @returns True if `value` is a {@link ConsoleError}; false otherwise

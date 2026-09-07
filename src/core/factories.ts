@@ -15,10 +15,13 @@ import { freezeStyle, selectWriter } from './helpers.js'
 import { Styler } from './Styler.js'
 
 /**
- * Creates the fluent, composable {@link StylerInterface} — the consumer-facing styling
- * API. It builds a {@link import('./types.js').Style} under the hood and renders it
- * through a {@link import('./types.js').RendererInterface} (the ANSI default), so
- * `styler.red.bold('hi')` yields styled text. Chains are immutable, so a base styler is freely reusable.
+ * Creates the fluent, composable {@link StylerInterface} — ANSI by default, retargeted by a
+ * `renderer` and stripped of color by `enabled: false`.
+ *
+ * @remarks
+ * It builds a `Style` under the hood and renders it through a `RendererInterface`, so
+ * `styler.red.bold('hi')` yields styled text. Chains are immutable, so a base styler is freely
+ * reusable.
  *
  * @param options - See {@link StylerOptions}
  * @returns A base {@link StylerInterface}
@@ -98,7 +101,7 @@ export function createTheme(options?: ThemeOptions): Theme {
 /**
  * Creates the default {@link SinkInterface} — a console sink that routes by level and writes
  * through the `console` methods snapshotted at creation. The default output target behind the
- * {@link import('./loggers/Logger.js').Logger}.
+ * `Logger`.
  *
  * @returns A console {@link SinkInterface}
  *
@@ -136,7 +139,7 @@ export function createConsoleSink(): SinkInterface {
 
 /**
  * Runs `fn` with the global `console.*` captured for its duration, returning the function's `value`
- * plus the {@link import('./types.js').CapturedMessage}s it logged — the scoped, self-restoring
+ * plus the `CapturedMessage`s it logged — the scoped, self-restoring
  * ergonomic form of the {@link Capture} class.
  *
  * @param fn - The async function to run under capture (returns `Promise<T>`)
@@ -176,7 +179,7 @@ export function createCaptureResult<T>(
 ): Promise<CaptureResult<T>>
 /**
  * Runs `fn` with the global `console.*` captured for its duration, returning the function's `value`
- * plus the {@link import('./types.js').CapturedMessage}s it logged, synchronously.
+ * plus the `CapturedMessage`s it logged, synchronously.
  *
  * @param fn - The synchronous function to run under capture (returns `T`)
  * @param options - See {@link CaptureOptions}

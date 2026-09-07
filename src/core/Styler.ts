@@ -89,7 +89,7 @@ export class Styler {
 
 	/**
 	 * Renders `text` in `style` merged over the accumulated style — the by-value door beside
-	 * the accessor chain, and how a {@link import('./types.js').Theme} role is applied.
+	 * the accessor chain, and how a `Theme` role is applied.
 	 *
 	 * @param style - The style to overlay; its colors win over the accumulated ones and its
 	 * attributes join them (de-duplicated, the accumulated ones first)

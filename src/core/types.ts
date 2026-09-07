@@ -13,11 +13,12 @@ import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkes
 export type ConsoleMethod = (...args: unknown[]) => void
 
 /**
- * Names a machine-readable error code for a {@link import('./errors.js').ConsoleError}.
+ * Names the machine-readable error code a `ConsoleError` carries — `INVARIANT`, the only code the
+ * package throws.
  *
  * @remarks
- * `INVARIANT` — an internal invariant or unreachable guard was violated (a defensive check that is
- * structurally impossible to trip). It is the only code the package throws.
+ * `INVARIANT` reports that an internal invariant or unreachable guard was violated — a defensive
+ * check that is structurally impossible to trip.
  */
 export type ConsoleErrorCode = 'INVARIANT'
 
@@ -59,7 +60,8 @@ export type Color =
 	| 'default'
 
 /**
- * Names a text-style attribute — the standard SGR text effects.
+ * Names a text-style attribute — `bold` / `dim` / `italic` / `underline` / `inverse` /
+ * `strikethrough`, the standard SGR text effects.
  *
  * @remarks
  * Style as data: an `Attribute` is a name. The ANSI renderer maps each to its SGR
@@ -103,14 +105,15 @@ export interface RendererInterface {
 }
 
 /**
- * Configures {@link createStyler}.
+ * Configures {@link createStyler} — `renderer` selects the output target, defaulting to the ANSI
+ * renderer, and `enabled` is the no-color switch, defaulting to `true`.
  *
  * @remarks
- * - `renderer` — the {@link RendererInterface} every style renders through; defaults to
- *   the ANSI renderer (the cross-environment default), so the styler works unchanged in
- *   any terminal. Inject a browser `%c` renderer to retarget with no other change.
- * - `enabled` — the no-color switch. When `false`, the styler returns text verbatim
- *   (for a non-TTY, a `NO_COLOR` environment, or piped output); defaults to `true`.
+ * - `renderer` — the {@link RendererInterface} every style renders through, so the styler
+ *   works unchanged in any terminal. Inject a browser `%c` renderer to retarget with no
+ *   other change.
+ * - `enabled` — when `false`, the styler returns text verbatim, for a non-TTY, a
+ *   `NO_COLOR` environment, or piped output.
  */
 export interface StylerOptions {
 	readonly renderer?: RendererInterface
@@ -210,9 +213,9 @@ export interface ThemeStatus {
 }
 
 /**
- * Represents the app-wide semantic style vocabulary — every role the console system styles, bound to a
- * {@link Style} value. Pass one theme to a logger / reporter / spinner / progress and every
- * surface speaks it.
+ * Represents the app-wide semantic style vocabulary — `levels`, `statuses`, `accent`, and
+ * `chrome`, each role bound to a {@link Style} value. Pass one theme to a logger / reporter /
+ * spinner / progress and every surface speaks it.
  *
  * @remarks
  * - `levels` — the label style per {@link LogLevel} (a log line's severity label).
@@ -235,14 +238,14 @@ export interface Theme {
 }
 
 /**
- * Holds the options for {@link createTheme} — the roles to override on {@link DEFAULT_THEME}.
+ * Holds the options for {@link createTheme} — the roles to override on {@link DEFAULT_THEME}, a
+ * status supplying its whole copied `{ icon, style }` record.
  *
  * @remarks
  * Every key is optional and merges per role, never per theme: an omitted role keeps its
  * default, and `levels` / `statuses` merge per entry, so `{ levels: { warn: … } }` restyles
- * the `warn` label and leaves `debug`, `info`, and `error` alone. A status override supplies its whole
- * `{ icon, style }` record; {@link createTheme} snapshots and freezes that record and every
- * style leaf it receives.
+ * the `warn` label and leaves `debug`, `info`, and `error` alone. {@link createTheme}
+ * snapshots and freezes each status record and every style leaf it receives.
  */
 export interface ThemeOptions {
 	readonly levels?: Readonly<Partial<Record<LogLevel, Style>>>
@@ -260,21 +263,21 @@ export interface ThemeOptions {
 // style choice, never a separate level — no `success`/`ready` pseudo-levels).
 
 /**
- * Names the severity level of a {@link LogRecord} — one coherent, ascending-severity scale.
+ * Names the severity level of a {@link LogRecord} — one coherent, ascending scale, `debug` <
+ * `info` < `warn` < `error`, that a {@link LoggerInterface} gates by threshold.
  *
  * @remarks
- * Ordered least-to-most severe: `debug` < `info` < `warn` < `error`. A {@link LoggerInterface}
- * gates by threshold — a record at or above the logger's `level` is kept (and written),
- * one below it is dropped (see {@link LEVEL_SEVERITY} for the numeric order). A level is a
+ * A record at or above the logger's `level` is kept (and written), one below it is
+ * dropped (see {@link LEVEL_SEVERITY} for the numeric order). A level is a
  * level — its visual treatment (color) is a separate styling concern, never a pseudo-level
  * like `success` / `ready`.
  */
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
 /**
- * Represents one immutable, serializable log entry — the universal record the whole logging system
- * carries. A {@link LoggerInterface} builds one per call, freezes it, retains a bounded
- * tail of them, and emits it on `entry`; every sink / transport consumes this exact shape.
+ * Represents one immutable, serializable log entry — a `level`, a `message`, and a `time`, plus an
+ * optional `name` and `data`. A {@link LoggerInterface} builds one per call, freezes it, retains a
+ * bounded tail of them, and emits it on `entry`; every sink / transport consumes this exact shape.
  *
  * @remarks
  * - `level` — the record's {@link LogLevel}.
@@ -316,20 +319,22 @@ export interface LogRecord {
  */
 export interface SinkInterface {
 	/**
-	 * Writes one already-formatted chunk of output. `text` receives one line without its
-	 * terminator — the sink's target supplies it (for example `console.log`; the server TTY sink
-	 * appends one) — unless `text` begins with `\r`: that is an in-place redraw frame (the
-	 * Spinner / Progress animation protocol), written verbatim. A tick frame carries no
-	 * terminator; a final frame carries its own.
-	 * `level` is the originating record's {@link LogLevel} — supplied so a stream-aware sink
-	 * can route (for example `error` to `stderr`); a plain sink ignores it.
+	 * Writes one already-formatted chunk of output — one line without its terminator, or a
+	 * `\r`-leading redraw frame written verbatim, routed by the optional `level`.
+	 *
+	 * @remarks
+	 * The sink's target supplies the terminator (for example `console.log`; the server TTY sink
+	 * appends one), unless `text` begins with `\r`: that is an in-place redraw frame (the
+	 * Spinner / Progress animation protocol). A tick frame carries no terminator; a final frame
+	 * carries its own. `level` is the originating record's {@link LogLevel} — supplied so a
+	 * stream-aware sink can route (for example `error` to `stderr`); a plain sink ignores it.
 	 */
 	write(text: string, level?: LogLevel): void
 }
 
 /**
- * Groups the three write targets a level-routing sink chooses between — the normal target, the
- * warning target, and the error target.
+ * Groups the write targets a level-routing sink chooses between — `log`, `warn`, and `error`,
+ * each of the backend's own member type.
  *
  * @remarks
  * The member type is the sink's own: a bound `console` method in core, a browser `%c` console
@@ -345,11 +350,12 @@ export interface WriterSet<T> {
 }
 
 /**
- * Declares the observable events a {@link LoggerInterface} emits — the transport seam.
+ * Declares the observable events a {@link LoggerInterface} emits — `entry(record)` for every
+ * accepted record, the transport seam.
  *
  * @remarks
- * `entry` fires for every accepted record (one that passed the level gate), carrying the
- * frozen {@link LogRecord} — even when the logger is `silent` (silence suppresses only the
+ * `entry` carries the frozen {@link LogRecord} and fires even when the logger is
+ * `silent` (silence suppresses only the
  * sink write, never the event, so transports keep receiving records). Listener isolation is
  * the emitter's: a listener throw routes to the emitter's `error` handler, never onto
  * this map — so a buggy transport can never perturb logging.
@@ -363,8 +369,9 @@ export type LoggerEventMap = {
 }
 
 /**
- * Represents the line layout a logger writes — one {@link LogRecord} plus the styling substrate in,
- * one finished line out. {@link import('./helpers.js').formatRecord} is the default.
+ * Represents the line layout a logger writes — `(record, styler, theme) => string`, one
+ * {@link LogRecord} plus the styling substrate in and one finished line out. `formatRecord` is
+ * the default.
  *
  * @param record - The frozen record to lay out
  * @param styler - The logger's {@link StylerInterface} — color through it (and through
@@ -382,7 +389,9 @@ export type LoggerEventMap = {
 export type LogFormatFunction = (record: LogRecord, styler: StylerInterface, theme: Theme) => string
 
 /**
- * Configures the {@link import('./loggers/Logger.js').Logger} constructor.
+ * Configures the `Logger` constructor — the `on` / `error` emitter keys, the `level` threshold,
+ * the logger's `name`, the `sink` / `styler` / `theme` / `format` line substrate, the retention
+ * `limit`, and the `silent` write switch.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
@@ -456,15 +465,13 @@ export interface LoggerInterface {
 }
 
 /**
- * Configures the {@link import('./loggers/LoggerManager.js').LoggerManager} constructor.
+ * Configures the `LoggerManager` constructor — the `level` / `sink` / `styler` / `theme` /
+ * `format` / `limit` / `silent` defaults flowed into every logger it mints.
  *
  * @remarks
  * The manager is an event-free registry — it carries no emitter of its own (each
- * registered {@link LoggerInterface} owns its observable `emitter`). These options supply
- * the defaults flowed into every logger the manager mints, unless a per-`register` override
- * wins: `level` (default threshold), `sink` (shared output target), `styler` (shared
- * coloring), `theme` (semantic styles), `format` (line layout), `limit` (retention cap),
- * and `silent`.
+ * registered {@link LoggerInterface} owns its observable `emitter`). A per-`register`
+ * override wins over any default supplied here.
  */
 export interface LoggerManagerOptions {
 	readonly level?: LogLevel
@@ -496,8 +503,14 @@ export interface LoggerManagerOptions {
  */
 export interface LoggerManagerInterface {
 	readonly count: number
+	/**
+	 * Mints and stores a logger named `name`, the manager's defaults flowing in — a
+	 * re-register of the same name overwrites.
+	 */
 	register(name: string, options?: LoggerOptions): LoggerInterface
+	/** Looks one registered logger up by name. */
 	logger(name: string): LoggerInterface | undefined
+	/** Lists the registered loggers in insertion order. */
 	loggers(): readonly LoggerInterface[]
 	/** Fans out a `debug` log to every registered logger. */
 	debug(message: string, data?: Record<string, unknown>): void
@@ -507,6 +520,10 @@ export interface LoggerManagerInterface {
 	warn(message: string, data?: Record<string, unknown>): void
 	/** Fans out an `error` log to every registered logger. */
 	error(message: string, data?: Record<string, unknown>): void
+	/**
+	 * Removes every registered logger with `remove()`, one with `remove(name)`, or a batch
+	 * with `remove(names)`.
+	 */
 	remove(): void
 	remove(name: string): boolean
 	remove(names: readonly string[]): boolean
@@ -521,19 +538,22 @@ export interface LoggerManagerInterface {
 // — a formatting / output front-end with no observable lifecycle, like the renderers.
 
 /**
- * Names the horizontal text alignment within a fixed-width cell — the conventional three-value set a
- * {@link ColumnSpec} (and the box / separator title) aligns by. A value pair / set, not a
- * binary toggle, so it stays a union.
+ * Names the horizontal text alignment within a fixed-width cell — `left` / `center` / `right`,
+ * the conventional set a {@link ColumnSpec} (and the box / separator title) aligns by.
+ *
+ * @remarks
+ * A value set rather than a binary toggle, so it stays a union.
  */
 export type Alignment = 'left' | 'center' | 'right'
 
 /**
- * Names a box-drawing border style — the four standard Unicode line weights the renderers frame
- * with. Each selects a full junction set in {@link BORDER_CHARS} (corners, edges, and the
- * `T` / cross junctions a table needs). A named, fixed set (an external-spec value family),
- * never a toggle — so it stays a union.
+ * Names a box-drawing border style — `single` / `double` / `round` / `heavy`, the standard
+ * Unicode line weights the renderers frame with, each selecting a full junction set in
+ * {@link BORDER_CHARS}.
  *
  * @remarks
+ * A named, fixed set (an external-spec value family) rather than a toggle, so it stays a union.
+ *
  * `single` (`┌─┐`), `double` (`╔═╗`), `round` (`╭─╮` — single edges, rounded corners), and
  * `heavy` (`┏━┓`). The renderer looks the style up in {@link BORDER_CHARS}; styling the
  * border (a color) is a separate, orthogonal concern handled by the optional `styler`.
@@ -541,10 +561,13 @@ export type Alignment = 'left' | 'center' | 'right'
 export type BorderStyle = 'single' | 'double' | 'round' | 'heavy'
 
 /**
- * Represents one complete box-drawing junction set for a {@link BorderStyle} — every glyph the box /
- * table renderers need to frame content and rule a table. Plain data (the value lives in
- * {@link BORDER_CHARS}); the renderers read these so no glyph literal is hard-coded in a
- * renderer.
+ * Represents one complete box-drawing junction set for a {@link BorderStyle} — the edges, the
+ * corners, and the `T` / cross junctions the box and table renderers need to frame content and
+ * rule a table.
+ *
+ * @remarks
+ * Plain data (the value lives in {@link BORDER_CHARS}); the renderers read these so no glyph
+ * literal is hard-coded in a renderer.
  *
  * @remarks
  * - `horizontal` / `vertical` — the edge run characters.
@@ -569,8 +592,8 @@ export interface BorderChars {
 }
 
 /**
- * Configures {@link import('./helpers.js').renderSeparator} — a horizontal rule, optionally
- * carrying a centered title.
+ * Configures `renderSeparator` — a horizontal rule, optionally carrying a centered title. Every
+ * key is optional: `title`, `width`, `fill`, `styler`, and `style`.
  *
  * @remarks
  * - `title` — text to embed in the rule (for example a section heading). Omitted ⇒ an unbroken line.
@@ -590,8 +613,9 @@ export interface SeparatorOptions {
 }
 
 /**
- * Configures {@link import('./helpers.js').renderBox} — content framed in box-drawing
- * characters.
+ * Configures `renderBox` — content framed in box-drawing characters. `content` is required and
+ * `title`, `padding`, `border`, `width`, `styler`, and `style` are optional; a `Reporter`
+ * supplies its own chrome style only when the caller gives neither `styler` nor `style`.
  *
  * @remarks
  * - `content` — the body text; embedded newlines split it into lines, each framed on its own
@@ -634,8 +658,10 @@ export interface ColumnSpec {
 }
 
 /**
- * Configures {@link import('./helpers.js').renderTable} — a bordered grid of columns + rows
- * with per-column alignment and width-aware sizing.
+ * Configures `renderTable` — a bordered grid of columns + rows with per-column alignment and
+ * width-aware sizing. `columns` and `rows` are required and `border`, `styler`, and `style` are
+ * optional; a `Reporter` supplies its own chrome style only when the caller gives neither
+ * `styler` nor `style`.
  *
  * @remarks
  * - `columns` — the {@link ColumnSpec}s, left to right; their `label`s form the header row.
@@ -670,8 +696,9 @@ export interface TreeNode {
 }
 
 /**
- * Configures {@link import('./helpers.js').renderTree} — a nested {@link TreeNode} tree drawn
- * with box-drawing connectors.
+ * Configures `renderTree` — a nested {@link TreeNode} tree drawn with box-drawing connectors.
+ * `root` is required and `border`, `styler`, and `style` are optional; a `Reporter` supplies its
+ * own chrome style only when the caller gives neither `styler` nor `style`.
  *
  * @remarks
  * - `root` — the top {@link TreeNode}; its `label` is the unindented first line and its
@@ -690,8 +717,9 @@ export interface TreeOptions {
 }
 
 /**
- * Names a narrative outcome level — the four states {@link ReporterInterface.status} reports, each
- * with its own icon + color ({@link STATUS_ICONS} / {@link STATUS_COLORS}).
+ * Names a narrative outcome level — `success` / `error` / `warn` / `info`, the states
+ * {@link ReporterInterface.status} reports, each with its own icon + color
+ * ({@link STATUS_ICONS} / {@link STATUS_COLORS}).
  *
  * @remarks
  * distinct from {@link LogLevel} (`debug` / `info` / `warn` / `error`): a `StatusLevel` is a
@@ -717,7 +745,8 @@ export interface StepPosition {
 }
 
 /**
- * Configures the {@link import('./Reporter.js').Reporter} constructor.
+ * Configures the `Reporter` constructor — the `sink` every line is written to, the `styler` and
+ * `theme` it formats through, and the `width` its layouts measure against.
  *
  * @remarks
  * - `sink` — where every formatted line is written; defaults to
@@ -769,11 +798,11 @@ export interface ReporterInterface {
 	timing(label: string, ms: number): void
 	/** Writes an icon + colored outcome line for `level` (`error` routes to the error stream). */
 	status(level: StatusLevel, message: string): void
-	/** Renders a {@link TableOptions} grid through {@link import('./helpers.js').renderTable} and writes it. */
+	/** Renders a {@link TableOptions} grid through `renderTable` and writes it. */
 	table(options: TableOptions): void
-	/** Renders a {@link TreeOptions} tree through {@link import('./helpers.js').renderTree} and writes it. */
+	/** Renders a {@link TreeOptions} tree through `renderTree` and writes it. */
 	tree(options: TreeOptions): void
-	/** Renders a {@link BoxOptions} frame through {@link import('./helpers.js').renderBox} and writes it. */
+	/** Renders a {@link BoxOptions} frame through `renderBox` and writes it. */
 	box(options: BoxOptions): void
 	/** Writes one raw line, colored through the styler if any styling is embedded — no prefix, no icon. */
 	line(text: string): void
@@ -793,12 +822,13 @@ export interface ReporterInterface {
 // restore. Observable — a buffered, mirroring, forwarding interceptor with a lifecycle.
 
 /**
- * Identifies one intercepted `console` method — the names a {@link CaptureInterface} patches and reports
- * under. A fixed set keyed off the universal `console.*` methods (`console.log` / `info` / `warn`
- * / `error` / `debug`); a named value family (it indexes {@link CAPTURE_LEVEL_MAP} to a
- * {@link LogLevel} for the optional sink forward), never a binary toggle — so it stays a union.
+ * Identifies one intercepted `console` method — `log` / `info` / `warn` / `error` / `debug`, the
+ * names a {@link CaptureInterface} patches and reports under.
  *
  * @remarks
+ * A named value family (it indexes {@link CAPTURE_LEVEL_MAP} to a {@link LogLevel} for the
+ * optional sink forward) rather than a binary toggle, so it stays a union.
+ *
  * distinct from {@link LogLevel}: a `CaptureLevel` names the originating console method (which
  * `console.x` was called), not a severity threshold — there is no ordering and no gating (every
  * configured method is captured). `log` and `info` are separate methods (both default-stream),
@@ -808,9 +838,10 @@ export interface ReporterInterface {
 export type CaptureLevel = 'log' | 'info' | 'warn' | 'error' | 'debug'
 
 /**
- * Represents one captured console call — an immutable, serializable record of a single intercepted
- * `console.*` invocation. A {@link CaptureInterface} builds one per call, freezes it, buffers it
- * (total + by level), and emits it on `capture`; every consumer reads this exact shape.
+ * Represents one captured console call — an immutable, serializable `{ level, text, time }` record
+ * of a single intercepted `console.*` invocation. A {@link CaptureInterface} builds one per call,
+ * freezes it, buffers it (total + by level), and emits it on `capture`; every consumer reads this
+ * exact shape.
  *
  * @remarks
  * - `level` — the {@link CaptureLevel} naming which `console.x` was called.
@@ -829,13 +860,13 @@ export interface CapturedMessage {
 }
 
 /**
- * Declares the observable events a {@link CaptureInterface} emits.
+ * Declares the observable events a {@link CaptureInterface} emits — `capture(message)` per
+ * intercepted call, plus the `start` and `stop` lifecycle signals.
  *
  * @remarks
- * - `capture` — the core event: fires for every intercepted `console.*` call (one per call,
- *   while active), carrying the frozen {@link CapturedMessage}. The hook a live console viewer /
- *   tee rides.
- * - `start` / `stop` — the lifecycle signals: `start` fires when interception is installed (the
+ * - `capture` — fires for every intercepted `console.*` call (one per call, while active),
+ *   carrying the frozen {@link CapturedMessage}. The hook a live console viewer / tee rides.
+ * - `start` / `stop` — `start` fires when interception is installed (the
  *   first `start()` on an inactive capture), `stop` when it is torn down (a `stop()` on an active
  *   capture, and from `destroy()`); both are pure signals (empty tuples) so a consumer can mirror
  *   the global-patch lifecycle (for example log that capture is engaged). They earn their place by
@@ -857,7 +888,8 @@ export type CaptureEventMap = {
 }
 
 /**
- * Configures the {@link import('./Capture.js').Capture} constructor.
+ * Configures the `Capture` constructor — the `on` / `error` emitter keys, the `levels`
+ * intercepted, the `mirror` pass-through, the `sink` forward, and the buffer `limit`.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
@@ -918,7 +950,10 @@ export interface CaptureInterface {
 	start(): void
 	/** Restores the snapshot-original `console.*` — a no-op when not `active`. */
 	stop(): void
-	/** Returns a copy of the whole captured buffer, oldest first (capped at `limit`). */
+	/**
+	 * Returns a copy of the whole captured buffer, oldest first (capped at `limit`), or — given
+	 * a {@link CaptureLevel} — a copy of only that level's bucket.
+	 */
 	messages(): readonly CapturedMessage[]
 	/** Returns a copy of the captured buffer for one {@link CaptureLevel}, oldest first (capped at `limit`). */
 	messages(level: CaptureLevel): readonly CapturedMessage[]
@@ -929,8 +964,8 @@ export interface CaptureInterface {
 }
 
 /**
- * Represents the structured outcome of {@link import('./factories.js').createCaptureResult} — the wrapped function's
- * own return `value` plus the {@link CapturedMessage}s intercepted while it ran.
+ * Represents the structured outcome of `createCaptureResult` — the wrapped function's own return
+ * `value` plus the `messages` it logged while it ran.
  *
  * @remarks
  * - `value` — whatever the wrapped `fn` returned (its `T`).
@@ -953,8 +988,9 @@ export interface CaptureResult<T> {
 // observable: a spinner's frames + lifecycle, a progress's updates + its final outcome.
 
 /**
- * Configures the pure {@link import('./helpers.js').renderBar} renderer — a determinate progress
- * bar string (`█████░░░░░ 50% (5/10)`), width-aware and styler-optional.
+ * Configures the pure `renderBar` renderer — a determinate progress bar string
+ * (`█████░░░░░ 50% (5/10)`), width-aware and styler-optional. `current` and `total` are
+ * required and `width`, `fill`, `empty`, `styler`, and `style` are optional.
  *
  * @remarks
  * - `current` / `total` — the filled fraction is `current / total`, clamped to `[0, total]` (a
@@ -980,10 +1016,11 @@ export interface BarOptions {
 }
 
 /**
- * Declares the observable events a {@link SpinnerInterface} emits.
+ * Declares the observable events a {@link SpinnerInterface} emits — `frame(line)` per advance and
+ * per outcome, plus the `start` and `stop` timer-lifecycle signals.
  *
  * @remarks
- * - `frame` — the core event: fires once per advance (every `tick()`, whether driven by the internal
+ * - `frame` — fires once per advance (every `tick()`, whether driven by the internal
  *   timer or called directly) and on the final `succeed` / `fail` line, carrying the rendered frame
  *   line (the same text written to the sink, minus the leading `\r`). The hook a non-sink consumer
  *   (a test, a remote mirror) rides to observe the animation without a terminal.
@@ -1007,7 +1044,8 @@ export type SpinnerEventMap = {
 }
 
 /**
- * Configures the {@link import('./Spinner.js').Spinner} constructor.
+ * Configures the `Spinner` constructor — the `on` / `error` emitter keys, the `message` shown,
+ * the glyph `frames` and their `interval`, and the `sink` / `styler` / `theme` line substrate.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
@@ -1097,9 +1135,15 @@ export interface SpinnerInterface {
  *   retained state through the value it receives.
  */
 export interface RetentionInterface<T extends { readonly level: string }> {
-	/** Retains one record — appends it to the total buffer and to its level's bucket, evicting the oldest of each past the cap. */
+	/**
+	 * Retains one record — appends it to the total buffer and to its level's bucket, evicting the
+	 * oldest of each past `limit`.
+	 */
 	add(record: T): void
-	/** Returns a copy of the whole retained buffer, oldest first. */
+	/**
+	 * Returns a copy of the whole retained buffer, oldest first, or — given a level — a copy of
+	 * that level's bucket, empty for a level with no bucket.
+	 */
 	records(): readonly T[]
 	/** Returns a copy of one level's bucket, oldest first; empty for a level with no bucket. */
 	records(level: T['level']): readonly T[]
@@ -1123,10 +1167,11 @@ export interface ProgressReport {
 }
 
 /**
- * Declares the observable events a {@link ProgressInterface} emits.
+ * Declares the observable events a {@link ProgressInterface} emits — `update(progress)` per
+ * report, plus a `succeed` signal on a successful finish.
  *
  * @remarks
- * - `update` — the core event: fires on every `update(current)` (and on `succeed` / `fail`),
+ * - `update` — fires on every `update(current)` (and on `succeed` / `fail`),
  *   carrying the `{ current, total }` progress (the clamped `current`). The hook a non-sink consumer
  *   rides to observe progress without a terminal.
  * - `succeed` — the terminal signal: fires once from `succeed()` (a successful finish), a pure
@@ -1146,7 +1191,9 @@ export type ProgressEventMap = {
 }
 
 /**
- * Configures the {@link import('./Progress.js').Progress} constructor.
+ * Configures the `Progress` constructor — the `on` / `error` emitter keys, the required `total`,
+ * the `message` shown, the bar's `width` / `fill` / `empty` glyphs, and the `sink` / `styler` /
+ * `theme` line substrate.
  *
  * @remarks
  * - `on` — the reserved {@link EmitterHooks} key: initial listeners for the
@@ -1181,7 +1228,7 @@ export interface ProgressOptions {
 
 /**
  * Declares an update-driven, observable progress bar — `update(current)` recomputes the bar through
- * {@link import('./helpers.js').renderBar}, writes `\r` + bar to its {@link SinkInterface}, and emits
+ * `renderBar`, writes `\r` + bar to its {@link SinkInterface}, and emits
  * the `{ current, total }` on `update`. The line-overwrite is the sink's job (a TTY sink overwrites
  * on the `\r`; a plain sink degrades to a fresh line). No self-timer — the caller drives it.
  *
@@ -1208,7 +1255,10 @@ export interface ProgressInterface {
 	readonly current: number
 	/** Holds the target value the bar fills toward. */
 	readonly total: number
-	/** Reports progress: clamps `current`, re-renders the bar, emits `update`, writes `\r` + bar. Ignored once terminal. */
+	/**
+	 * Reports progress: clamps `current`, re-renders the bar, emits `update`, writes `\r` + bar.
+	 * Ignored after a terminal `succeed` or `fail`.
+	 */
 	update(current: number, message?: string): void
 	/** Finishes successfully — renders a full bar + newline, emits a final `update` then `succeed`. */
 	succeed(message?: string): void

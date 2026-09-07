@@ -3,12 +3,13 @@ import { ATTRIBUTE_CODES, BACKGROUND_CODES, CSI, FOREGROUND_CODES, RESET } from 
 
 /**
  * Implements the cross-environment default {@link RendererInterface} — renders style data as ANSI
- * SGR escape codes, exactly as `Scheduler` is the `setTimeout` default for its seam. It
- * is the single styling output the whole console / terminal system uses in a terminal;
- * the browser `%c` / CSS renderer implements the same contract over
- * the same {@link Style}, so retargeting changes the renderer, never the style model.
+ * SGR escape codes, stateless and event-free.
  *
  * @remarks
+ * It is the single styling output the whole console / terminal system uses in a terminal; the
+ * browser `%c` / CSS renderer implements the same contract over the same {@link Style}, so
+ * retargeting changes the renderer, never the style model.
+ *
  * - **Style is data in, SGR string out.** It reads the style's `foreground` /
  *   `background` / `attributes` and emits one `ESC[…m` sequence whose parameters are the
  *   mapped SGR numbers (foreground 30–37 / 90–97, background 40–47 / 100–107, attributes

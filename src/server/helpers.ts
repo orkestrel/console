@@ -9,7 +9,7 @@ import { isBufferEncoding } from './validators.js'
 
 /**
  * Infers the width in character cells of a stream target — its live `columns` when it is a TTY, else
- * the non-interactive {@link DEFAULT_COLUMNS} fallback. The basis a {@link import('./types.js').ServerSinkInterface}
+ * the non-interactive {@link DEFAULT_COLUMNS} fallback. The basis a `ServerSinkInterface`
  * reports through `columns` so a `Reporter` / `Progress` can size its layout to the terminal.
  *
  * @remarks
@@ -27,14 +27,13 @@ export function inferColumns(target: StreamTargetInterface): number {
 }
 
 /**
- * Infers whether one stream target receives styled output. The result is a construction-time
- * target fact for {@link import('./factories.js').createServerSink}; this helper is pure and never
- * reads process globals itself.
+ * Infers whether one stream target receives styled output — a present `FORCE_COLOR` first, then a
+ * non-empty `NO_COLOR`, then `target.isTTY === true`.
  *
  * @remarks
- * A present `FORCE_COLOR` key has first precedence: only the exact value `'0'` disables styling.
- * Next, a non-empty `NO_COLOR` disables styling. Otherwise styling follows
- * `target.isTTY === true`.
+ * The result is a construction-time target fact for `createServerSink`; this helper is pure and
+ * never reads process globals itself. Under `FORCE_COLOR` only the exact value `'0'` disables
+ * styling.
  *
  * @param target - The stream target whose terminal capability is the fallback
  * @param environment - The environment record supplying `FORCE_COLOR` and `NO_COLOR`

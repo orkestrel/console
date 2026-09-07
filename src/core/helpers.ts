@@ -60,7 +60,8 @@ export function strip(text: string): string {
 
 /**
  * Removes every non-printing C0 control character from `text` except `\t` / `\n` / `\r`
- * (meaningful whitespace), plus DEL — returning the sanitized string.
+ * (meaningful whitespace), plus DEL — a separate pass from {@link strip}, so `width` stays
+ * untouched.
  *
  * @remarks
  * Deliberately separate from {@link strip} (ANSI-escape removal only, so `width` /
@@ -105,7 +106,8 @@ export function width(text: string): number {
 }
 
 /**
- * Snapshots and deeply freezes one {@link Style} value.
+ * Snapshots and deeply freezes one {@link Style} value, including an independent frozen copy of
+ * its `attributes`.
  *
  * @param style - The caller-owned style to snapshot
  * @returns A frozen style record with an independently frozen attributes list
@@ -193,7 +195,7 @@ export function formatTime(time: number): string {
 
 /**
  * Formats a {@link LogRecord} into a single styled line — the default human line layout a
- * {@link import('./types.js').LoggerInterface} writes to its sink.
+ * `LoggerInterface` writes to its sink.
  *
  * @remarks
  * Layout: `{time} {LEVEL} {[name]} {message}{ data}` — the ISO timestamp (dimmed), the
@@ -270,7 +272,7 @@ export function align(text: string, columns: number, alignment: Alignment = DEFA
 /**
  * Formats a millisecond duration as a compact human string — `…ms` below one second, `…s`
  * (seconds to 2 decimal places) at or above one second. The timing rendering behind
- * {@link import('./types.js').ReporterInterface.timing}.
+ * `ReporterInterface.timing`.
  *
  * @remarks
  * `999 → '999ms'`, `1000 → '1.00s'`, `1230 → '1.23s'` (the threshold is {@link SECOND_MS}).
@@ -284,9 +286,9 @@ export function formatDuration(ms: number): string {
 }
 
 /**
- * Colors `text` through `styler`, or returns it verbatim when `styler` is `undefined` — the
- * single optional-styling primitive every renderer applies to its border / title / connector
- * glyphs (the one styler seam, shared, never re-hand-rolled per renderer).
+ * Colors `text` through `styler` and an optional by-value {@link Style}, or returns it verbatim
+ * when `styler` is `undefined` — the single optional-styling primitive every renderer applies to
+ * its border / title / connector glyphs.
  *
  * @remarks
  * The renderers all take an optional `styler`: present ⇒ glyphs are colored, absent ⇒ plain.
@@ -530,8 +532,8 @@ export function renderTable(options: TableOptions): string {
 }
 
 /**
- * Renders a nested {@link TreeNode} tree with box-drawing connectors. Pure: same
- * {@link TreeOptions} → same string.
+ * Renders a nested {@link TreeNode} tree whose connectors derive from the chosen `border` set.
+ * Pure: same {@link TreeOptions} → same string.
  *
  * @remarks
  * The `root` label is the unindented first line; its descendants are drawn beneath it with
@@ -561,10 +563,14 @@ export function renderTree(options: TreeOptions): string {
 }
 
 /**
- * Renders the connector-prefixed lines for a {@link TreeNode} list — the recursive core
- * behind {@link renderTree}. Each child is drawn as `prefix` + its connector (`├─ ` for
- * any but the last, `└─ ` for the last) + its label, with its own descendants recursed
- * beneath under the carried guide (`│  ` under a non-last node, `   ` under the last).
+ * Renders the connector-prefixed lines for a {@link TreeNode} list — the recursive core behind
+ * {@link renderTree}, whose third options argument requires `border` and groups the optional
+ * `styler` and `style`.
+ *
+ * @remarks
+ * Each child is drawn as `prefix` + its connector (`├─ ` for any but the last, `└─ ` for the
+ * last) + its label, with its own descendants recursed beneath under the carried guide (`│  `
+ * under a non-last node, `   ` under the last).
  *
  * @remarks
  * A centralized, exported recursion branch so it is directly testable and
@@ -678,12 +684,14 @@ export function formatArgs(args: readonly unknown[]): string {
 
 /**
  * Renders a determinate progress bar string — a filled / empty glyph track followed by the percentage
- * and the `(current/total)` count (`█████░░░░░ 50% (5/10)`). Pure: same {@link BarOptions} →
- * same string. The animation-layer sibling of the `render*` renderers (box / table / tree /
- * separator), shared so a {@link import('./types.js').ProgressInterface} and any direct caller draw
- * the one bar — never a second, hand-rolled one.
+ * and the `(current/total)` count (`█████░░░░░ 50% (5/10)`). Pure and width-aware: same
+ * {@link BarOptions} → same string.
  *
  * @remarks
+ * It is the animation-layer sibling of the `render*` renderers (box / table / tree / separator),
+ * shared so a `ProgressInterface` and any direct caller draw the one bar — never a second,
+ * hand-rolled one.
+ *
  * - **Fill fraction, clamped.** The filled cell count is `round((current / total) · width)` with
  *   `current` clamped to `[0, total]`, so an overrun never over-fills and a negative never under-fills.
  *   A `total <= 0` renders a full track (there is nothing to fill toward — the work is trivially done).

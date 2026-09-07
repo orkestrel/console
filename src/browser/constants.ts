@@ -39,14 +39,15 @@ export const COLOR_HEX: Readonly<Record<Exclude<Color, 'default'>, string>> = Ob
 })
 
 /**
- * Maps each text-{@link Attribute}'s SGR "on" number to its equivalent CSS declaration — the browser
- * counterpart to the terminal's SGR text effects (`bold` 1 → `font-weight:bold`, `dim` 2 →
- * `opacity:0.6`, `italic` 3 → `font-style:italic`, `underline` 4 → `text-decoration:underline`,
- * `inverse` 7 → best-effort, `strikethrough` 9 → `text-decoration:line-through`). Keyed by the SGR
- * number (derived from core's {@link ATTRIBUTE_CODES}) so the sink looks a parameter up directly
- * while scanning a run.
+ * Maps each text-{@link Attribute}'s SGR "on" number to its equivalent CSS declaration — the
+ * browser counterpart to the terminal's SGR text effects (`bold` 1 → `font-weight:bold`, `dim` 2
+ * → `opacity:0.6`, `italic` 3 → `font-style:italic`, `underline` 4 → `text-decoration:underline`,
+ * `inverse` 7 → best-effort, `strikethrough` 9 → `text-decoration:line-through`).
  *
  * @remarks
+ * Keyed by the SGR number (derived from core's {@link ATTRIBUTE_CODES}) so the sink looks a
+ * parameter up directly while scanning a run.
+ *
  * `inverse` (SGR 7) has no faithful single-declaration CSS equivalent (it swaps the fore/back inks,
  * which depends on the live colors); it maps to a best-effort `filter:invert(100%)` — documented as
  * approximate, never silently dropped. Deeply frozen.
@@ -62,14 +63,14 @@ export const ATTRIBUTE_CSS: Readonly<Record<number, string>> = Object.freeze({
 
 /**
  * Names the browser console directive that switches the active style — one `%c` prefixes every styled run
- * in the {@link import('./types.js').ConsoleOutput} format string, consuming the next entry of the
+ * in the `ConsoleOutput` format string, consuming the next entry of the
  * parallel CSS array. The single source of truth for the directive token.
  */
 export const DIRECTIVE = '%c'
 
 /**
  * Matches one SGR sequence (`ESC[ <params> m`) and captures its `;`-separated numeric parameters —
- * the subset of ANSI {@link import('@src/core').strip} cares about that carries style (color /
+ * the subset of ANSI `strip` cares about that carries style (color /
  * attribute / reset), as opposed to cursor / erase / OSC sequences. Global, so the scanner walks
  * every SGR run in a string; built from core's {@link ESC} so no control-character literal appears
  * in source (the codebase idiom). The capture group is the parameter list (`''` for a bare `ESC[m`,

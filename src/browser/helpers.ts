@@ -20,10 +20,13 @@ import { ATTRIBUTE_CSS, COLOR_HEX, DIRECTIVE, SGR_PATTERN } from './constants.js
 
 /**
  * Translates an ANSI-styled string into a browser `console.log`-ready {@link ConsoleOutput} — a
- * `%c`-segmented format string and the parallel array of CSS declarations, so a DevTools console
- * renders the same styling a terminal would (the browser sink calls `console[method](format, ...styles)`).
+ * `%c`-segmented format string and the parallel array of CSS declarations, an optional partial
+ * {@link BrowserPalette} overriding the CSS per named lookup.
  *
  * @remarks
+ * A DevTools console then renders the same styling a terminal would; the browser sink calls
+ * `console[method](format, ...styles)`.
+ *
  * - **SGR runs → `%c` segments.** The text is scanned for SGR sequences ({@link SGR_PATTERN} —
  *   `ESC[…m`); each delimits a run. A run carrying visible text emits one `%c` directive plus that
  *   text into `format` and the run's accumulated CSS into `styles`, so the browser switches style at
@@ -136,13 +139,16 @@ export function escapePercent(text: string): string {
 
 /**
  * Walks an SGR parameter list (the `;`-separated numeric string captured by {@link SGR_PATTERN})
- * and returns its numeric codes — `'1;31'` → `[1, 31]`. It is total: every input yields a code
- * list. An empty list (a bare `ESC[m`) yields `[0]`, because the SGR spec treats a parameterless
- * sequence as a reset; an empty field within a list (`'1;;4'`) likewise counts as a `0` reset,
- * matching the spec, and a non-numeric field yields `NaN`, which the caller then ignores.
+ * and returns its numeric codes — `'1;31'` → `[1, 31]`, a bare or empty field becoming a `0`
+ * reset. It is total: every input yields a code list.
  *
  * @param parameters - The raw `;`-separated parameter string (the regex capture)
  * @returns The SGR codes found (a parameterless / empty field becoming `0`)
+ *
+ * @remarks
+ * An empty list (a bare `ESC[m`) yields `[0]`, because the SGR spec treats a parameterless
+ * sequence as a reset; an empty field within a list (`'1;;4'`) likewise counts as a `0` reset,
+ * matching the spec, and a non-numeric field yields `NaN`, which the caller then ignores.
  *
  * @example
  * ```ts

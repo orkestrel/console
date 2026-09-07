@@ -1,13 +1,13 @@
 # @orkestrel/console
 
-A unified output-control system for the `@orkestrel` line — one
-environment-agnostic engine composing style, logging, reporting, capture, and
-animation over a shared substrate:
-a **style engine** (`Styler` + `ANSIRenderer`, style as data), **structured
-logging** (`Logger`, `LoggerManager`), **narrative reporting** (`Reporter`),
-**console & stream capture** (`Capture`, `ProcessCapture`), and **live
-animations** (`Spinner`, `Progress`). Built to sit beside `@orkestrel/emitter`
-(observable lifecycle), reusing it as it takes shape.
+> A unified output-control system for a terminal, a browser, and a server: a style engine over
+> frozen `Style` data, structured logging whose record and `entry` event are the transport seam,
+> narrative reporting, console and stream capture, and live animations — one engine, environment
+> sinks, with the platform backend swapped at the `Sink` seam.
+
+Install the package, build a `Logger` or a `Reporter`, and swap its `sink` to move the same code
+between a terminal, a browser, and a server. Part of the `@orkestrel` line, built to sit beside
+`@orkestrel/emitter` (observable lifecycle), reusing it as it takes shape.
 
 ## Install
 

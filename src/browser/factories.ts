@@ -14,14 +14,16 @@ import { ansiToConsole } from './helpers.js'
 /**
  * Creates the browser `%c` {@link SinkInterface} — the browser output backend. `write(text, level?)`
  * translates the ANSI-styled `text` into a browser `console` call (`console[method](format, ...styles)`)
- * through {@link ansiToConsole}, so a DevTools console renders the same styling a terminal does. Drop it in
- * as a logger / reporter / spinner sink (`new Logger({ sink: createBrowserSink() })`) to retarget the
- * core output to the browser console with no change to the core.
+ * through {@link ansiToConsole}, an optional partial {@link BrowserPalette} overriding the named
+ * color and attribute CSS.
  *
  * @param options - See {@link BrowserSinkOptions}
  * @returns A browser `%c` {@link SinkInterface}
  *
  * @remarks
+ * Drop it in as a logger / reporter / spinner sink (`new Logger({ sink: createBrowserSink() })`)
+ * to retarget the core output to the browser console with no change to the core.
+ *
  * - **ANSI → `%c` at the sink.** The core produces ANSI strings; this sink parses the SGR runs and
  *   re-emits them as a `console.log`-ready `%c` format string + parallel CSS array ({@link ansiToConsole}
  *   — pure, total, and `%`-safe), so the styling survives the trip to a console that can't render ANSI.

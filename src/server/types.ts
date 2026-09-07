@@ -9,14 +9,15 @@ import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkes
 import type { SinkInterface } from '@src/core'
 
 /**
- * Declares the minimal writable-stream shape the server sink and process capture address — exactly the
- * slice of a Node `tty.WriteStream` / `process.stdout` they touch, and no more. A
- * {@link ServerSinkOptions} target and a {@link ProcessCaptureInterface}'s patched streams are
- * narrowed to this through {@link import('./validators.js').isStreamTarget} (narrow the
- * boundary, never `as`), so a test can drive either with a hand-built fake stream that never
- * touches the real `process` streams.
+ * Declares the minimal writable-stream shape the server sink and process capture address —
+ * `write(text)` plus an optional `isTTY` and `columns`, exactly the slice of a Node
+ * `tty.WriteStream` / `process.stdout` they touch and no more.
  *
  * @remarks
+ * A {@link ServerSinkOptions} target and a {@link ProcessCaptureInterface}'s patched streams are
+ * narrowed to this through `isStreamTarget` (narrow the boundary, never `as`), so a test can
+ * drive either with a hand-built fake stream that never touches the real `process` streams.
+ *
  * - `write(text)` — the one required method: push a chunk to the stream, returning the host's
  *   backpressure boolean (`false` when the kernel buffer is full). A `process` stream returns it;
  *   a fake may return `void` (read as truthy / no backpressure).
@@ -35,8 +36,9 @@ export interface StreamTargetInterface {
 }
 
 /**
- * Holds the options for {@link import('./factories.js').createServerSink} — all optional, so a bare
- * `createServerSink()` writes to the real process streams.
+ * Holds the options for `createServerSink` — the `stdout` and `stderr` targets, the `styled`
+ * override, the `environment` inference reads, and an explicit `columns` width. All are
+ * optional, so a bare `createServerSink()` writes to the real process streams.
  *
  * @remarks
  * - `stdout` — the stream `info` / `debug` (and an omitted level) are written to; defaults to
@@ -60,13 +62,16 @@ export interface ServerSinkOptions {
 }
 
 /**
- * Declares a {@link SinkInterface} that also exposes the target terminal's {@link columns} width — the shape
- * {@link import('./factories.js').createServerSink} returns. It is a drop-in {@link SinkInterface}
- * (so a `Logger` / `Reporter` / `Spinner` / `Progress` takes it as `sink`) whose extra `columns`
- * getter lets a consumer size a `Reporter`'s layout to the live terminal. Its `styled` fact lets
- * the same consumer enable or disable its styler for the `stdout` target.
+ * Declares a {@link SinkInterface} that also exposes the `stdout` target's construction-time
+ * `styled` fact and the terminal's live or fixed {@link columns} width — the shape
+ * `createServerSink` returns.
  *
  * @remarks
+ * It is a drop-in {@link SinkInterface} (so a `Logger` / `Reporter` / `Spinner` / `Progress`
+ * takes it as `sink`) whose extra `columns` getter lets a consumer size a `Reporter`'s layout to
+ * the live terminal, and whose `styled` fact lets the same consumer enable or disable its styler
+ * for the `stdout` target.
+ *
  * - `styled` is the `stdout` target's construction-time fact. The sink handles `stderr` through its
  *   own independently inferred fact because the two targets can differ.
  * - `columns` is a getter, re-read on every access — so it reflects the current terminal width (a
@@ -78,8 +83,9 @@ export interface ServerSinkInterface extends SinkInterface {
 }
 
 /**
- * Names which process stream a {@link CapturedChunk} came from — the "level" axis of the process-stream
- * {@link ProcessCaptureInterface}, the server analogue of the core `Capture`'s `CaptureLevel`.
+ * Names which process stream a {@link CapturedChunk} came from — `stdout` or `stderr`, the
+ * "level" axis of the process-stream {@link ProcessCaptureInterface} and the server analogue of
+ * the core `Capture`'s `CaptureLevel`.
  *
  * @remarks
  * distinct from {@link import('@src/core').LogLevel}: a `StreamLevel` names the originating process stream
@@ -90,11 +96,12 @@ export interface ServerSinkInterface extends SinkInterface {
 export type StreamLevel = 'stdout' | 'stderr'
 
 /**
- * Names the process-stream `write` method a {@link ProcessCaptureInterface} snapshots and swaps at
- * the patch boundary — the write-side analogue of {@link import('@src/core').ConsoleMethod}.
+ * Names the process-stream `write` method a {@link ProcessCaptureInterface} snapshots and swaps
+ * at the patch boundary — `NodeJS.WriteStream['write']` verbatim, the write-side analogue of
+ * `ConsoleMethod`.
  *
  * @remarks
- * It is taken verbatim as `NodeJS.WriteStream['write']`, the overloaded
+ * The type is the overloaded
  * `(chunk, encoding?, callback?) => boolean` of `process.stdout.write` / `process.stderr.write`.
  * Using the canonical type rather than a hand-rolled approximation keeps snapshot and restore
  * exact and lets the wrapper assign cleanly. A {@link StreamLevel} (`'stdout' | 'stderr'`) is
@@ -104,8 +111,9 @@ export type StreamLevel = 'stdout' | 'stderr'
 export type StreamWriteFunction = NodeJS.WriteStream['write']
 
 /**
- * Names the completion callback `process.*.write` accepts as its last argument — the Node `write`
- * callback shape, and the {@link StreamWriteFunction} companion.
+ * Names the completion callback `process.*.write` accepts as its last argument —
+ * `(error?) => void`, the Node `write` callback shape and the {@link StreamWriteFunction}
+ * companion.
  *
  * @remarks
  * The capture wrapper forwards the callback verbatim to the mirror, so a caller's
@@ -114,9 +122,9 @@ export type StreamWriteFunction = NodeJS.WriteStream['write']
 export type StreamWriteCallback = (error?: Error | null) => void
 
 /**
- * Represents one intercepted process-stream write — the immutable, serializable record a
- * {@link ProcessCaptureInterface} buffers and emits, the server analogue of the core
- * `CapturedMessage`.
+ * Represents one intercepted process-stream write — the immutable, serializable
+ * `{ level, text, time }` record a {@link ProcessCaptureInterface} buffers and emits, the server
+ * analogue of the core `CapturedMessage`.
  *
  * @remarks
  * - `level` — the {@link StreamLevel} naming which stream (`stdout` / `stderr`) was written.
@@ -134,10 +142,13 @@ export interface CapturedChunk {
 }
 
 /**
- * Declares the observable events a {@link ProcessCaptureInterface} emits — mirrors the core
- * `Capture`'s `CaptureEventMap`, but the captured record is a {@link CapturedChunk} (stream-keyed).
+ * Declares the observable events a {@link ProcessCaptureInterface} emits — `capture(chunk)` per
+ * intercepted write, plus the `start` and `stop` signals.
  *
  * @remarks
+ * The map mirrors the core `Capture`'s `CaptureEventMap`, and the captured record is a
+ * {@link CapturedChunk} (stream-keyed).
+ *
  * - `capture` — an intercepted `process.stdout` / `process.stderr` write, carrying the frozen
  *   {@link CapturedChunk}. The hook a live log viewer / tee subscribes to.
  * - `start` / `stop` — the interception toggled on / off (pure signals, empty tuples).
@@ -159,9 +170,10 @@ export type ProcessCaptureEventMap = {
 }
 
 /**
- * Holds the options for the {@link import('./ProcessCapture.js').ProcessCapture} constructor — every
- * field optional, so a bare `new ProcessCapture()` buffers both streams without mirroring or
- * forwarding.
+ * Holds the options for the `ProcessCapture` constructor — the `on` / `error` emitter keys, the
+ * `levels` intercepted, the `mirror` pass-through, the `sink` forward, and the buffer `limit`.
+ * Every field is optional, so a bare `new ProcessCapture()` buffers both streams without
+ * mirroring or forwarding.
  *
  * @remarks
  * - `on` — initial {@link ProcessCaptureEventMap} listeners, wired at construction (for example
@@ -189,13 +201,14 @@ export interface ProcessCaptureOptions {
 }
 
 /**
- * Declares an observable interceptor of the raw process output streams — the server's
- * "own all output" capture. Where the core `Capture` patches `console.*` (the high-level read
- * side), this patches `process.stdout.write` / `process.stderr.write` (the low-level stream), so it
- * catches direct `process.stdout.write`, third-party library output, and child-process pipes —
- * everything that reaches the streams, not only `console.*`.
+ * Declares an observable interceptor of the raw process output streams — the server's "own all
+ * output" capture, patching `process.stdout.write` / `process.stderr.write` on the low-level
+ * stream where the core `Capture` patches `console.*`.
  *
  * @remarks
+ * Patching the stream catches a direct `process.stdout.write`, third-party library output, and
+ * child-process pipes — everything that reaches the streams, not only `console.*`.
+ *
  * - **Snapshot-at-start (the no-capture-loop principle).** `start()` snapshots the current
  *   `process[stream].write` for each configured {@link StreamLevel}, then installs the wrappers. The
  *   mirror replays through that snapshot — so a server sink created from the same streams before the
@@ -221,7 +234,10 @@ export interface ProcessCaptureInterface {
 	start(): void
 	/** Restores the pristine `process.*.write` references (idempotent; emits `stop`). */
 	stop(): void
-	/** Returns a copy of the full captured buffer, oldest first (capped at `limit`). */
+	/**
+	 * Returns a copy of the full captured buffer, oldest first (capped at `limit`), or — given a
+	 * {@link StreamLevel} — a copy of only that stream's bucket.
+	 */
 	messages(): readonly CapturedChunk[]
 	/** Returns a copy of the captured buffer for one {@link StreamLevel}, oldest first (capped at `limit`). */
 	messages(level: StreamLevel): readonly CapturedChunk[]

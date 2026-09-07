@@ -37,7 +37,7 @@ export function isStreamTarget(value: unknown): value is StreamTargetInterface {
 
 /**
  * Checks whether `encoding` is a {@link BufferEncoding} accepted by `Buffer.prototype.toString` — a total
- * guard used by {@link import('./helpers.js').decodeChunk} to honor a process-write `encoding`
+ * guard used by `decodeChunk` to honor a process-write `encoding`
  * argument only when it is a real Node encoding (otherwise utf-8 is assumed).
  *
  * @param encoding - The candidate encoding (the second `write` argument, possibly a callback)

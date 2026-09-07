@@ -6,22 +6,25 @@ import type { LogLevel } from '@src/core'
 import type { StreamLevel } from './types.js'
 
 /**
- * Lists the two process streams a {@link import('./types.js').ProcessCaptureInterface} can intercept, in
+ * Lists the process streams a `ProcessCaptureInterface` can intercept, in
  * `stdout`-then-`stderr` order — the {@link StreamLevel} universe and the default configured set.
  */
 export const STREAM_LEVELS: readonly StreamLevel[] = Object.freeze(['stdout', 'stderr'])
 
 /**
- * Sets the default bounded-buffer cap for a {@link import('./types.js').ProcessCaptureInterface} — at
- * most this many recent {@link import('./types.js').CapturedChunk}s are retained per buffer (the
- * total buffer and each per-stream bucket; oldest dropped first). Mirrors the core `Capture`'s
- * `DEFAULT_CAPTURE_LIMIT`; a consumer overrides it through `options.limit`.
+ * Sets the default bounded-buffer cap for a `ProcessCaptureInterface` — `1000`, so at most that
+ * many recent `CapturedChunk`s are retained per buffer (the total buffer and each per-stream
+ * bucket; oldest dropped first) and retention is always bounded.
+ *
+ * @remarks
+ * It mirrors the core `Capture`'s `DEFAULT_CAPTURE_LIMIT`; a consumer overrides the cap through
+ * `options.limit`.
  */
 export const DEFAULT_STREAM_LIMIT = 1000
 
 /**
- * Sets the terminal width {@link import('./factories.js').createServerSink} reports through
- * {@link import('./types.js').ServerSinkInterface.columns} when the `stdout` stream is not a TTY (so
+ * Sets the terminal width `createServerSink` reports through
+ * `ServerSinkInterface.columns` when the `stdout` stream is not a TTY (so
  * `.columns` is `undefined`) and no explicit `options.columns` was supplied — the conventional
  * 80-column default a non-interactive context (a pipe, a CI log) assumes.
  */
@@ -30,7 +33,7 @@ export const DEFAULT_COLUMNS = 80
 /**
  * Maps each {@link StreamLevel} to its {@link LogLevel} for the optional sink forward — the projection a
  * process capture routes through when writing an intercepted chunk to a
- * {@link import('@src/core').SinkInterface}. `sink.write(text, STREAM_LEVEL_MAP[level])` is the
+ * `SinkInterface`. `sink.write(text, STREAM_LEVEL_MAP[level])` is the
  * call this map backs. `stderr` is conventionally the error/diagnostic
  * stream → `error`; `stdout` is the normal output stream → `info`. The source of truth for the
  * stream-to-log projection (the server analogue of the core `CAPTURE_LEVEL_MAP`).
