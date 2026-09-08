@@ -1,8 +1,6 @@
 // The consumer-side guides-parity drop-in: runs `@orkestrel/guide`'s checks against
-// this repo's own `guides/README.md` manifest — one row (Console) spanning the
-// core/browser/server faces as a multi-dir `GuideModule` — one guide per package. The
-// constants that follow are this package's own, and are the only part a sibling package
-// changes.
+// this repo's own `guides/README.md` manifest. The constants that follow are this
+// package's own, as is the executed section that closes the file.
 
 import { describe, expect, it } from 'vitest'
 import {
