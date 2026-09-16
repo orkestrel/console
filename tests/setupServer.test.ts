@@ -6,13 +6,13 @@ import {
 	createStreamTarget,
 	createWriteProbe,
 	fileExists,
-	readText,
+	readRepoFile,
 	WORKSPACE_ROOT,
 } from './setupServer.js'
 
 describe('WORKSPACE_ROOT', () => {
-	it('names the real repository root, independent of readText and fileExists', () => {
-		// A second route: read the manifest directly with node:fs rather than through readText or
+	it('names the real repository root, independent of readRepoFile and fileExists', () => {
+		// A second route: read the manifest directly with node:fs rather than through readRepoFile or
 		// fileExists, so the assertion cannot pass merely because those two helpers agree with
 		// each other.
 		const manifestText = readFileSync(join(WORKSPACE_ROOT, 'package.json'), 'utf8')
@@ -21,14 +21,14 @@ describe('WORKSPACE_ROOT', () => {
 	})
 })
 
-describe('readText', () => {
+describe('readRepoFile', () => {
 	it('reads a real repo-relative file, matching a direct node:fs read', () => {
 		const expected = readFileSync(join(WORKSPACE_ROOT, 'package.json'), 'utf8')
-		expect(readText('package.json')).toBe(expected)
+		expect(readRepoFile('package.json')).toBe(expected)
 	})
 
 	it('throws for a path that does not exist, as node:fs itself would', () => {
-		expect(() => readText('tests/does-not-exist-anywhere.txt')).toThrow(/ENOENT|no such file/)
+		expect(() => readRepoFile('tests/does-not-exist-anywhere.txt')).toThrow(/ENOENT|no such file/)
 	})
 })
 
@@ -123,5 +123,5 @@ describe('createOverloadProbe', () => {
 
 // Mutation control (recorded, not left in place): case "reads a real repo-relative file, matching
 // a direct node:fs read" was broken by appending an extra character to `expected` after the
-// node:fs read, then the case failed at the `expect(readText('package.json')).toBe(expected)`
+// node:fs read, then the case failed at the `expect(readRepoFile('package.json')).toBe(expected)`
 // line with a string mismatch. The edit was reverted before this file was saved.

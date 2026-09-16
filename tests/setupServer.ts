@@ -15,7 +15,7 @@ import { createRecorder, resolveRoot } from '@orkestrel/test'
 export const WORKSPACE_ROOT = fileURLToPath(resolveRoot(import.meta))
 
 // Read one repo-relative text file, anchored to the workspace root.
-export function readText(relativePath: string): string {
+export function readRepoFile(relativePath: string): string {
 	return readFileSync(join(WORKSPACE_ROOT, relativePath), 'utf8')
 }
 
