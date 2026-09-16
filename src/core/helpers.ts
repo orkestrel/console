@@ -13,6 +13,7 @@ import type {
 	Theme,
 	WriterSet,
 } from './types.js'
+import { isError, isObject } from '@orkestrel/contract'
 import {
 	ANSI_PATTERN,
 	BAR_EMPTY,
@@ -640,15 +641,15 @@ export function renderTreeChildren(
  * ```
  */
 export function stringifyValue(value: unknown): string {
-	if (value instanceof Error) return `${value.name}: ${value.message}`
-	if (value === null || typeof value !== 'object') return String(value)
+	if (isError(value)) return `${value.name}: ${value.message}`
+	if (!isObject(value)) return String(value)
 	// A circular-safe replacer — a seen-set drops any back-reference so a cyclic graph serializes
 	// instead of throwing (total, like a guard). A residual throw (for example a BigInt field) falls
 	// back to String(value), so this helper is total on every input.
 	const seen = new WeakSet<object>()
 	try {
 		return JSON.stringify(value, (_key, nested: unknown) => {
-			if (nested !== null && typeof nested === 'object') {
+			if (isObject(nested)) {
 				if (seen.has(nested)) return '[Circular]'
 				seen.add(nested)
 			}

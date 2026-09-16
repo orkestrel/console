@@ -1,4 +1,5 @@
 import type { ConsoleErrorCode } from './types.js'
+import { isInstance } from '@orkestrel/contract'
 
 // An internal invariant / unreachable-guard violation `throw`s, always a
 // `ConsoleError` carrying a machine-readable `code` so a `catch` branches on
@@ -44,5 +45,5 @@ export class ConsoleError extends Error {
  * ```
  */
 export function isConsoleError(value: unknown): value is ConsoleError {
-	return value instanceof ConsoleError
+	return isInstance(value, ConsoleError)
 }

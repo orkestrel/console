@@ -1,4 +1,5 @@
 import type { Attribute, Color, RendererInterface, Style, StylerInterface } from './types.js'
+import { isFunction } from '@orkestrel/contract'
 import { ATTRIBUTES, COLORS } from './constants.js'
 import { ConsoleError } from './errors.js'
 
@@ -147,7 +148,7 @@ export class Styler {
 	// without `as`/`!`.
 	#isSurface(value: ((text: string) => string) & object): value is StylerInterface {
 		return (
-			typeof value === 'function' &&
+			isFunction(value) &&
 			'style' in value &&
 			'enabled' in value &&
 			'render' in value &&

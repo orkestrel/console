@@ -4,6 +4,7 @@
 // needs a type assertion and neither can throw on adversarial input.
 
 import type { StreamTargetInterface } from './types.js'
+import { isFunction, isObject, isString } from '@orkestrel/contract'
 
 /**
  * Checks whether `value` is a usable {@link StreamTargetInterface} — a record with a callable `write`. A
@@ -27,12 +28,7 @@ import type { StreamTargetInterface } from './types.js'
  * ```
  */
 export function isStreamTarget(value: unknown): value is StreamTargetInterface {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		'write' in value &&
-		typeof value.write === 'function'
-	)
+	return isObject(value) && 'write' in value && isFunction(value.write)
 }
 
 /**
@@ -44,5 +40,5 @@ export function isStreamTarget(value: unknown): value is StreamTargetInterface {
  * @returns True if `encoding` names a supported buffer encoding; false otherwise
  */
 export function isBufferEncoding(encoding: unknown): encoding is BufferEncoding {
-	return typeof encoding === 'string' && Buffer.isEncoding(encoding)
+	return isString(encoding) && Buffer.isEncoding(encoding)
 }

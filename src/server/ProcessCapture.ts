@@ -10,6 +10,7 @@ import type {
 } from './types.js'
 import type { RetentionInterface, SinkInterface } from '@src/core'
 import { StringDecoder } from 'node:string_decoder'
+import { isString } from '@orkestrel/contract'
 import { Emitter } from '@orkestrel/emitter'
 import { Retention } from '@src/core'
 import { DEFAULT_STREAM_LIMIT, STREAM_LEVEL_MAP, STREAM_LEVELS } from './constants.js'
@@ -226,7 +227,7 @@ export class ProcessCapture implements ProcessCaptureInterface {
 		chunk: string | Uint8Array,
 		encoding: BufferEncoding | StreamWriteCallback | undefined,
 	): string {
-		if (typeof chunk === 'string') return chunk
+		if (isString(chunk)) return chunk
 		const decoder = this.#decoders.get(level)
 		if (decoder !== undefined && this.#streams(encoding)) {
 			return decoder.write(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))

@@ -4,6 +4,7 @@
 // for the server sink. The boundary guards live in `validators.ts`.
 
 import type { StreamTargetInterface } from './types.js'
+import { isFiniteNumber, isString, isUint8Array } from '@orkestrel/contract'
 import { DEFAULT_COLUMNS } from './constants.js'
 import { isBufferEncoding } from './validators.js'
 
@@ -23,7 +24,7 @@ import { isBufferEncoding } from './validators.js'
  */
 export function inferColumns(target: StreamTargetInterface): number {
 	const columns = target.columns
-	if (typeof columns === 'number' && Number.isFinite(columns) && columns > 0) return columns
+	if (isFiniteNumber(columns) && columns > 0) return columns
 	return DEFAULT_COLUMNS
 }
 
@@ -88,12 +89,12 @@ export function inferStyled(
  * ```
  */
 export function decodeChunk(chunk: unknown, encoding?: unknown): string {
-	if (typeof chunk === 'string') return chunk
+	if (isString(chunk)) return chunk
 	try {
 		if (Buffer.isBuffer(chunk)) {
 			return chunk.toString(isBufferEncoding(encoding) ? encoding : 'utf8')
 		}
-		if (chunk instanceof Uint8Array) return new TextDecoder().decode(chunk)
+		if (isUint8Array(chunk)) return new TextDecoder().decode(chunk)
 		// The String() coercion is inside the try too: a value with a hostile `toString` /
 		// `Symbol.toPrimitive` would otherwise throw here and escape into `process.*.write`, crashing
 		// the host — the exact failure this total decoder exists to prevent. Guard it.

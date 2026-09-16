@@ -1,5 +1,6 @@
 import type { LogLevel } from '@src/core'
 import type { ServerSinkInterface, ServerSinkOptions } from './types.js'
+import { isNumber } from '@orkestrel/contract'
 import { selectWriter, strip, stripControls } from '@src/core'
 import { inferColumns, inferStyled } from './helpers.js'
 import { isStreamTarget } from './validators.js'
@@ -88,7 +89,7 @@ export function createServerSink(options?: ServerSinkOptions): ServerSinkInterfa
 		get columns(): number {
 			// A fixed override wins; otherwise the live stdout-stream width (tracks a resize), with the
 			// non-TTY fallback inside inferColumns.
-			return typeof fixed === 'number' ? fixed : inferColumns(out)
+			return isNumber(fixed) ? fixed : inferColumns(out)
 		},
 	})
 }
