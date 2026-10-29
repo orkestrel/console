@@ -1,4 +1,6 @@
-import type { Attribute, CaptureLevel, Color, RendererInterface, Style } from '@src/core'
+import type { Attribute, CaptureLevel, Color } from '@src/core'
+import { attempt } from '@orkestrel/contract'
+import { createRecorder } from '@orkestrel/test'
 import {
 	createCaptureResult,
 	createConsoleSink,
@@ -16,7 +18,7 @@ import {
 	STATUS_LEVELS,
 } from '@src/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createRecordingSink } from '../../setup.js'
+import { ColorFixture, createColorRenderer, createRecordingSink } from '../../setup.js'
 
 // createStyler / createTheme — the styling factories. createStyler returns the fluent surface,
 // defaulting to ANSI + enabled, with options to swap the renderer (the C-f browser seam) and to
@@ -48,11 +50,7 @@ describe('createStyler', () => {
 
 	it('options.renderer retargets output without touching the style model', () => {
 		// A stand-in renderer (the C-f %c seam) consuming the SAME Style DATA.
-		const renderer: RendererInterface = {
-			render(style: Style, text: string): string {
-				return style.foreground === undefined ? text : `<${style.foreground}>${text}`
-			},
-		}
+		const renderer = createColorRenderer()
 		const styler = createStyler({ renderer })
 		expect(styler.red('x')).toBe('<red>x')
 		expect(styler('plain')).toBe('plain')
@@ -151,18 +149,11 @@ describe('createTheme', () => {
 	})
 
 	it('captures a chrome foreground getter before a live reporter consumes it', () => {
-		let foreground: Color = 'blue'
-		const attributes: Attribute[] = []
-		const style = {
-			get foreground(): Color {
-				return foreground
-			},
-			attributes,
-		}
+		const style = new ColorFixture('blue')
 		const theme = createTheme({ chrome: style })
 		const sink = createRecordingSink()
 		const reporter = new Reporter({ sink, theme, width: 8 })
-		foreground = 'magenta'
+		style.foreground = 'magenta'
 		reporter.section('S')
 		expect(sink.calls[0]?.[0]).toBe(`${ESC}34m──${RESET} ${ESC}34mS${RESET} ${ESC}34m───${RESET}`)
 	})
@@ -244,16 +235,16 @@ describe('createConsoleSink', () => {
 	})
 
 	it('routes by level: error→console.error, warn→console.warn, else→console.log', () => {
-		const seen: Array<readonly [stream: string, text: string]> = []
-		console.log = (text: string) => seen.push(['log', text])
-		console.warn = (text: string) => seen.push(['warn', text])
-		console.error = (text: string) => seen.push(['error', text])
+		const seen = createRecorder<readonly [stream: string, text: string]>()
+		console.log = seen.handler.bind(undefined, 'log')
+		console.warn = seen.handler.bind(undefined, 'warn')
+		console.error = seen.handler.bind(undefined, 'error')
 		const sink = createConsoleSink()
 		sink.write('d', 'debug')
 		sink.write('i', 'info')
 		sink.write('w', 'warn')
 		sink.write('e', 'error')
-		expect(seen).toEqual([
+		expect(seen.calls).toEqual([
 			['log', 'd'],
 			['log', 'i'],
 			['warn', 'w'],
@@ -262,29 +253,29 @@ describe('createConsoleSink', () => {
 	})
 
 	it('an omitted level falls back to console.log', () => {
-		const seen: string[] = []
-		console.log = (text: string) => seen.push(text)
+		const seen = createRecorder<readonly [string]>()
+		console.log = seen.handler
 		const sink = createConsoleSink()
 		sink.write('plain')
-		expect(seen).toEqual(['plain'])
+		expect(seen.calls.map(([text]) => text)).toEqual(['plain'])
 	})
 
 	it('snapshots console at creation — a later console patch can NOT reach the sink (no capture loop)', () => {
-		const real: string[] = []
+		const real = createRecorder<readonly [string]>()
 		// The "real" console.log the sink snapshots.
-		console.log = (text: string) => real.push(text)
+		console.log = real.handler
 		const sink = createConsoleSink() // snapshots the real console.log at this call
 		// Then PATCH console.log (as a Capture would) — the sink must still hit the snapshot.
-		const captured: string[] = []
-		console.log = (text: string) => captured.push(text)
+		const captured = createRecorder<readonly [string]>()
+		console.log = captured.handler
 		sink.write('after patch')
-		expect(real).toEqual(['after patch']) // reached the original stream
-		expect(captured).toEqual([]) // the patched console never saw the sink's own output
+		expect(real.calls.map(([text]) => text)).toEqual(['after patch']) // reached the original stream
+		expect(captured.calls.map(([text]) => text)).toEqual([]) // the patched console never saw the sink's own output
 	})
 
 	it('passes a Spinner redraw frame and a plain write to the snapshotted method verbatim', () => {
-		const seen: string[] = []
-		console.log = (text: string) => seen.push(text)
+		const seen = createRecorder<readonly [string]>()
+		console.log = seen.handler
 		const sink = createConsoleSink()
 		const spinner = new Spinner({
 			frames: ['*'],
@@ -294,7 +285,7 @@ describe('createConsoleSink', () => {
 		})
 		spinner.tick()
 		sink.write('plain')
-		expect(seen).toEqual(['\r* working', 'plain'])
+		expect(seen.calls.map(([text]) => text)).toEqual(['\r* working', 'plain'])
 		spinner.destroy()
 	})
 })
@@ -420,16 +411,15 @@ describe('createCaptureResult', () => {
 		it('a sync throw discards the captured messages (only the throw propagates)', () => {
 			// The sync-throw path destroys the capture and rethrows — there is no CaptureResult to read,
 			// so the buffered "before throw" line is never surfaced (documents the contract).
-			let caught: unknown
-			try {
+			const caught = attempt(() => {
 				createCaptureResult(() => {
 					console.log('lost on throw')
 					throw new Error('x')
 				})
-			} catch (error) {
-				caught = error
-			}
-			expect(caught).toBeInstanceOf(Error)
+			})
+			expect(caught.success).toBe(false)
+			if (caught.success) throw new Error('Expected the capture to throw')
+			expect(caught.error).toBeInstanceOf(Error)
 		})
 
 		it('the async overload resolves to a Promise even when fn returns a resolved promise of a value', async () => {

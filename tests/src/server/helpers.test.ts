@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { decodeChunk, inferColumns, inferStyled } from '@src/server'
+import { createFailure } from '../../setup.js'
+import { createStreamTarget, StreamFixture } from '../../setupServer.js'
 
 describe('inferStyled', () => {
 	it('applies FORCE_COLOR, then non-empty NO_COLOR, then isTTY across the full matrix', () => {
@@ -10,7 +12,7 @@ describe('inferStyled', () => {
 					if (force !== undefined) environment.FORCE_COLOR = force
 					if (noColor !== undefined) environment.NO_COLOR = noColor
 					const target = {
-						write: () => true,
+						write: createStreamTarget().target.write,
 						...(tty === undefined ? {} : { isTTY: tty }),
 					}
 					const expected =
@@ -51,16 +53,9 @@ describe('inferColumns', () => {
 	})
 
 	it('re-reads columns on each call (a getter-backed resize is observed)', () => {
-		let width = 100
-		const target = {
-			write: () => true,
-			isTTY: true,
-			get columns() {
-				return width
-			},
-		}
+		const target = new StreamFixture()
 		expect(inferColumns(target)).toBe(100)
-		width = 160
+		target.columns = 160
 		expect(inferColumns(target)).toBe(160)
 	})
 
@@ -154,14 +149,10 @@ describe('decodeChunk', () => {
 		// A throw inside decodeChunk would escape into the patched process.*.write and crash the host;
 		// the total-decode contract must hold for EVERY value, including a hostile coercion.
 		const hostileToString = {
-			toString(): never {
-				throw new Error('hostile toString')
-			},
+			toString: createFailure(new Error('hostile toString')),
 		}
 		const hostilePrimitive = {
-			[Symbol.toPrimitive](): never {
-				throw new Error('hostile toPrimitive')
-			},
+			[Symbol.toPrimitive]: createFailure(new Error('hostile toPrimitive')),
 		}
 		expect(decodeChunk(hostileToString)).toBe('[unprintable]')
 		expect(decodeChunk(hostilePrimitive)).toBe('[unprintable]')

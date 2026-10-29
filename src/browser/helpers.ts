@@ -1,4 +1,4 @@
-import type { BrowserPalette, ConsoleOutput, StyleAccumulator } from './types.js'
+import type { BrowserPalette, ConsoleOutput, ConsoleSegment, StyleAccumulator } from './types.js'
 import {
 	ATTRIBUTE_CODES,
 	ATTRIBUTES,
@@ -57,66 +57,49 @@ import { ATTRIBUTE_CSS, COLOR_HEX, DIRECTIVE, SGR_PATTERN } from './constants.js
  * ```
  */
 export function ansiToConsole(text: string, palette?: BrowserPalette): ConsoleOutput {
-	const scanner = new RegExp(SGR_PATTERN.source, SGR_PATTERN.flags)
-	// The accumulated active style across a run — a separate foreground / background declaration
-	// (each channel replaceable) plus an ordered, de-duplicated list of attribute declarations. An
-	// SGR reset drops both channels and empties the list. Serialized to a `;`-joined CSS string per
-	// emitted run.
-	let active: StyleAccumulator = Object.freeze({ attributes: Object.freeze([]) })
-	const segments: string[] = []
-	const styles: string[] = []
-	let cursor = 0
-	let pending = ''
-	let match: RegExpExecArray | null = scanner.exec(text)
-	if (match === null) return { format: escapePercent(text), styles: [] }
-
-	// A null match is the final text boundary, so every visible run passes through one flush path.
-	while (true) {
-		const boundary = match === null ? text.length : match.index
-		pending += escapePercent(text.slice(cursor, boundary))
-		if (pending !== '') {
-			segments.push(`${DIRECTIVE}${pending}`)
-			const declarations = [...active.attributes]
-			if (active.foreground !== undefined) declarations.push(active.foreground)
-			if (active.background !== undefined) declarations.push(active.background)
-			styles.push(declarations.join(';'))
-			pending = ''
-		}
-		if (match === null) break
-
-		// Apply one SGR sequence by replacing the readonly accumulator. A reset clears every channel;
-		// colors replace their channel; attributes accumulate once; unknown extensions are ignored.
-		for (const code of scanParameters(match[1] ?? '')) {
-			if (code === RESET_CODE) {
-				active = Object.freeze({ attributes: Object.freeze([]) })
-				continue
-			}
+	const matches = [...text.matchAll(new RegExp(SGR_PATTERN.source, SGR_PATTERN.flags))]
+	if (matches.length === 0) return { format: escapePercent(text), styles: [] }
+	const initial: StyleAccumulator = Object.freeze({ attributes: Object.freeze([]) })
+	const output: ConsoleSegment[] = []
+	for (const match of [...matches, undefined]) {
+		const previous = output.at(-1) ?? { active: initial, cursor: 0 }
+		const segment = escapePercent(text.slice(previous.cursor, match?.index ?? text.length))
+		const declarations = [
+			...previous.active.attributes,
+			...(previous.active.foreground === undefined ? [] : [previous.active.foreground]),
+			...(previous.active.background === undefined ? [] : [previous.active.background]),
+		]
+		const active = scanParameters(match?.[1] ?? '').reduce<StyleAccumulator>((style, code) => {
+			if (code === RESET_CODE) return initial
 			const foreground = COLORS.find((color) => FOREGROUND_CODES[color] === code)
 			if (foreground !== undefined) {
 				const color = palette?.color?.[foreground] ?? COLOR_HEX[foreground]
-				active = Object.freeze({ ...active, foreground: `color:${color}` })
-				continue
+				return Object.freeze({ ...style, foreground: `color:${color}` })
 			}
 			const background = COLORS.find((color) => BACKGROUND_CODES[color] === code)
 			if (background !== undefined) {
 				const color = palette?.color?.[background] ?? COLOR_HEX[background]
-				active = Object.freeze({ ...active, background: `background:${color}` })
-				continue
+				return Object.freeze({ ...style, background: `background:${color}` })
 			}
 			const name = ATTRIBUTES.find((attribute) => ATTRIBUTE_CODES[attribute] === code)
 			const attribute =
 				name === undefined ? undefined : (palette?.attribute?.[name] ?? ATTRIBUTE_CSS[code])
-			if (attribute !== undefined && !active.attributes.includes(attribute)) {
-				active = Object.freeze({
-					...active,
-					attributes: Object.freeze([...active.attributes, attribute]),
-				})
-			}
-		}
-		cursor = match.index + match[0].length
-		match = scanner.exec(text)
+			return attribute === undefined || style.attributes.includes(attribute)
+				? style
+				: Object.freeze({ ...style, attributes: Object.freeze([...style.attributes, attribute]) })
+		}, previous.active)
+		output.push({
+			active,
+			cursor: match === undefined ? text.length : match.index + match[0].length,
+			text: segment,
+			style: declarations.join(';'),
+		})
 	}
-	return { format: segments.join(''), styles }
+	const visible = output.filter((segment) => segment.text !== '')
+	return {
+		format: visible.map((segment) => `${DIRECTIVE}${segment.text}`).join(''),
+		styles: visible.map((segment) => segment.style),
+	}
 }
 
 /**

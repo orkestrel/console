@@ -72,3 +72,11 @@ export interface StyleAccumulator {
 	readonly background?: string
 	readonly attributes: readonly string[]
 }
+
+/** Records the style and visible text at one ANSI scan boundary. */
+export interface ConsoleSegment {
+	readonly active: StyleAccumulator
+	readonly cursor: number
+	readonly text: string
+	readonly style: string
+}

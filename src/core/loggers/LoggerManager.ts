@@ -121,11 +121,10 @@ export class LoggerManager implements LoggerManagerInterface {
 		if (isArray(names)) {
 			// Every name is attempted, and the batch succeeds only when every one was present — an
 			// empty list has no failing member, so it succeeds vacuously.
-			let removed = true
-			for (const name of names) {
-				if (!this.#loggers.delete(name)) removed = false
-			}
-			return removed
+			return Iterator.from(names).reduce(
+				(removed, name) => this.#loggers.delete(name) && removed,
+				true,
+			)
 		}
 		return this.#loggers.delete(names)
 	}

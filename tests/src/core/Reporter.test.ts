@@ -1,7 +1,6 @@
-import type { ReporterInterface } from '@src/core'
 import { createStyler, createTheme, DEFAULT_THEME, Reporter, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createRecordingSink } from '../../setup.js'
+import { createRecordingSink, createTestReporter, firstLine } from '../../setup.js'
 
 // Reporter — the lean, EVENT-FREE narrative front-end: section / step / timing / status /
 // table / tree / box / line / blank, each formatting through the ONE styler + the pure
@@ -11,19 +10,8 @@ import { createRecordingSink } from '../../setup.js'
 
 // A reporter whose output is fully captured + deterministic: a recording sink + a disabled
 // styler (plain text). `width` is small + fixed so separator / box layouts are exact.
-function createTestReporter(width = 12): {
-	reporter: ReporterInterface
-	sink: ReturnType<typeof createRecordingSink>
-} {
-	const sink = createRecordingSink()
-	const reporter = new Reporter({ sink, styler: createStyler({ enabled: false }), width })
-	return { reporter, sink }
-}
 
 // The text of the first (usually only) line a verb wrote.
-function firstLine(sink: ReturnType<typeof createRecordingSink>): string {
-	return sink.calls[0]?.[0] ?? ''
-}
 
 describe('Reporter', () => {
 	describe('section', () => {
@@ -346,13 +334,13 @@ describe('Reporter', () => {
 
 	describe('default sink', () => {
 		it('defaults to the snapshotted console sink (writes one line through console.log)', () => {
-			const seen: string[] = []
+			const seen = createRecordingSink()
 			const original = console.log
-			console.log = (text: string) => seen.push(text)
+			console.log = seen.write
 			try {
 				const reporter = new Reporter({ styler: createStyler({ enabled: false }) })
 				reporter.line('via default sink')
-				expect(seen).toEqual(['via default sink'])
+				expect(seen.calls.map(([text]) => text)).toEqual(['via default sink'])
 			} finally {
 				console.log = original
 			}

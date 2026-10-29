@@ -1,5 +1,7 @@
 import type { RecorderInterface } from '@orkestrel/test'
 import { createRecorder } from '@orkestrel/test'
+import type { ConsoleOutput } from '@src/browser'
+import { ansiToConsole } from '@src/browser'
 
 // ── Console capture (swap + restore the three console methods) ────────────────
 
@@ -46,4 +48,13 @@ export function captureConsole(): ConsoleCaptureInterface {
 			console.error = original.error
 		},
 	}
+}
+
+/** Returns translated output and its independently counted console directives. */
+export function expectAligned(text: string): {
+	readonly output: ConsoleOutput
+	readonly directives: number
+} {
+	const output = ansiToConsole(text)
+	return { output, directives: output.format.replace(/%%/g, '').split('%c').length - 1 }
 }

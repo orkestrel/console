@@ -8,7 +8,7 @@ import type { PlaywrightProviderOptions } from '@vitest/browser-playwright'
 import type { Browser } from 'playwright'
 import type { SpawnSyncReturns } from 'node:child_process'
 import type { TestContext } from 'vitest'
-import { isArray, isObject, isString } from '@orkestrel/contract'
+import { attempt, isArray, isObject, isString } from '@orkestrel/contract'
 import { spawnSync } from 'node:child_process'
 import {
 	existsSync,
@@ -30,6 +30,42 @@ import { build } from 'vite'
 import { resolveBrowser, resolvePinnedBrowser } from '../configs/browsers.js'
 import { afterAll, describe, expect, it } from 'vitest'
 
+const ERROR_GUARD_SOURCE = `import assert from 'node:assert/strict'
+import { cpSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import * as imported from '@orkestrel/console'
+const require = createRequire(import.meta.url)
+const required = require('@orkestrel/console')
+const installed = dirname(require.resolve('@orkestrel/console/package.json'))
+const copy = join(dirname(installed), 'console-copy')
+cpSync(installed, copy, { recursive: true })
+const copied = await import(pathToFileURL(join(copy, 'dist/src/core/index.js')).href)
+const modules = [imported, required, copied]
+assert.equal(new Set(modules.map((entry) => entry.ConsoleError)).size, modules.length)
+for (const source of modules) {
+ const error = new source.ConsoleError('INVARIANT', 'packed', { value: 1 })
+ class Specialized extends source.ConsoleError {
+  constructor() { super('INVARIANT', 'subclass'); this.name = 'Specialized' }
+ }
+ const lookalike = Object.assign(new Error('lookalike'), { code: 'INVARIANT' })
+ const branded = {}
+ Object.defineProperty(branded, Symbol.for('@orkestrel/console.ConsoleError'), { value: branded })
+ for (const target of modules) {
+  assert.equal(target.isConsoleError(error), true)
+  assert.equal(target.isConsoleError(new Specialized()), true)
+  assert.equal(target.isConsoleError(lookalike), false)
+  assert.equal(target.isConsoleError(new Proxy(error, {})), false)
+  assert.equal(target.isConsoleError(branded), false)
+ }
+ const descriptor = Object.getOwnPropertyDescriptor(error, Symbol.for('@orkestrel/console.ConsoleError'))
+ assert.equal(descriptor.value, error)
+ assert.equal(descriptor.enumerable, false)
+ assert.equal(descriptor.writable, false)
+}
+`
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 // The compiler this workspace installs, run as a command rather than called in
@@ -37,7 +73,11 @@ const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 // compiler majors this toolchain supports, and its in-process API is not. It is
 // resolved from the workspace under proof, so a consumer of the packed artifact is
 // checked by the same compiler that workspace's own `check` script runs.
-const TSC = createRequire(join(ROOT, 'package.json')).resolve('typescript/bin/tsc')
+const TSC = join(
+	dirname(createRequire(join(ROOT, 'package.json')).resolve('typescript/package.json')),
+	'bin',
+	'tsc',
+)
 // Windows needs a shell to launch a `.cmd`: Node refuses one directly since the
 // batch-argument hardening, and `spawnSync` returns `EINVAL` with a null status
 // rather than an exit code a caller can read. Every following argument is a literal or
@@ -199,11 +239,8 @@ function isNames(value: unknown): value is readonly string[] {
 function isPackageTarget(target: string): boolean {
 	if (!target.startsWith('./')) return false
 	for (const segment of target.slice(2).split(/[\\/]/u)) {
-		let decoded = segment
-		try {
-			decoded = decodeURIComponent(segment)
-		} catch {}
-		const normalized = decoded.toLowerCase()
+		const decoded = attempt(() => decodeURIComponent(segment))
+		const normalized = (decoded.success ? decoded.value : segment).toLowerCase()
 		if (normalized === '.' || normalized === '..' || normalized === 'node_modules') return false
 	}
 	return true
@@ -290,11 +327,16 @@ function matchesFile(path: string): boolean {
 // the containing condition or fallback list unresolved, so the walk continues.
 function targetToDeclaration(target: string, installed: string): string | undefined {
 	if (!isPackageTarget(target)) return undefined
-	let declaration = target
-	if (target.endsWith('.cjs')) declaration = `${target.slice(0, -4)}.d.cts`
-	else if (target.endsWith('.mjs')) declaration = `${target.slice(0, -4)}.d.mts`
-	else if (target.endsWith('.js')) declaration = `${target.slice(0, -3)}.d.ts`
-	else if (!isDeclaration(target)) return undefined
+	const declaration = target.endsWith('.cjs')
+		? `${target.slice(0, -4)}.d.cts`
+		: target.endsWith('.mjs')
+			? `${target.slice(0, -4)}.d.mts`
+			: target.endsWith('.js')
+				? `${target.slice(0, -3)}.d.ts`
+				: isDeclaration(target)
+					? target
+					: undefined
+	if (declaration === undefined) return undefined
 	return matchesFile(join(installed, declaration)) ? declaration : undefined
 }
 
@@ -326,22 +368,22 @@ function resolveDeclaration(
 // physical nested manifest starts a scope even when it omits `type` or cannot be
 // parsed. A directory at that spelling is not a manifest, so the walk continues.
 function readPackageType(installed: string, target: string): unknown {
-	let directory = dirname(join(installed, target))
-	while (true) {
-		const path = join(directory, 'package.json')
-		if (matchesFile(path)) {
-			try {
-				const manifest = readJson(path)
-				return isRecord(manifest) ? manifest.type : undefined
-			} catch {
-				return undefined
-			}
+	return readPackageDirectory(installed, dirname(join(installed, target)))
+}
+
+function readPackageDirectory(installed: string, directory: string): unknown {
+	const path = join(directory, 'package.json')
+	if (matchesFile(path)) {
+		try {
+			const manifest = readJson(path)
+			return isRecord(manifest) ? manifest.type : undefined
+		} catch {
+			return undefined
 		}
-		if (directory === installed) return undefined
-		const parent = dirname(directory)
-		if (parent === directory) return undefined
-		directory = parent
 	}
+	if (directory === installed) return undefined
+	const parent = dirname(directory)
+	return parent === directory ? undefined : readPackageDirectory(installed, parent)
 }
 
 function resolvesBrowser(entry: unknown): boolean {
@@ -873,6 +915,15 @@ function requireStage(context: TestContext): Stage {
 }
 
 describe('installed package consumer', () => {
+	it('recognizes branded errors across packed copies and refuses imitations [requires the registry]', (context) => {
+		const stage = requireStage(context)
+		const script = join(stage.consumer, 'errors.mjs')
+		writeFile(script, ERROR_GUARD_SOURCE)
+		const result = runNode([script], stage.consumer)
+		expect(readOutput(result)).toBe('')
+		expect(result.status).toBe(0)
+	})
+
 	it('packs one archive and installs it in isolation [requires the registry]', (context) => {
 		const stage = requireStage(context)
 		expect(stage.archives).toHaveLength(1)

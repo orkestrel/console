@@ -2,7 +2,7 @@ import type { ProgressEventMap } from '@src/core'
 import { createStyler, createTheme, DEFAULT_THEME, Progress, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createRecorder, createRecorders } from '@orkestrel/test'
-import { createRecordingSink, normalizeVisible } from '../../setup.js'
+import { createRecordingSink, normalizeVisible, bars } from '../../setup.js'
 
 // Progress — the update-driven, observable progress bar. update(current) recomputes the bar
 // through renderBar, writes `\r` + bar to its sink, and emits { current, total } on `update`;
@@ -12,9 +12,6 @@ import { createRecordingSink, normalizeVisible } from '../../setup.js'
 // stripping ANSI.
 
 // The bar lines a recording sink received, with the leading `\r` (and any trailing `\n`) stripped.
-function bars(sink: ReturnType<typeof createRecordingSink>): readonly string[] {
-	return sink.calls.map(([text]) => text.replace(/^\r/, '').replace(/\n$/, ''))
-}
 
 const PLAIN = createStyler({ enabled: false })
 

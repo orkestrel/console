@@ -1,4 +1,4 @@
-import type { Attribute, Color, LogLevel, LogRecord } from '@src/core'
+import type { Attribute, Color, LogLevel } from '@src/core'
 import {
 	align,
 	cellAt,
@@ -13,6 +13,7 @@ import {
 	meetsLevel,
 	renderBar,
 	renderBox,
+	renderBoxTop,
 	renderSeparator,
 	renderTable,
 	renderTree,
@@ -25,7 +26,7 @@ import {
 	width,
 } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createStubWriter } from '../../setup.js'
+import { ColorFixture, createFailure, createStubWriter, record } from '../../setup.js'
 
 // strip / width — the pure, universal ANSI-aware string helpers. strip removes every
 // escape sequence; width is the visible code-point length (strip then count). Both must
@@ -35,12 +36,15 @@ import { createStubWriter } from '../../setup.js'
 
 const ESC = '\x1b['
 
+describe('renderBoxTop', () => {
+	it('renders a plain border and a caption within the same span', () => {
+		expect(renderBoxTop({ content: '' }, 3)).toBe('┌───┐')
+		expect(renderBoxTop({ content: '', title: 'A' }, 5)).toBe('┌─ A ─┐')
+	})
+})
+
 // A plain styler (no escape codes) so formatRecord line assertions read the layout.
 const plain = createStyler({ enabled: false })
-
-function record(partial: Partial<LogRecord> & Pick<LogRecord, 'level' | 'message'>): LogRecord {
-	return { time: 0, ...partial }
-}
 
 describe('strip', () => {
 	it('removes a single SGR color sequence', () => {
@@ -127,16 +131,9 @@ describe('freezeStyle', () => {
 	})
 
 	it('captures a getter value once in the snapshot', () => {
-		let foreground: Color = 'yellow'
-		const attributes: Attribute[] = []
-		const source = {
-			get foreground(): Color {
-				return foreground
-			},
-			attributes,
-		}
+		const source = new ColorFixture('yellow')
 		const frozen = freezeStyle(source)
-		foreground = 'green'
+		source.foreground = 'green'
 		expect(frozen.foreground).toBe('yellow')
 		expect(source.foreground).toBe('green')
 	})
@@ -909,8 +906,7 @@ describe('stringifyValue — exotic / adversarial values', () => {
 	})
 
 	it('renders a function through String()', () => {
-		const fn = function named(): void {}
-		expect(stringifyValue(fn)).toContain('named')
+		expect(stringifyValue(function named(): void {})).toContain('named')
 	})
 
 	it('renders ±0 and Infinity through String()', () => {
@@ -922,9 +918,7 @@ describe('stringifyValue — exotic / adversarial values', () => {
 	it('falls back to String() when an object has a THROWING toJSON, never raising', () => {
 		// JSON.stringify invokes toJSON and propagates its throw; the helper must catch + degrade.
 		const value = {
-			toJSON(): never {
-				throw new Error('hostile toJSON')
-			},
+			toJSON: createFailure(new Error('hostile toJSON')),
 		}
 		expect(() => stringifyValue(value)).not.toThrow()
 		expect(stringifyValue(value)).toBe('[object Object]')

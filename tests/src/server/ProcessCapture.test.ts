@@ -1,3 +1,4 @@
+import { createFailure } from '../../setup.js'
 import type { SinkInterface } from '@src/core'
 import type { ProcessCaptureEventMap } from '@src/server'
 import { ProcessCapture } from '@src/server'
@@ -170,7 +171,7 @@ describe('ProcessCapture — streaming UTF-8 decode across split byte chunks', (
 			.map((message) => message.text)
 			.join('')
 		expect(text).toBe('é')
-		expect(text).not.toContain('�')
+		expect(text).not.toContain('\uFFFD')
 		capture.destroy()
 	})
 
@@ -188,7 +189,7 @@ describe('ProcessCapture — streaming UTF-8 decode across split byte chunks', (
 			.map((message) => message.text)
 			.join('')
 		expect(text).toBe('😀')
-		expect(text).not.toContain('�')
+		expect(text).not.toContain('\uFFFD')
 		capture.destroy()
 	})
 
@@ -205,7 +206,7 @@ describe('ProcessCapture — streaming UTF-8 decode across split byte chunks', (
 			.map((message) => message.text)
 			.join('')
 		expect(text).toBe('😀')
-		expect(text).not.toContain('�')
+		expect(text).not.toContain('\uFFFD')
 		capture.destroy()
 	})
 
@@ -225,7 +226,7 @@ describe('ProcessCapture — streaming UTF-8 decode across split byte chunks', (
 			.map((chunk) => chunk.text)
 			.join('')
 		expect(text).toBe(message) // reconstructed verbatim, no trimming or stripping
-		expect(text).not.toContain('�')
+		expect(text).not.toContain('\uFFFD')
 		capture.destroy()
 	})
 
@@ -241,7 +242,7 @@ describe('ProcessCapture — streaming UTF-8 decode across split byte chunks', (
 			.messages('stdout')
 			.map((message) => message.text)
 			.join('')
-		expect(text).toBe('�') // a truncated sequence surfaces as one U+FFFD, not silently lost
+		expect(text).toBe('\uFFFD') // a truncated sequence surfaces as one U+FFFD, not silently lost
 		capture.destroy()
 	})
 
@@ -306,12 +307,10 @@ describe('ProcessCapture — Node write-overload branching (encoding / callback 
 		process.stdout.write = probe.write
 		const capture = new ProcessCapture({ levels: ['stdout'], mirror: true })
 		capture.start()
-		let fired = false
-		const result = process.stdout.write('payload', () => {
-			fired = true
-		})
+		const fired = createRecorder()
+		const result = process.stdout.write('payload', fired.handler)
 		capture.stop()
-		expect(fired).toBe(true) // the caller's completion callback still fired through the mirror
+		expect(fired.count).toBeGreaterThan(0) // the caller's completion callback still fired through the mirror
 		expect(probe.callbacks).toBe(1)
 		expect(probe.encodings).toEqual([undefined]) // 2nd arg was the callback, not an encoding
 		expect(probe.texts).toEqual(['payload']) // mirrored to the real stream
@@ -324,17 +323,15 @@ describe('ProcessCapture — Node write-overload branching (encoding / callback 
 		process.stdout.write = probe.write
 		const capture = new ProcessCapture({ levels: ['stdout'], mirror: true })
 		capture.start()
-		let fired = false
+		const fired = createRecorder()
 		// A latin1 buffer (0xe9 = 'é') with an explicit encoding + a completion callback.
-		process.stdout.write(Buffer.from([0xe9]), 'latin1', () => {
-			fired = true
-		})
+		process.stdout.write(Buffer.from([0xe9]), 'latin1', fired.handler)
 		capture.stop()
 		// The CAPTURED text decoded with the honored latin1 encoding.
 		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['é'])
 		// The encoding was forwarded to the mirror, and the callback fired.
 		expect(probe.encodings).toEqual(['latin1'])
-		expect(fired).toBe(true)
+		expect(fired.count).toBeGreaterThan(0)
 		expect(probe.callbacks).toBe(1)
 		capture.destroy()
 	})
@@ -369,14 +366,12 @@ describe('ProcessCapture — Node write-overload branching (encoding / callback 
 		process.stdout.write = createWriteProbe().write
 		const capture = new ProcessCapture({ levels: ['stdout'], mirror: false })
 		capture.start()
-		let fired = false
-		const result = process.stdout.write('swallowed', () => {
-			fired = true
-		})
-		expect(fired).toBe(false) // not yet — fired through a microtask, not synchronously
+		const fired = createRecorder()
+		const result = process.stdout.write('swallowed', fired.handler)
+		expect(fired.count).toBe(0) // not yet — fired through a microtask, not synchronously
 		expect(result).toBe(true)
 		await Promise.resolve() // flush the microtask queue
-		expect(fired).toBe(true)
+		expect(fired.count).toBeGreaterThan(0)
 		capture.stop()
 		expect(capture.messages('stdout').map((message) => message.text)).toEqual(['swallowed'])
 		capture.destroy()
@@ -386,17 +381,13 @@ describe('ProcessCapture — Node write-overload branching (encoding / callback 
 		process.stdout.write = createWriteProbe().write
 		const capture = new ProcessCapture({ levels: ['stdout'], mirror: false })
 		capture.start()
-		let firedTwoArg = false
-		let firedThreeArg = false
-		process.stdout.write('a', () => {
-			firedTwoArg = true
-		})
-		process.stdout.write('b', 'utf8', () => {
-			firedThreeArg = true
-		})
+		const firedTwoArg = createRecorder()
+		const firedThreeArg = createRecorder()
+		process.stdout.write('a', firedTwoArg.handler)
+		process.stdout.write('b', 'utf8', firedThreeArg.handler)
 		await Promise.resolve()
-		expect(firedTwoArg).toBe(true)
-		expect(firedThreeArg).toBe(true)
+		expect(firedTwoArg.count).toBeGreaterThan(0)
+		expect(firedThreeArg.count).toBeGreaterThan(0)
 		capture.stop()
 		capture.destroy()
 	})
@@ -566,7 +557,7 @@ describe('ProcessCapture — sink forward', () => {
 		process.stdout.write = createWriteProbe().write
 		process.stderr.write = createWriteProbe().write
 		const writes = createRecorder<readonly [text: string, level: string | undefined]>()
-		const sink: SinkInterface = { write: (text, level) => writes.handler(text, level) }
+		const sink: SinkInterface = { write: writes.handler }
 		const capture = new ProcessCapture({ sink })
 		capture.start()
 		process.stdout.write('out')
@@ -585,7 +576,7 @@ describe('ProcessCapture — sink forward', () => {
 		const probe = createWriteProbe()
 		process.stderr.write = probe.write
 		const writes = createRecorder<readonly [text: string, level: string | undefined]>()
-		const sink: SinkInterface = { write: (text, level) => writes.handler(text, level) }
+		const sink: SinkInterface = { write: writes.handler }
 		const capture = new ProcessCapture({ levels: ['stderr'], mirror: true, sink })
 		capture.start()
 		process.stderr.write('boom')
@@ -602,7 +593,7 @@ describe('ProcessCapture — sink forward', () => {
 		process.stdout.write = createWriteProbe().write
 		process.stderr.write = errProbe.write
 		const writes = createRecorder<readonly [text: string, level: string | undefined]>()
-		const sink: SinkInterface = { write: (text, level) => writes.handler(text, level) }
+		const sink: SinkInterface = { write: writes.handler }
 		const capture = new ProcessCapture({ levels: ['stderr'], sink })
 		capture.start()
 		process.stdout.write('not intercepted') // stdout not configured → straight to the stream
@@ -619,9 +610,7 @@ describe('ProcessCapture — sink forward', () => {
 		const probe = createWriteProbe()
 		process.stdout.write = probe.write
 		const sink: SinkInterface = {
-			write: () => {
-				throw new Error('sink boom')
-			},
+			write: createFailure(new Error('sink boom')),
 		}
 		const capture = new ProcessCapture({ levels: ['stdout'], mirror: true, sink })
 		capture.start()

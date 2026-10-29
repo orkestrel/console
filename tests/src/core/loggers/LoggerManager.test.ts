@@ -1,7 +1,7 @@
-import type { LogLevel } from '@src/core'
 import { createStyler, createTheme, formatRecord, LoggerManager, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
-import { createRecordingSink } from '../../../setup.js'
+import { createRecorder } from '@orkestrel/test'
+import { createRecordingSink, createTestManager } from '../../../setup.js'
 
 // LoggerManager — the event-free registry of named loggers + a convenience fan-out. It
 // mints + stores loggers keyed by name (its defaults flowing in unless overridden), looks
@@ -12,14 +12,6 @@ import { createRecordingSink } from '../../../setup.js'
 
 // A manager whose loggers share one recording sink + a disabled styler — so a fan-out's
 // writes are all visible in one place and lines are plain text.
-function createTestManager(level: LogLevel = 'debug'): {
-	manager: LoggerManager
-	sink: ReturnType<typeof createRecordingSink>
-} {
-	const sink = createRecordingSink()
-	const manager = new LoggerManager({ level, sink, styler: createStyler({ enabled: false }) })
-	return { manager, sink }
-}
 
 describe('LoggerManager', () => {
 	describe('registry — mint, store, look up, count', () => {
@@ -97,18 +89,16 @@ describe('LoggerManager', () => {
 					throw error
 				},
 			})
-			let entries = 0
+			const entries = createRecorder()
 			const second = manager.register('second', {
 				on: {
-					entry: () => {
-						entries += 1
-					},
+					entry: entries.handler,
 				},
 			})
 			expect(() => manager.info('halt')).toThrow(error)
 			expect(first.entries().map((record) => record.message)).toEqual(['halt'])
 			expect(second.entries()).toHaveLength(0)
-			expect(entries).toBe(0)
+			expect(entries.count).toBe(0)
 			expect(sink.calls).toHaveLength(0)
 		})
 

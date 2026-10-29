@@ -13,6 +13,7 @@ import type {
 import { DEFAULT_THEME, DEFAULT_WIDTH } from './constants.js'
 import { createConsoleSink, createStyler } from './factories.js'
 import { formatDuration, renderBox, renderSeparator, renderTable, renderTree } from './helpers.js'
+import { LineIterator } from './LineIterator.js'
 
 /**
  * Implements a lean, event-free narrative reporter — the composable verb set for human /
@@ -108,7 +109,7 @@ export class Reporter implements ReporterInterface {
 	}
 
 	blank(count = 1): void {
-		for (let index = 0; index < count; index += 1) this.#sink.write('')
+		Iterator.from(new LineIterator(count)).forEach(() => this.#sink.write(''))
 	}
 
 	// Use theme chrome only when the caller supplied neither half of the styling decision. The

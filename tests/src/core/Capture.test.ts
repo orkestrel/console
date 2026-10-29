@@ -2,7 +2,7 @@ import type { CaptureEventMap, CaptureLevel, CapturedMessage } from '@src/core'
 import { Capture, createStyler, Logger } from '@src/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createRecorder, createRecorders } from '@orkestrel/test'
-import { createRecordingSink } from '../../setup.js'
+import { createFailure, createRecordingSink } from '../../setup.js'
 
 // Capture — the observable console interceptor. While active it snapshots the configured
 // console.* methods, replaces them with wrappers that buffer each call (total + by level,
@@ -83,15 +83,15 @@ describe('Capture', () => {
 		})
 
 		it('does NOT mirror by default — the real console method is not called', () => {
-			const seen: string[] = []
-			console.log = (...args: unknown[]) => seen.push(args.join(' '))
+			const seen = createRecorder<readonly unknown[]>()
+			console.log = seen.handler
 			const capture = new Capture({ levels: ['log'] }) // mirror defaults to false
 			capture.start()
 			console.log('swallowed')
 			capture.stop()
 			// Captured, but the snapshot-original log never ran.
 			expect(capture.messages().map((m) => m.text)).toEqual(['swallowed'])
-			expect(seen).toEqual([])
+			expect(seen.calls).toEqual([])
 		})
 
 		it('buckets messages by their originating level, in order', () => {
@@ -217,9 +217,7 @@ describe('Capture', () => {
 
 		it('a throwing sink is swallowed — the underlying console call never throws, message still buffered/emitted', () => {
 			const throwingSink = {
-				write: () => {
-					throw new Error('sink exploded')
-				},
+				write: createFailure(new Error('sink exploded')),
 			}
 			const capture = new Capture({ levels: ['log'], sink: throwingSink })
 			const events = createRecorders<CaptureEventMap, 'capture'>(capture.emitter, ['capture'])
@@ -233,28 +231,28 @@ describe('Capture', () => {
 
 	describe('mirror — fan out to the snapshot-original console', () => {
 		it('forwards each call to the snapshot-original method with the ORIGINAL args (not the stringified text)', () => {
-			const seen: Array<readonly unknown[]> = []
-			console.warn = (...args: unknown[]) => seen.push(args)
+			const seen = createRecorder<readonly unknown[]>()
+			console.warn = seen.handler
 			const capture = new Capture({ levels: ['warn'], mirror: true })
 			capture.start()
 			console.warn('alert', { code: 1 })
 			capture.stop()
 			// Mirrored verbatim — the original receives the raw args, not the captured line.
-			expect(seen).toEqual([['alert', { code: 1 }]])
+			expect(seen.calls).toEqual([['alert', { code: 1 }]])
 			// And still captured (stringified).
 			expect(capture.messages('warn').map((m) => m.text)).toEqual(['alert {"code":1}'])
 		})
 
 		it('mirrors through the snapshot taken at start(), never a later re-patch (no echo loop)', () => {
-			const real: string[] = []
-			console.log = (text: string) => real.push(text)
+			const real = createRecorder<readonly [string]>()
+			console.log = real.handler
 			const capture = new Capture({ levels: ['log'], mirror: true })
 			capture.start() // snapshots the `real` log at this call; after it, console.log is the wrapper
 			// The wrapper must call the snapshot original, not console.log (itself) — proven by the
 			// fact that one call produces exactly one `real` entry, not infinite recursion.
 			console.log('echo')
 			capture.stop()
-			expect(real).toEqual(['echo'])
+			expect(real.calls.map(([text]) => text)).toEqual(['echo'])
 		})
 	})
 
@@ -279,14 +277,14 @@ describe('Capture', () => {
 		})
 
 		it('mirror and sink fan out together', () => {
-			const seen: string[] = []
-			console.error = (text: string) => seen.push(text)
+			const seen = createRecorder<readonly unknown[]>()
+			console.error = seen.handler
 			const sink = createRecordingSink()
 			const capture = new Capture({ levels: ['error'], mirror: true, sink })
 			capture.start()
 			console.error('boom')
 			capture.stop()
-			expect(seen).toEqual(['boom']) // mirrored
+			expect(seen.calls.map((args) => args.join(' '))).toEqual(['boom']) // mirrored
 			expect(sink.calls).toEqual([['boom', 'error']]) // forwarded
 			expect(capture.messages('error').map((m) => m.text)).toEqual(['boom']) // buffered
 		})
@@ -381,9 +379,7 @@ describe('Capture', () => {
 			const capture = new Capture({ levels: ['log'] })
 			capture.start()
 			const hostile = {
-				toJSON(): never {
-					throw new Error('hostile')
-				},
+				toJSON: createFailure(new Error('hostile')),
 			}
 			expect(() => console.log(hostile)).not.toThrow()
 			capture.stop()
@@ -469,9 +465,9 @@ describe('Capture', () => {
 			// The headline interplay (C-b ⇄ C-d): the default console sink snapshots `console` at
 			// creation, so a Capture installed AFTERWARD catches third-party `console.*` but never the
 			// logger's own writes.
-			const real: string[] = []
-			console.log = (text: string) => real.push(text)
-			console.info = (text: string) => real.push(text)
+			const real = createRecorder<readonly [string]>()
+			console.log = real.handler
+			console.info = real.handler
 			// Logger built FIRST — its console sink snapshots the real console.log at construction.
 			const logger = new Logger({ level: 'info', styler: createStyler({ enabled: false }) })
 			const capture = new Capture()
@@ -482,7 +478,7 @@ describe('Capture', () => {
 			// The capture saw only the third-party call, never the logger's output (no loop).
 			expect(capture.messages().map((m) => m.text)).toEqual(['third-party'])
 			// And the logger's line still reached the real stream.
-			expect(real.some((line) => line.includes('our own line'))).toBe(true)
+			expect(real.calls.some(([line]) => line.includes('our own line'))).toBe(true)
 			logger.destroy()
 		})
 	})

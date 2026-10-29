@@ -1,9 +1,8 @@
 import type { SpinnerEventMap } from '@src/core'
-import type { RecordingSinkInterface } from '../../setup.js'
 import { createStyler, createTheme, DEFAULT_THEME, SPINNER_FRAMES, Spinner, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createRecorder, createRecorders, waitForCondition, waitForDelay } from '@orkestrel/test'
-import { createRecordingSink, normalizeVisible } from '../../setup.js'
+import { createRecordingSink, normalizeVisible, frames } from '../../setup.js'
 
 // Spinner — the self-driving, observable activity spinner. start() arms a setInterval that advances
 // a glyph cycle, writing each `\r` + frame line to its sink and emitting it on `frame`; succeed/fail
@@ -32,9 +31,6 @@ const FRAME_DEADLINE = 2000
 
 // The texts a recording sink received, with the leading `\r` (and any trailing `\n`) stripped — the
 // VISIBLE frame content, which is what every content assertion is about.
-function frames(sink: RecordingSinkInterface): readonly string[] {
-	return sink.calls.map(([text]) => text.replace(/^\r/, '').replace(/\n$/, ''))
-}
 
 // A test that needs a running timer waits for the frames it needs — through `waitForCondition` from
 // `@orkestrel/test`, which polls inside `FRAME_DEADLINE` and fails with the condition's own
@@ -552,7 +548,9 @@ describe('Spinner', () => {
 			expect(line).not.toContain('NaN')
 			expect(line).toBe(`${SPINNER_FRAMES[0]} m`)
 			// It cycles through the full default set, not a degenerate one-frame loop.
-			for (let n = 1; n < SPINNER_FRAMES.length; n += 1) spinner.tick()
+			for (const index of SPINNER_FRAMES.keys()) {
+				if (index > 0) spinner.tick()
+			}
 			const all = frames(sink)
 			expect(all).toHaveLength(SPINNER_FRAMES.length)
 			expect(all.every((text) => !text.includes('NaN'))).toBe(true)

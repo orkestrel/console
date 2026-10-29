@@ -46,6 +46,19 @@ spinner.succeed('deployed') // ✔ deployed — the timer cleared, the line comm
 
 Style is **data**: a `Style` is a frozen `{ foreground?, background?, attributes }` record, and a `RendererInterface` turns it into output for one target. The `Styler` is the fluent surface — `styler.red.bold('hi')` accumulates a style and renders it through the injected renderer; swap the renderer (ANSI default → browser `%c`) and the style model never changes. Logging is **orthogonal to styling**: a `LogLevel` is one coherent ascending scale (`debug` < `info` < `warn` < `error`), and a level's color is a styling choice, never a pseudo-level. Every retention buffer (a logger's tail, a capture's buffers) is **bounded** — never an unbounded leak.
 
+### Scan and layout primitives
+
+The layout and browser scan expose these primitives:
+
+| API              | Kind      | Shape                                           | Summary                                                                                |
+| ---------------- | --------- | ----------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `renderBoxTop`   | function  | `(options: BoxOptions, span: number) => string` | Renders a box's top border across the supplied inner span.                             |
+| `LineIterator`   | class     | `IterableIterator<number>`                      | Yields a position for each requested blank line without allocating the whole sequence. |
+| `ConsoleSegment` | interface | `{ active, cursor, text, style }`               | Records the style and visible text at one ANSI scan boundary.                          |
+
+The `isConsoleError` guard recognizes an own identity brand across package copies. It accepts
+subclasses regardless of their `name`, and rejects transparent proxies and unbranded errors.
+
 ### Styling
 
 The style engine — text style as data, rendered by a swappable renderer (ANSI default; a browser `%c` renderer at the same seam).

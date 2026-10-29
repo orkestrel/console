@@ -1,8 +1,8 @@
-import type { LoggerEventMap, LoggerInterface, LogLevel, LogRecord } from '@src/core'
+import type { LoggerEventMap, LogLevel, LogRecord, StylerInterface, Theme } from '@src/core'
 import { createStyler, createTheme, Logger, strip } from '@src/core'
 import { describe, expect, it } from 'vitest'
 import { createRecorder, createRecorders } from '@orkestrel/test'
-import { createRecordingSink } from '../../../setup.js'
+import { createRecordingSink, createTestLogger } from '../../../setup.js'
 
 // Logger — the observable, leveled entry point into structured logging. Each call builds a
 // frozen LogRecord, gates by severity, retains a bounded tail, ALWAYS emits `entry` (the
@@ -12,20 +12,6 @@ import { createRecordingSink } from '../../../setup.js'
 
 // A logger whose output is fully captured + deterministic: a recording sink + a disabled
 // styler (plain text lines). `level` defaults low so nothing is gated unless a test sets it.
-function createTestLogger(
-	options?: Partial<{ level: LogLevel; name: string; limit: number; silent: boolean }>,
-): { logger: LoggerInterface; sink: ReturnType<typeof createRecordingSink> } {
-	const sink = createRecordingSink()
-	const logger = new Logger({
-		level: options?.level ?? 'debug',
-		styler: createStyler({ enabled: false }),
-		sink,
-		...(options?.name === undefined ? {} : { name: options.name }),
-		...(options?.limit === undefined ? {} : { limit: options.limit }),
-		...(options?.silent === undefined ? {} : { silent: options.silent }),
-	})
-	return { logger, sink }
-}
 
 describe('Logger', () => {
 	describe('the four level methods', () => {
@@ -154,18 +140,18 @@ describe('Logger', () => {
 
 		it('never invokes a custom formatter', () => {
 			const sink = createRecordingSink()
-			let calls = 0
+			const calls = createRecorder()
 			const logger = new Logger({
 				level: 'debug',
 				silent: true,
 				sink,
 				format: () => {
-					calls += 1
+					calls.handler()
 					return 'should not run'
 				},
 			})
 			logger.info('quiet')
-			expect(calls).toBe(0)
+			expect(calls.count).toBe(0)
 			expect(logger.entries()).toHaveLength(1)
 			expect(sink.calls).toHaveLength(0)
 		})
@@ -173,17 +159,17 @@ describe('Logger', () => {
 
 	describe('custom format', () => {
 		it('does not invoke the formatter for a record rejected by the level gate', () => {
-			let calls = 0
+			const calls = createRecorder()
 			const logger = new Logger({
 				level: 'warn',
 				sink: createRecordingSink(),
 				format: () => {
-					calls += 1
+					calls.handler()
 					return 'unexpected'
 				},
 			})
 			logger.info('dropped')
-			expect(calls).toBe(0)
+			expect(calls.count).toBe(0)
 			expect(logger.entries()).toHaveLength(0)
 		})
 
@@ -191,20 +177,20 @@ describe('Logger', () => {
 			const sink = createRecordingSink()
 			const styler = createStyler({ enabled: false })
 			const theme = createTheme()
-			let seen: LogRecord | undefined
-			let context = false
+			const calls = createRecorder<readonly [LogRecord, StylerInterface, Theme]>()
 			const logger = new Logger({
 				level: 'debug',
 				sink,
 				styler,
 				theme,
 				format: (record, actualStyler, actualTheme) => {
-					seen = record
-					context = actualStyler === styler && actualTheme === theme
+					calls.handler(record, actualStyler, actualTheme)
 					return 'custom bytes'
 				},
 			})
 			logger.warn('original', { n: 1 })
+			const [seen, actualStyler, actualTheme] = calls.calls.at(-1) ?? []
+			const context = actualStyler === styler && actualTheme === theme
 			expect(sink.calls).toEqual([['custom bytes', 'warn']])
 			expect(seen).toBe(logger.entries()[0])
 			expect(seen?.message).toBe('original')
@@ -426,15 +412,15 @@ describe('Logger', () => {
 
 	describe('default sink', () => {
 		it('defaults to the snapshotted console sink (writes one info line through console.log)', () => {
-			const seen: string[] = []
+			const seen = createRecorder<readonly [string]>()
 			const original = console.log
-			console.log = (text: string) => seen.push(text)
+			console.log = seen.handler
 			try {
 				const logger = new Logger({ name: 'svc', level: 'info' })
 				logger.info('up')
 				expect(logger.entries().map((record) => record.message)).toEqual(['up'])
-				expect(seen).toHaveLength(1)
-				expect(seen[0]).toContain('up')
+				expect(seen.calls).toHaveLength(1)
+				expect(seen.calls[0]?.[0]).toContain('up')
 			} finally {
 				console.log = original
 			}

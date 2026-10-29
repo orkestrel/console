@@ -1,5 +1,5 @@
 import type { ConsoleErrorCode } from './types.js'
-import { isInstance } from '@orkestrel/contract'
+import { holds, INTRINSICS, isFunction, isInstance, isObject, isString } from '@orkestrel/contract'
 
 // An internal invariant / unreachable-guard violation `throw`s, always a
 // `ConsoleError` carrying a machine-readable `code` so a `catch` branches on
@@ -23,6 +23,7 @@ export class ConsoleError extends Error {
 		context?: Readonly<Record<string, unknown>>,
 	) {
 		super(message)
+		Object.defineProperty(this, Symbol.for('@orkestrel/console.ConsoleError'), { value: this })
 		this.name = 'ConsoleError'
 		this.code = code
 		if (context !== undefined) this.context = context
@@ -45,5 +46,15 @@ export class ConsoleError extends Error {
  * ```
  */
 export function isConsoleError(value: unknown): value is ConsoleError {
-	return isInstance(value, ConsoleError)
+	return holds(() => {
+		if (!isInstance(value, Error) || INTRINSICS.prototype(value) === Error.prototype) return false
+		if (INTRINSICS.describe(value, Symbol.for('@orkestrel/console.ConsoleError'))?.value !== value)
+			return false
+		const context: unknown = INTRINSICS.reflect.read(value, 'context')
+		return (
+			INTRINSICS.reflect.read(value, 'code') === 'INVARIANT' &&
+			isString(INTRINSICS.reflect.read(value, 'message')) &&
+			(context === undefined || isObject(context) || isFunction(context))
+		)
+	})
 }

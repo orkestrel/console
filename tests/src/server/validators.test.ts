@@ -35,8 +35,7 @@ describe('isStreamTarget', () => {
 
 	it('accepts a target whose write returns void (a fake stream need not signal backpressure)', () => {
 		// StreamTargetInterface.write returns `boolean | void`; a void-returning write is valid.
-		const target = { write: (_text: string): void => {} }
-		expect(isStreamTarget(target)).toBe(true)
+		expect(isStreamTarget({ write: (_text: string): void => {} })).toBe(true)
 	})
 })
 

@@ -1,14 +1,7 @@
+import type { Note } from '../../setup.js'
+import { note } from '../../setup.js'
 import { describe, expect, it } from 'vitest'
 import { Retention } from '@src/core'
-
-interface Note {
-	readonly level: 'warn' | 'error'
-	readonly text: string
-}
-
-function note(level: Note['level'], text: string): Note {
-	return { level, text }
-}
 
 describe('Retention', () => {
 	it('starts empty for the whole buffer and for every configured bucket', () => {

@@ -1,3 +1,4 @@
+import { createRecorder } from '@orkestrel/test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -95,23 +96,19 @@ describe('createOverloadProbe', () => {
 
 	it('records a string encoding at the 2nd argument and invokes a 3rd-argument callback', () => {
 		const probe = createOverloadProbe()
-		let invoked = false
-		probe.write('chunk', 'utf8', () => {
-			invoked = true
-		})
+		const invoked = createRecorder()
+		probe.write('chunk', 'utf8', invoked.handler)
 		expect(probe.encodings).toEqual(['utf8'])
-		expect(invoked).toBe(true)
+		expect(invoked.count).toBeGreaterThan(0)
 		expect(probe.callbacks).toBe(1)
 	})
 
 	it('invokes a callback passed as the 2nd argument, recording no encoding', () => {
 		const probe = createOverloadProbe()
-		let invoked = false
-		probe.write('chunk', () => {
-			invoked = true
-		})
+		const invoked = createRecorder()
+		probe.write('chunk', invoked.handler)
 		expect(probe.encodings).toEqual([undefined])
-		expect(invoked).toBe(true)
+		expect(invoked.count).toBeGreaterThan(0)
 		expect(probe.callbacks).toBe(1)
 	})
 

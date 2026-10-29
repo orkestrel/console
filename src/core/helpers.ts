@@ -440,9 +440,28 @@ export function renderBox(options: BoxOptions): string {
 	// single leading fill glyph, the remainder drawn as fill — its visible width stays `span` (the
 	// title's escape codes don't count).
 	const span = inner + padding * 2
-	let top: string
+	const top = renderBoxTop(options, span)
+	const bottom = paint(
+		styler,
+		`${chars.bottomLeft}${repeatTo(chars.horizontal, inner + padding * 2)}${chars.bottomRight}`,
+		options.style,
+	)
+	const body = lines.map((line) => `${bar}${gutter}${align(line, inner)}${gutter}${bar}`)
+	return [top, ...body, bottom].join('\n')
+}
+
+/**
+ * Renders a box's top border across the supplied inner span.
+ * @example
+ * ```ts
+ * renderBoxTop({ content: '' }, 3) // '┌───┐'
+ * ```
+ */
+export function renderBoxTop(options: BoxOptions, span: number): string {
+	const chars = BORDER_CHARS[options.border ?? DEFAULT_BORDER]
+	const styler = options.styler
 	if (options.title === undefined) {
-		top = paint(
+		return paint(
 			styler,
 			`${chars.topLeft}${repeatTo(chars.horizontal, span)}${chars.topRight}`,
 			options.style,
@@ -453,15 +472,8 @@ export function renderBox(options: BoxOptions): string {
 		const lead = paint(styler, repeatTo(chars.horizontal, 1), options.style)
 		const rest =
 			room - 1 <= 0 ? '' : paint(styler, repeatTo(chars.horizontal, room - 1), options.style)
-		top = `${paint(styler, chars.topLeft, options.style)}${lead}${paint(styler, caption, options.style)}${rest}${paint(styler, chars.topRight, options.style)}`
+		return `${paint(styler, chars.topLeft, options.style)}${lead}${paint(styler, caption, options.style)}${rest}${paint(styler, chars.topRight, options.style)}`
 	}
-	const bottom = paint(
-		styler,
-		`${chars.bottomLeft}${repeatTo(chars.horizontal, inner + padding * 2)}${chars.bottomRight}`,
-		options.style,
-	)
-	const body = lines.map((line) => `${bar}${gutter}${align(line, inner)}${gutter}${bar}`)
-	return [top, ...body, bottom].join('\n')
 }
 
 /**

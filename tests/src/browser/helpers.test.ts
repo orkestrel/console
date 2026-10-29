@@ -1,3 +1,4 @@
+import { expectAligned } from '../../setupBrowser.js'
 import {
 	ansiToConsole,
 	ATTRIBUTE_CSS,
@@ -33,16 +34,6 @@ import { describe, expect, it } from 'vitest'
 // counting `%c` after collapsing `%%` to nothing isolates the inserted directives from escaped
 // literals. Asserting this for every adversarial input is the spine of the suite, so it is one
 // inline helper every edge case routes through.
-function expectAligned(text: string): {
-	readonly format: string
-	readonly styles: readonly string[]
-} {
-	const result = ansiToConsole(text)
-	// Collapse every escaped literal `%%` to empty; any `%c` left is an inserted directive.
-	const directives = result.format.replace(/%%/g, '').split('%c').length - 1
-	expect(directives).toBe(result.styles.length)
-	return result
-}
 
 describe('ansiToConsole', () => {
 	it('a plain (no-ANSI) string yields { format: text, styles: [] }', () => {
@@ -147,7 +138,11 @@ describe('ansiToConsole', () => {
 describe('ansiToConsole — adversarial %c/styles alignment', () => {
 	it('drops empty runs between consecutive SGRs (no text between → no %c)', () => {
 		// Three style changes with NO visible text until 'hi' — only ONE %c is emitted.
-		const { format, styles } = expectAligned(`${CSI}31m${CSI}1m${CSI}4mhi${RESET}`)
+		const {
+			output: { format, styles },
+			directives,
+		} = expectAligned(`${CSI}31m${CSI}1m${CSI}4mhi${RESET}`)
+		expect(directives).toBe(styles.length)
 		expect(format).toBe('%chi')
 		// red fg + bold + underline accumulated onto the single visible run; attributes serialize in
 		// INSERTION order (bold added before underline), then the foreground.
@@ -156,78 +151,109 @@ describe('ansiToConsole — adversarial %c/styles alignment', () => {
 
 	it('a TRAILING SGR with no text after it emits no extra %c', () => {
 		// 'done' then a dangling reset (nothing follows) — the trailing run is empty, so dropped.
-		const { format, styles } = expectAligned(`${CSI}32mdone${RESET}`)
+		const {
+			output: { format, styles },
+			directives,
+		} = expectAligned(`${CSI}32mdone${RESET}`)
+		expect(directives).toBe(styles.length)
 		expect(format).toBe('%cdone')
 		expect(styles).toEqual([`color:${COLOR_HEX.green}`])
 	})
 
 	it('a leading SGR before any text never emits a phantom empty %c', () => {
-		const { format, styles } = expectAligned(`${CSI}33mtail`)
+		const {
+			output: { format, styles },
+			directives,
+		} = expectAligned(`${CSI}33mtail`)
+		expect(directives).toBe(styles.length)
 		expect(format).toBe('%ctail')
 		expect(styles).toEqual([`color:${COLOR_HEX.yellow}`])
 	})
 
 	it('a string that is ONLY SGR sequences (no text at all) yields zero %c and no styles', () => {
-		const result = expectAligned(`${CSI}31m${CSI}1m${RESET}${CSI}4m`)
+		const { output: result, directives } = expectAligned(`${CSI}31m${CSI}1m${RESET}${CSI}4m`)
+		expect(directives).toBe(result.styles.length)
 		expect(result.format).toBe('')
 		expect(result.styles).toEqual([])
 	})
 
 	it('an UNKNOWN SGR code is ignored but the run still aligns (empty CSS run)', () => {
 		// 99 maps to no color/attribute → ignored; the run still emits a %c with empty CSS.
-		const { format, styles } = expectAligned(`${CSI}99mhuh${RESET}`)
+		const {
+			output: { format, styles },
+			directives,
+		} = expectAligned(`${CSI}99mhuh${RESET}`)
+		expect(directives).toBe(styles.length)
 		expect(format).toBe('%chuh')
 		expect(styles).toEqual([''])
 	})
 
 	it('an unterminated escape (ESC[ with no final) is left as literal text, no %c', () => {
-		const result = expectAligned(`${ESC}[`)
+		const { output: result, directives } = expectAligned(`${ESC}[`)
+		expect(directives).toBe(result.styles.length)
 		expect(result.format).toBe(`${ESC}[`)
 		expect(result.styles).toEqual([])
 	})
 
 	it('a non-SGR CSI final (ESC[99Z, cursor-style) does not match → literal text', () => {
 		// SGR_PATTERN requires an `m` terminator; `Z` is not in [0-9;], so no match at all.
-		const result = expectAligned(`a${ESC}[99Zb`)
+		const { output: result, directives } = expectAligned(`a${ESC}[99Zb`)
+		expect(directives).toBe(result.styles.length)
 		expect(result.format).toBe(`a${ESC}[99Zb`)
 		expect(result.styles).toEqual([])
 	})
 
 	it('a bare ESC with no bracket is literal text', () => {
-		const result = expectAligned(`x${ESC}y`)
+		const { output: result, directives } = expectAligned(`x${ESC}y`)
+		expect(directives).toBe(result.styles.length)
 		expect(result.format).toBe(`x${ESC}y`)
 		expect(result.styles).toEqual([])
 	})
 
 	it('a %-laden styled run doubles every literal % — only the inserted %c is real', () => {
 		// Every literal % must double; the count helper proves exactly one real directive.
-		const { format, styles } = expectAligned(`${CSI}31m%d %s 50% %%${RESET}`)
+		const {
+			output: { format, styles },
+			directives,
+		} = expectAligned(`${CSI}31m%d %s 50% %%${RESET}`)
+		expect(directives).toBe(styles.length)
 		expect(format).toBe('%c%%d %%s 50%% %%%%')
 		expect(styles).toEqual([`color:${COLOR_HEX.red}`])
 	})
 
 	it('a newline/tab-laden styled run keeps the whitespace verbatim in one %c', () => {
-		const { format, styles } = expectAligned(`${CSI}34mline1\n\tline2\r\n${RESET}`)
+		const {
+			output: { format, styles },
+			directives,
+		} = expectAligned(`${CSI}34mline1\n\tline2\r\n${RESET}`)
+		expect(directives).toBe(styles.length)
 		expect(format).toBe('%cline1\n\tline2\r\n')
 		expect(styles).toEqual([`color:${COLOR_HEX.blue}`])
 	})
 
 	it('emoji / CJK / surrogate-pair text in a styled run is preserved exactly', () => {
 		const text = '🎉日本語𝕏'
-		const { format, styles } = expectAligned(`${CSI}35m${text}${RESET}`)
+		const {
+			output: { format, styles },
+			directives,
+		} = expectAligned(`${CSI}35m${text}${RESET}`)
+		expect(directives).toBe(styles.length)
 		expect(format).toBe(`%c${text}`)
 		expect(styles).toEqual([`color:${COLOR_HEX.magenta}`])
 	})
 
 	it('a deeply-styled string (many runs) keeps every %c aligned with its CSS', () => {
 		const styler = createStyler()
-		const parts: string[] = []
-		for (let index = 0; index < 50; index += 1) {
+		const parts = Array.from({ length: 50 }, (_, index) => {
 			const color = COLORS[index % COLORS.length]
 			if (color === undefined) throw new Error('Expected the color palette to be non-empty')
-			parts.push(styler[color](`r${index}`))
-		}
-		const { format, styles } = expectAligned(parts.join(''))
+			return styler[color](`r${index}`)
+		})
+		const {
+			output: { format, styles },
+			directives,
+		} = expectAligned(parts.join(''))
+		expect(directives).toBe(styles.length)
 		// 50 styled runs, each with text → 50 %c, 50 styles (the in-between resets emit no run).
 		expect(styles.length).toBe(50)
 		expect(format.match(/%c/g)?.length).toBe(50)
@@ -241,7 +267,8 @@ describe('ansiToConsole — adversarial %c/styles alignment', () => {
 		const chunk = styler.red('x') + 'y'.repeat(20)
 		const text = chunk.repeat(5000)
 		const started = performance.now()
-		const result = expectAligned(text)
+		const { output: result, directives } = expectAligned(text)
+		expect(directives).toBe(result.styles.length)
 		const elapsed = performance.now() - started
 		expect(result.styles.length).toBe(10000)
 		// Generous ceiling — a linear scan finishes in well under a second even in Chromium.
@@ -249,24 +276,34 @@ describe('ansiToConsole — adversarial %c/styles alignment', () => {
 	})
 
 	it('the empty string short-circuits to { format: "", styles: [] }', () => {
-		const result = expectAligned('')
+		const { output: result, directives } = expectAligned('')
+		expect(directives).toBe(result.styles.length)
 		expect(result).toEqual({ format: '', styles: [] })
 	})
 
 	it('a no-SGR string short-circuits (escaped text, no styles)', () => {
-		const result = expectAligned('plain 100% text')
+		const { output: result, directives } = expectAligned('plain 100% text')
+		expect(directives).toBe(result.styles.length)
 		expect(result).toEqual({ format: 'plain 100%% text', styles: [] })
 	})
 
 	it('a reset MID-RUN splits into a styled then an unstyled %c, both aligned', () => {
-		const { format, styles } = expectAligned(`${CSI}31mred${RESET}plain${CSI}32mgreen${RESET}`)
+		const {
+			output: { format, styles },
+			directives,
+		} = expectAligned(`${CSI}31mred${RESET}plain${CSI}32mgreen${RESET}`)
+		expect(directives).toBe(styles.length)
 		expect(format).toBe('%cred%cplain%cgreen')
 		expect(styles).toEqual([`color:${COLOR_HEX.red}`, '', `color:${COLOR_HEX.green}`])
 	})
 
 	it('an empty field within a parameter list counts as a reset mid-sequence', () => {
 		// `31;;1` → [31, 0, 1]: red set, then reset clears it, then bold → only bold survives.
-		const { format, styles } = expectAligned(`${CSI}31;;1mx${RESET}`)
+		const {
+			output: { format, styles },
+			directives,
+		} = expectAligned(`${CSI}31;;1mx${RESET}`)
+		expect(directives).toBe(styles.length)
 		expect(format).toBe('%cx')
 		expect(styles).toEqual(['font-weight:bold'])
 	})

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Logger, Reporter, strip } from '@src/core'
 import { createServerSink } from '@src/server'
 import { createRecorder } from '@orkestrel/test'
-import { createStreamTarget, createWriteProbe } from '../../setupServer.js'
+import { createStreamTarget, createWriteProbe, StreamFixture } from '../../setupServer.js'
 
 // A styled line with a real SGR run, for the TTY-verbatim vs non-TTY-strip assertions.
 const STYLED = '\x1b[31mred\x1b[0m'
@@ -243,45 +243,29 @@ describe('createServerSink — columns', () => {
 	})
 
 	it('tracks a terminal resize through the live getter', () => {
-		let width = 100
-		const target = {
-			write: () => true,
-			isTTY: true,
-			get columns() {
-				return width
-			},
-		}
+		const target = new StreamFixture()
 		const sink = createServerSink({
 			stdout: target,
 			stderr: createStreamTarget().target,
 			styled: false,
 		})
 		expect(sink.columns).toBe(100)
-		width = 200
+		target.columns = 200
 		expect(sink.columns).toBe(200)
 	})
 })
 
 describe('createServerSink — stable construction facts', () => {
 	it('keeps the explicit styled fact when target isTTY changes after construction', () => {
-		const writes = createRecorder<readonly [text: string]>()
-		let tty = true
-		const target = {
-			write: (text: string): boolean => {
-				writes.handler(text)
-				return true
-			},
-			get isTTY() {
-				return tty
-			},
-		}
+		const target = new StreamFixture()
+		const writes = target.writes
 		const sink = createServerSink({
 			stdout: target,
 			stderr: createStreamTarget().target,
 			styled: true,
 		})
 		sink.write(STYLED)
-		tty = false
+		target.isTTY = false
 		sink.write(STYLED)
 		expect(sink.styled).toBe(true)
 		expect(writes.calls).toEqual([[`${STYLED}\n`], [`${STYLED}\n`]])
@@ -289,9 +273,13 @@ describe('createServerSink — stable construction facts', () => {
 
 	it('styled:false strips a write-only target with no isTTY fact', () => {
 		const writes = createRecorder<readonly [text: string]>()
-		const out = { write: (text: string): boolean => (writes.handler(text), true) } // no isTTY
 		const sink = createServerSink({
-			stdout: out,
+			stdout: {
+				write(text: string): boolean {
+					writes.handler(text)
+					return true
+				},
+			},
 			stderr: createStreamTarget().target,
 			styled: false,
 		})
@@ -309,15 +297,9 @@ describe('createServerSink — stable construction facts', () => {
 // banned `as`; that guard branch is covered at the isStreamTarget unit level in helpers.test.ts.)
 describe('createServerSink — default-stream fallback (the isStreamTarget(undefined) branch)', () => {
 	const pristine = { stdout: process.stdout.write, stderr: process.stderr.write }
-	let outProbe = createWriteProbe()
-	let errProbe = createWriteProbe()
 	beforeEach(() => {
 		pristine.stdout = process.stdout.write
 		pristine.stderr = process.stderr.write
-		outProbe = createWriteProbe()
-		errProbe = createWriteProbe()
-		process.stdout.write = outProbe.write
-		process.stderr.write = errProbe.write
 	})
 	afterEach(() => {
 		process.stdout.write = pristine.stdout
@@ -325,6 +307,8 @@ describe('createServerSink — default-stream fallback (the isStreamTarget(undef
 	})
 
 	it('routes a non-error write to the real process.stdout when stdout is omitted', () => {
+		const outProbe = createWriteProbe()
+		process.stdout.write = outProbe.write
 		// stdout omitted → isStreamTarget(undefined) false → process.stdout (the probe).
 		const sink = createServerSink({ stderr: createStreamTarget().target, styled: false })
 		sink.write('to the default out')
@@ -332,6 +316,8 @@ describe('createServerSink — default-stream fallback (the isStreamTarget(undef
 	})
 
 	it('routes error / warn to the real process.stderr when stderr is omitted', () => {
+		const errProbe = createWriteProbe()
+		process.stderr.write = errProbe.write
 		// stderr omitted → process.stderr (the probe); the injected stdout is honored separately.
 		const out = createStreamTarget({ isTTY: true })
 		const sink = createServerSink({ stdout: out.target, styled: false })
@@ -342,6 +328,10 @@ describe('createServerSink — default-stream fallback (the isStreamTarget(undef
 	})
 
 	it('falls back on both targets when neither stream option is given', () => {
+		const outProbe = createWriteProbe()
+		const errProbe = createWriteProbe()
+		process.stdout.write = outProbe.write
+		process.stderr.write = errProbe.write
 		const sink = createServerSink({ styled: false })
 		sink.write('plain out')
 		sink.write('an error', 'error')
@@ -354,11 +344,9 @@ describe('createServerSink — injected void-write target', () => {
 	it('honors an injected target whose write returns void (no backpressure signal)', () => {
 		// StreamTargetInterface.write may return void; the sink ignores the return on the write path,
 		// so a void-returning fake is a fully valid, honored target.
-		const seen: string[] = []
+		const seen = createRecorder<readonly [string]>()
 		const target = {
-			write: (text: string): void => {
-				seen.push(text)
-			},
+			write: seen.handler,
 			isTTY: true,
 		}
 		const sink = createServerSink({
@@ -367,7 +355,7 @@ describe('createServerSink — injected void-write target', () => {
 			styled: true,
 		})
 		sink.write('void-write target')
-		expect(seen).toEqual(['void-write target\n'])
+		expect(seen.calls.map(([text]) => text)).toEqual(['void-write target\n'])
 	})
 })
 

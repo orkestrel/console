@@ -43,15 +43,17 @@ export function createStreamTarget(options?: { isTTY?: boolean; columns?: number
 	readonly writes: RecorderInterface<readonly [text: string]>
 } {
 	const writes = createRecorder<readonly [text: string]>()
-	const target: StreamTargetInterface = {
-		write(text: string): boolean {
-			writes.handler(text)
-			return true
+	return {
+		target: {
+			write(text: string): boolean {
+				writes.handler(text)
+				return true
+			},
+			isTTY: options?.isTTY ?? false,
+			...(options?.columns !== undefined ? { columns: options.columns } : {}),
 		},
-		isTTY: options?.isTTY ?? false,
-		...(options?.columns !== undefined ? { columns: options.columns } : {}),
+		writes,
 	}
-	return { target, writes }
 }
 
 /**
@@ -108,7 +110,7 @@ export function createOverloadProbe(backpressure = true): {
 } {
 	const texts: string[] = []
 	const encodings: Array<string | undefined> = []
-	let callbacks = 0
+	const callbacks = createRecorder<readonly [WriteCallback]>()
 	return {
 		write(
 			chunk: string | Uint8Array,
@@ -120,7 +122,7 @@ export function createOverloadProbe(backpressure = true): {
 			encodings.push(typeof encoding === 'string' ? encoding : undefined)
 			const done = typeof encoding === 'function' ? encoding : callback
 			if (done !== undefined) {
-				callbacks += 1
+				callbacks.handler(done)
 				done()
 			}
 			return backpressure
@@ -132,7 +134,35 @@ export function createOverloadProbe(backpressure = true): {
 			return encodings
 		},
 		get callbacks() {
-			return callbacks
+			return callbacks.count
 		},
+	}
+}
+
+/** Records writes while exposing mutable terminal facts through getters. */
+export class StreamFixture implements StreamTargetInterface {
+	#columns = 100
+	#tty = true
+	readonly writes = createRecorder<readonly [string]>()
+
+	get columns(): number {
+		return this.#columns
+	}
+
+	set columns(value: number) {
+		this.#columns = value
+	}
+
+	get isTTY(): boolean {
+		return this.#tty
+	}
+
+	set isTTY(value: boolean) {
+		this.#tty = value
+	}
+
+	write(text: string): boolean {
+		this.writes.handler(text)
+		return true
 	}
 }

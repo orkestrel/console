@@ -1,8 +1,9 @@
-import type { RendererInterface, Style } from '@src/core'
+import type { Style } from '@src/core'
 import { ANSIRenderer, createStyler, DEFAULT_THEME, EMPTY_STYLE, strip } from '@src/core'
 // `Styler` is internal: `createStyler` returns its `.surface`, so the class is not barrelled.
 import { Styler } from '../../../src/core/Styler.js'
 import { describe, expect, it } from 'vitest'
+import { createTokenRenderer, createRecordingRenderer, base } from '../../setup.js'
 
 // Styler — the fluent, immutable, callable styling surface. Each accessor returns a NEW
 // styler's surface (copy-on-write), so chains compose either direction and a base styler
@@ -15,22 +16,6 @@ const RESET = '\x1b[0m'
 
 // A renderer that records the exact (style, text) it was handed — proves the styler
 // renders DATA through the injected seam rather than baking codes itself.
-function createRecordingRenderer(): RendererInterface & { readonly calls: readonly Style[] } {
-	const calls: Style[] = []
-	return {
-		get calls() {
-			return calls
-		},
-		render(style: Style, text: string): string {
-			calls.push(style)
-			return text
-		},
-	}
-}
-
-function base(): Styler {
-	return new Styler(new ANSIRenderer(), true, EMPTY_STYLE)
-}
 
 describe('Styler', () => {
 	describe('rendering a single token', () => {
@@ -174,12 +159,7 @@ describe('Styler', () => {
 
 		it('a custom renderer fully retargets output (the %c-style seam)', () => {
 			// Stand-in for the future browser renderer: a different target from the SAME DATA.
-			const renderer: RendererInterface = {
-				render(style: Style, text: string): string {
-					const parts = [...style.attributes, style.foreground].filter((p) => p !== undefined)
-					return parts.length === 0 ? text : `[${parts.join('+')}]${text}`
-				},
-			}
+			const renderer = createTokenRenderer()
 			const styler = new Styler(renderer, true, EMPTY_STYLE).surface
 			expect(styler.red.bold('x')).toBe('[bold+red]x')
 			expect(styler('plain')).toBe('plain')
