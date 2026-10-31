@@ -539,7 +539,7 @@ export interface LoggerManagerInterface {
 
 /**
  * Names the horizontal text alignment within a fixed-width cell — `left` / `center` / `right`,
- * the conventional set a {@link ColumnSpec} (and the box / separator title) aligns by.
+ * the conventional set a {@link TableColumn} (and the box / separator title) aligns by.
  *
  * @remarks
  * A value set rather than a binary toggle, so it stays a union.
@@ -651,7 +651,7 @@ export interface BoxOptions {
  *   (header or any cell, measured by {@link import('./helpers.js').width}), so a styled cell
  *   never breaks the column.
  */
-export interface ColumnSpec {
+export interface TableColumn {
 	readonly label: string
 	readonly align?: Alignment
 }
@@ -662,7 +662,7 @@ export interface ColumnSpec {
  * the caller gives neither `styler` nor `style`.
  *
  * @remarks
- * - `columns` — the {@link ColumnSpec}s, left to right; their `label`s form the header row.
+ * - `columns` — the {@link TableColumn} entries, left to right; their `label`s form the header row.
  * - `rows` — the body, one `readonly string[]` per row. A short row is padded with empty
  *   cells, an over-long row is truncated to the column count, so a ragged input never throws.
  * - `border` — the {@link BorderStyle} the frame + header rule + column separators draw in;
@@ -673,7 +673,7 @@ export interface ColumnSpec {
  * - `style` — an optional by-value style rendered through `styler` for the frame and headers.
  */
 export interface TableOptions {
-	readonly columns: readonly ColumnSpec[]
+	readonly columns: readonly TableColumn[]
 	readonly rows: ReadonlyArray<readonly string[]>
 	readonly border?: BorderStyle
 	readonly styler?: StylerInterface

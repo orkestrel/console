@@ -1,4 +1,4 @@
-import type { Attribute, Color, LogLevel } from '@src/core'
+import type { Attribute, Color, LogLevel, TableColumn } from '@src/core'
 import {
 	align,
 	cellAt,
@@ -474,6 +474,19 @@ describe('renderTable', () => {
 		const rows = table.split('\n')
 		expect(rows[3]).toBe('│ 1 │   │') // missing second cell padded blank
 		expect(rows[4]).toBe('│ x │ y │') // extra third cell dropped
+	})
+
+	it('renders TableColumn entries, aligning a column without align to the left', () => {
+		const columns: readonly TableColumn[] = [{ label: 'Name' }, { label: 'Qty', align: 'right' }]
+		expect(renderTable({ columns, rows: [['ab', '7']] })).toBe(
+			[
+				'┌──────┬─────┐',
+				'│ Name │ Qty │',
+				'├──────┼─────┤',
+				'│ ab   │   7 │',
+				'└──────┴─────┘',
+			].join('\n'),
+		)
 	})
 
 	it('handles an empty body (header + rules only)', () => {

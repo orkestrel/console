@@ -486,8 +486,9 @@ export function renderBoxTop(options: BoxOptions, span: number): string {
  *   breaks the column (its escape codes don't count toward the width).
  * - **Ragged rows.** A row shorter than the column count is padded with empty cells; a longer
  *   row is truncated to the column count — a ragged input never throws.
- * - **Alignment.** Each cell is positioned by its column's {@link ColumnSpec.align} (default
- *   {@link DEFAULT_ALIGN}) through {@link align}.
+ * - **Alignment.** Each cell is positioned by its column's
+ *   {@link import('./types.js').TableColumn.align} (default {@link DEFAULT_ALIGN}) through
+ *   {@link align}.
  * - **Frame.** The {@link BorderStyle} (`options.border`, default {@link DEFAULT_BORDER})
  *   draws the outer frame, the header rule (a `teeRight … cross … teeLeft` line), and the
  *   `vertical` column separators; `options.styler` colors the frame + header labels when

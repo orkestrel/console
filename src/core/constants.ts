@@ -366,7 +366,7 @@ export const DEFAULT_PADDING = 1
 /** Sets the default {@link BorderStyle} the box / table renderers frame with when none is given — `single`. */
 export const DEFAULT_BORDER: BorderStyle = 'single'
 
-/** Sets the default cell {@link Alignment} a {@link import('./types.js').ColumnSpec} uses when none is given — `left`. */
+/** Sets the default cell {@link Alignment} a {@link import('./types.js').TableColumn} uses when none is given — `left`. */
 export const DEFAULT_ALIGN: Alignment = 'left'
 
 /** Holds the default fill character {@link import('./helpers.js').renderSeparator} draws its rule with — `─`. */
